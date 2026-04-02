@@ -348,13 +348,17 @@ export default function Home() {
           <span className="text-lime">Free</span>
         </div>
         <div className="flex gap-5">
-          {["Privacy", "Terms", "Contact"].map((link) => (
+          {[
+            { label: "Privacy", href: "/privacy-policy" },
+            { label: "Terms", href: "/terms" },
+            { label: "Contact", href: "#" },
+          ].map((link) => (
             <a
-              key={link}
-              href="#"
+              key={link.label}
+              href={link.href}
               className="text-[12px] text-white/35 no-underline hover:text-white/70 transition-colors"
             >
-              {link}
+              {link.label}
             </a>
           ))}
         </div>
