@@ -363,7 +363,7 @@ export default function Home() {
           ))}
         </div>
         <p className="text-[12px] text-white/35">
-          © 2026 LaundryFree. All rights reserved.
+          &copy; 2026 HQR LTD
         </p>
       </footer>
     </>
