@@ -351,6 +351,7 @@ export default function Home() {
           {[
             { label: "Privacy", href: "/privacy-policy" },
             { label: "Terms", href: "/terms" },
+            { label: "Request Deletion", href: "/request-deletion" },
             { label: "Contact", href: "#" },
           ].map((link) => (
             <a
