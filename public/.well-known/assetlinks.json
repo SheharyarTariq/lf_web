@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "uk.co.laundryfree.app",
+      "sha256_cert_fingerprints": [
+        "13:F2:07:40:E1:9F:39:91:50:C4:80:88:63:0F:F1:AD:02:B0:B3:59:FE:A6:81:A0:AC:1F:0A:FB:EE:6B:6A:51"
+      ]
+    }
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["6Q4QS5D82L.uk.co.laundryfree"],
+        "components": [
+          { "/": "/verify-email*" },
+          { "/": "/reset-password*" },
+          { "/": "/payment-methods/add*" },
+          { "/": "/payment-callback*" },
+          { "/": "/orders/*" }
+        ]
+      }
+    ]
+  }
+}
