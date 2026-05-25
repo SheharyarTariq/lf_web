@@ -1,20 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import PromoBar from "@/components/PromoBar";
 
 export const metadata: Metadata = {
-  title: "Terms & Conditions — LaundryFree",
+  title: "Terms & Conditions — Laundry Free",
   description:
     "Terms & Conditions for Laundry Free, operated by HQR LTD. Read the terms governing use of our laundry pickup, cleaning, and delivery services.",
 };
 
 export default function TermsAndConditions() {
   return (
-    <>
+    <div className="min-h-screen flex flex-col">
       {/* ── PROMO BAR ── */}
-      <div className="bg-lime py-[10px] px-12 text-center text-[13px] font-bold text-dark tracking-[0.1px]">
-        🎉 50% off your first order{" "}
-        <span className="font-normal opacity-70">— download the app to claim</span>
-      </div>
+      <PromoBar />
 
       {/* ── NAV ── */}
       <nav className="bg-dark px-12 h-[58px] flex items-center justify-between sticky top-0 z-[99] max-[860px]:px-5">
@@ -31,7 +29,7 @@ export default function TermsAndConditions() {
       </nav>
 
       {/* ── TERMS & CONDITIONS CONTENT ── */}
-      <main className="max-w-[1080px] mx-auto px-12 py-[72px] max-[860px]:px-5 max-[860px]:py-[52px]">
+      <main className="flex-1 w-full max-w-[1080px] mx-auto px-12 py-[72px] max-[860px]:px-5 max-[860px]:py-[52px]">
         <div className="text-[10px] font-bold tracking-[2.5px] uppercase text-muted mb-2 text-center">
           Legal
         </div>
@@ -298,6 +296,7 @@ export default function TermsAndConditions() {
           {[
             { label: "Privacy", href: "/privacy-policy" },
             { label: "Terms", href: "/terms" },
+            { label: "Request Deletion", href: "/request-deletion" },
             { label: "Contact", href: "#" },
           ].map((link) => (
             <Link
@@ -311,6 +310,6 @@ export default function TermsAndConditions() {
         </div>
         <p className="text-[12px] text-white/35">&copy; 2026 LaundryFree. All rights reserved.</p>
       </footer>
-    </>
+    </div>
   );
 }

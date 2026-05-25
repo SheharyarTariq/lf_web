@@ -9,9 +9,12 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "LaundryFree — Free Laundry Collection & Delivery",
+  title: "Laundry Free",
   description:
     "Book a pickup, we professionally clean your clothes, and deliver them back. Collection & delivery always free.",
+  icons: {
+    icon: "/lffavicon.svg",
+  },
 };
 
 export default function RootLayout({

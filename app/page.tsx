@@ -1,3 +1,5 @@
+import PromoBar from "@/components/PromoBar";
+
 const AppStoreSVG = () => (
   <svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect x="0.5" y="0.5" width="119" height="39" rx="5.5" fill="black"/>
@@ -40,10 +42,7 @@ export default function Home() {
   return (
     <>
       {/* ── PROMO BAR ── */}
-      <div className="bg-lime py-[10px] px-12 text-center text-[13px] font-bold text-dark tracking-[0.1px]">
-        🎉 50% off your first order{" "}
-        <span className="font-normal opacity-70">— download the app to claim</span>
-      </div>
+      <PromoBar />
 
       {/* ── NAV ── */}
       <nav className="bg-dark px-12 h-[58px] flex items-center justify-between sticky top-0 z-[99] max-[860px]:px-5">
