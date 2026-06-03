@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   description:
     "Book a pickup, we professionally clean your clothes, and deliver them back. Collection & delivery always free.",
   icons: {
-    icon: "/favicon.svg",
+    icon: "/lf-favicon.svg",
   },
 };
 
