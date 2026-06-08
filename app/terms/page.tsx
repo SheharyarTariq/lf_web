@@ -277,10 +277,10 @@ export default function TermsAndConditions() {
           <h2 className="text-[20px] font-bold text-dark mt-10 mb-4">13. Contact</h2>
           <p className="mb-4">
             <a
-              href="mailto:support@laundryfree.co.uk"
+              href="mailto:hello@laundryfree.co.uk"
               className="text-dark font-semibold underline"
             >
-              support@laundryfree.co.uk
+              hello@laundryfree.co.uk
             </a>
           </p>
         </div>

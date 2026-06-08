@@ -204,10 +204,10 @@ export default function PrivacyPolicy() {
           <p className="mb-4">
             To exercise your rights, contact us at:{" "}
             <a
-              href="mailto:support@laundryfree.co.uk"
+              href="mailto:hello@laundryfree.co.uk"
               className="text-dark font-semibold underline"
             >
-              support@laundryfree.co.uk
+              hello@laundryfree.co.uk
             </a>
           </p>
           <p className="mb-4">
@@ -257,10 +257,10 @@ export default function PrivacyPolicy() {
           <h2 className="text-[20px] font-bold text-dark mt-10 mb-4">12. Contact</h2>
           <p className="mb-4">
             <a
-              href="mailto:support@laundryfree.co.uk"
+              href="mailto:hello@laundryfree.co.uk"
               className="text-dark font-semibold underline"
             >
-              support@laundryfree.co.uk
+              hello@laundryfree.co.uk
             </a>
           </p>
         </div>
