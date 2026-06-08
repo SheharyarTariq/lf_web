@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { config } from "@/config";
 
 interface OrderDiscount {
   forOrder: number;
@@ -13,12 +14,12 @@ interface SystemStatusResponse {
 }
 
 export default function PromoBar() {
-  const [discountText, setDiscountText] = useState("35%");
+  const [discountText, setDiscountText] = useState("25%");
 
   useEffect(() => {
     async function fetchDiscount() {
       try {
-        const response = await fetch("https://api.staging.laundryfree.co.uk/system-status");
+        const response = await fetch(`${config.apiUrl}/system-status`);
         if (!response.ok) return;
 
         const data: SystemStatusResponse = await response.json();
