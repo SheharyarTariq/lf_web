@@ -13,7 +13,13 @@ export const metadata: Metadata = {
   description:
     "Book a pickup, we professionally clean your clothes, and deliver them back. Collection & delivery always free.",
   icons: {
-    icon: "/lf-favicon.svg",
+    icon: [
+      // Square — used by browsers for the tab icon.
+      { url: "/favicon.svg", type: "image/svg+xml", sizes: "32x32" },
+      // Circle — declared larger so Google prefers it in search results
+      // (Google tends to pick the largest icon; best-effort, not guaranteed).
+      { url: "/favicon-circle.svg", type: "image/svg+xml", sizes: "192x192" },
+    ],
   },
 };
 
