@@ -38,13 +38,83 @@ function SectionHeader({ label, heading }: { label: string; heading: React.React
   );
 }
 
+const faqData = [
+  {
+    q: "Any hidden costs?",
+    a: "Collection and delivery are included in the service. You are charged only for the items we clean, at the prices listed in our price list — nothing more. There are no membership fees, minimum order requirements, or additional charges.",
+  },
+  {
+    q: "Do I need to sort or count my laundry?",
+    a: "No sorting, counting, or preparation required. Hand over your laundry however it is — mixed, unsorted, bagged or loose — and our team takes care of everything from there.",
+  },
+  {
+    q: "Can I approve charges before paying?",
+    a: "Yes. By enabling Price Review in your preferences, you will receive a notification once your items have been counted and added to your order. You can review every item and its cost before approving payment. Nothing is charged until you have approved what has been logged.",
+  },
+  {
+    q: "What if an item is missing or damaged?",
+    a: "Every item is individually logged when it arrives at our facility, so we always have a clear record of what was collected. In the rare event that something is not returned as expected, please contact us through the app and our team will investigate and resolve the matter promptly.",
+  },
+  {
+    q: "Can I set up regular pickups?",
+    a: "Recurring orders are available on a weekly, fortnightly, or every-four-weeks schedule. Once set up, your pickups and deliveries are handled automatically with no action required each time. You can pause or cancel at any point from within the app.",
+  },
+];
+
+const localBusinessSchema = {
+  "@context": "https://schema.org",
+  "@type": "LaundryService",
+  name: "Laundry Free",
+  url: "https://laundryfree.co.uk",
+  logo: "https://laundryfree.co.uk/lf-favicon.svg",
+  description:
+    "Professional laundry collection and delivery service with free pickup and delivery in Epsom, Leatherhead, Ashtead, Ewell and Fetcham, Surrey, UK.",
+  priceRange: "££",
+  areaServed: [
+    { "@type": "City", name: "Epsom", containedInPlace: { "@type": "AdministrativeArea", name: "Surrey" } },
+    { "@type": "City", name: "Leatherhead", containedInPlace: { "@type": "AdministrativeArea", name: "Surrey" } },
+    { "@type": "City", name: "Ashtead", containedInPlace: { "@type": "AdministrativeArea", name: "Surrey" } },
+    { "@type": "City", name: "Ewell", containedInPlace: { "@type": "AdministrativeArea", name: "Surrey" } },
+    { "@type": "City", name: "Fetcham", containedInPlace: { "@type": "AdministrativeArea", name: "Surrey" } },
+  ],
+  geo: { "@type": "GeoCoordinates", latitude: 51.336, longitude: -0.268 },
+  hasOfferCatalog: {
+    "@type": "OfferCatalog",
+    name: "Laundry Services",
+    itemListElement: [
+      { "@type": "Offer", itemOffered: { "@type": "Service", name: "Wash & Fold Service" } },
+      { "@type": "Offer", itemOffered: { "@type": "Service", name: "Laundry Collection & Delivery" } },
+      { "@type": "Offer", itemOffered: { "@type": "Service", name: "Professional Clothes Cleaning" } },
+      { "@type": "Offer", itemOffered: { "@type": "Service", name: "Recurring Laundry Orders" } },
+    ],
+  },
+  sameAs: [],
+};
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqData.map(({ q, a }) => ({
+    "@type": "Question",
+    name: q,
+    acceptedAnswer: { "@type": "Answer", text: a },
+  })),
+};
+
 export default function Home() {
   return (
     <>
-      {/* ── PROMO BAR ── */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+
       <PromoBar />
 
-      {/* ── NAV ── */}
       <nav className="bg-dark px-12 h-[58px] flex items-center justify-between sticky top-0 z-[99] max-[860px]:px-5">
         <div className="text-[18px] font-extrabold tracking-[-0.5px]">
           <span className="text-white">Laundry</span>
@@ -58,9 +128,7 @@ export default function Home() {
         </a>
       </nav>
 
-      {/* ── HERO ── */}
       <section className="bg-dark pt-16 px-12 pb-[60px] text-center relative overflow-hidden max-[860px]:pt-[52px] max-[860px]:px-5 max-[860px]:pb-12">
-        {/* Radial glow — replaces the ::after pseudo-element from the original */}
         <div
           className="absolute pointer-events-none"
           style={{
@@ -80,9 +148,13 @@ export default function Home() {
           <em className="text-lime not-italic">Free</em> delivery.
         </h1>
 
-        <p className="relative z-10 text-[16px] text-white/50 max-w-[420px] mx-auto mb-9 leading-[1.65]">
+        <p className="relative z-10 text-[16px] text-white/50 max-w-[420px] mx-auto mb-2 leading-[1.65]">
           Book a pickup, we professionally clean your clothes, and deliver them
           back. Collection &amp; delivery always free.
+        </p>
+
+        <p className="relative z-10 text-[12px] text-white/30 max-w-[460px] mx-auto mb-9 leading-[1.5]">
+          Professional laundry collection &amp; delivery service in Epsom, Leatherhead, Ashtead, Ewell &amp; Fetcham, Surrey
         </p>
 
         <div className="relative z-10 flex items-center justify-center gap-8 flex-wrap">
@@ -253,44 +325,21 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── SERVICE AREA ── */}
       <div className="bg-white border-t border-lf-border py-8 px-12 text-center max-[860px]:px-5">
         <p className="text-[14px] text-muted leading-[1.6]">
           📍{" "}
           <strong className="text-dark">
-            Currently serving Ashtead, Leatherhead, and Epsom.
+            Currently serving Epsom (KT17/KT18), Leatherhead (KT22), Ashtead (KT21), Ewell (KT17) &amp; Fetcham (KT22).
           </strong>{" "}
           More areas coming soon.
         </p>
       </div>
 
-      {/* ── FAQ ── */}
       <div className="bg-lf-bg">
         <div className="py-[72px] px-12 max-w-[1080px] mx-auto max-[860px]:py-[52px] max-[860px]:px-5">
           <SectionHeader label="Got questions?" heading="Frequently asked" />
           <div className="max-w-[680px] mx-auto flex flex-col gap-2">
-            {[
-              {
-                q: "Any hidden costs?",
-                a: "Collection and delivery are included in the service. You are charged only for the items we clean, at the prices listed in our price list — nothing more. There are no membership fees, minimum order requirements, or additional charges.",
-              },
-              {
-                q: "Do I need to sort or count my laundry?",
-                a: "No sorting, counting, or preparation required. Hand over your laundry however it is — mixed, unsorted, bagged or loose — and our team takes care of everything from there.",
-              },
-              {
-                q: "Can I approve charges before paying?",
-                a: "Yes. By enabling Price Review in your preferences, you will receive a notification once your items have been counted and added to your order. You can review every item and its cost before approving payment. Nothing is charged until you have approved what has been logged.",
-              },
-              {
-                q: "What if an item is missing or damaged?",
-                a: "Every item is individually logged when it arrives at our facility, so we always have a clear record of what was collected. In the rare event that something is not returned as expected, please contact us through the app and our team will investigate and resolve the matter promptly.",
-              },
-              {
-                q: "Can I set up regular pickups?",
-                a: "Recurring orders are available on a weekly, fortnightly, or every-four-weeks schedule. Once set up, your pickups and deliveries are handled automatically with no action required each time. You can pause or cancel at any point from within the app.",
-              },
-            ].map(({ q, a }) => (
+            {faqData.map(({ q, a }) => (
               <details
                 key={q}
                 className="bg-white border border-lf-border rounded-[14px] overflow-hidden open:border-[#C8C8C4]"
