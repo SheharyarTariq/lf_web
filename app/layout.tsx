@@ -66,11 +66,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      // Square — used by browsers for the tab icon.
-      { url: "/favicon.svg", type: "image/svg+xml", sizes: "32x32" },
-      // Circle — declared larger so Google prefers it in search results
-      // (Google tends to pick the largest icon; best-effort, not guaranteed).
-      { url: "/favicon-circle.svg", type: "image/svg+xml", sizes: "192x192" },
+      { url: "/favicon.svg", type: "image/svg+xml", sizes: "48x48" },
     ],
   },
   alternates: {
