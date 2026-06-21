@@ -1,4 +1,5 @@
 import PromoBar from "@/components/PromoBar";
+import { APP_STORE_URL, PLAY_STORE_URL } from "@/config";
 
 const AppStoreSVG = () => (
   <svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -161,14 +162,18 @@ export default function Home() {
           {/* Badges — stack vertically on desktop, row on mobile */}
           <div className="flex gap-3 flex-col items-center max-[600px]:flex-row">
             <a
-              href="#"
+              href={APP_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-block transition-opacity duration-[180ms] hover:opacity-[0.78]"
               aria-label="Download on the App Store"
             >
               <AppStoreSVG />
             </a>
             <a
-              href="#"
+              href={PLAY_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-block transition-opacity duration-[180ms] hover:opacity-[0.78]"
               aria-label="Get it on Google Play"
             >
@@ -183,7 +188,7 @@ export default function Home() {
           <div className="flex flex-col items-center gap-[10px] max-[600px]:hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=1A1A1A&bgcolor=FFFFFF&data=https://laundryfree.co.uk"
+              src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=1A1A1A&bgcolor=FFFFFF&data=https://laundryfree.co.uk/download-app"
               alt="Scan to download"
               className="w-24 h-24 rounded-[10px] p-[6px] bg-white"
             />
@@ -373,14 +378,18 @@ export default function Home() {
         </p>
         <div className="flex flex-col gap-3 items-center justify-center w-full">
           <a
-            href="#"
+            href={APP_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-block transition-opacity duration-[180ms] hover:opacity-[0.78]"
             aria-label="Download on the App Store"
           >
             <AppStoreSVG />
           </a>
           <a
-            href="#"
+            href={PLAY_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-block transition-opacity duration-[180ms] hover:opacity-[0.78]"
             aria-label="Get it on Google Play"
           >
