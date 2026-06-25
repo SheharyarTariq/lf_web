@@ -1,3 +1,5 @@
+import Link from "next/link";
+import Logo from "@/components/Logo";
 import PromoBar from "@/components/PromoBar";
 import { APP_STORE_URL, PLAY_STORE_URL } from "@/config";
 
@@ -67,7 +69,7 @@ const localBusinessSchema = {
   "@type": "LaundryService",
   name: "Laundry Free",
   url: "https://laundryfree.co.uk",
-  logo: "https://laundryfree.co.uk/lf-favicon.svg",
+  logo: "https://laundryfree.co.uk/footerlogo.svg",
   description:
     "Professional laundry collection and delivery service with free pickup and delivery in Epsom, Leatherhead, Ashtead, Ewell and Fetcham, Surrey, UK.",
   priceRange: "££",
@@ -117,10 +119,9 @@ export default function Home() {
       <PromoBar />
 
       <nav className="bg-dark px-12 h-[58px] flex items-center justify-between sticky top-0 z-[99] max-[860px]:px-5">
-        <div className="text-[18px] font-extrabold tracking-[-0.5px]">
-          <span className="text-white">Laundry</span>
-          <span className="text-lime">Free</span>
-        </div>
+        <Link href="/" className="no-underline">
+          <Logo />
+        </Link>
         <a
           href="#download"
           className="bg-lime text-dark font-bold text-[13px] py-2 px-5 rounded-[30px] no-underline transition-opacity duration-[180ms] hover:opacity-[0.82]"
@@ -309,7 +310,7 @@ export default function Home() {
           {/* Stat 2 */}
           <div className="py-10 px-8 border-r border-lf-border flex flex-col gap-1 items-center text-center max-[860px]:py-6 max-[860px]:pl-4 max-[860px]:pr-0 max-[540px]:border-r-0 max-[540px]:border-b max-[540px]:border-lf-border max-[540px]:py-6 max-[540px]:px-0">
             <h3 className="text-[clamp(30px,3.5vw,42px)] font-extrabold tracking-[-1.5px] text-dark">
-              &lt;2
+              &lt;2&nbsp;
               <em className="text-lime not-italic bg-dark py-[1px] px-[6px] rounded-[6px]">
                 min
               </em>
@@ -319,7 +320,7 @@ export default function Home() {
           {/* Stat 3 — no border-right */}
           <div className="py-10 px-8 flex flex-col gap-1 items-center text-center max-[860px]:py-6 max-[860px]:pl-4 max-[860px]:pr-0 max-[540px]:py-6 max-[540px]:px-0">
             <h3 className="text-[clamp(30px,3.5vw,42px)] font-extrabold tracking-[-1.5px] text-dark">
-              iOS
+              iOS&nbsp;
               <em className="text-lime not-italic bg-dark py-[1px] px-[6px] rounded-[6px]">
                 {" "}&amp;{" "}
               </em>
@@ -400,10 +401,9 @@ export default function Home() {
 
       {/* ── FOOTER ── */}
       <footer className="bg-dark py-6 px-12 flex items-center justify-between flex-wrap gap-3 max-[860px]:px-5">
-        <div className="text-[15px] font-extrabold tracking-[-0.5px]">
-          <span className="text-white">Laundry</span>
-          <span className="text-lime">Free</span>
-        </div>
+        <Link href="/" className="no-underline">
+          <Logo className="h-9 w-auto" />
+        </Link>
         <div className="flex gap-5">
           {[
             { label: "Privacy", href: "/privacy-policy" },

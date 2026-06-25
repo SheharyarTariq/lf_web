@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Logo from "@/components/Logo";
 import PromoBar from "@/components/PromoBar";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -48,9 +49,8 @@ export default function RequestDeletion() {
 
       {/* ── NAV ── */}
       <nav className="bg-dark px-12 h-[58px] flex items-center justify-between sticky top-0 z-[99] max-[860px]:px-5">
-        <Link href="/" className="text-[18px] font-extrabold tracking-[-0.5px] no-underline">
-          <span className="text-white">Laundry</span>
-          <span className="text-lime">Free</span>
+        <Link href="/" className="no-underline">
+          <Logo />
         </Link>
         <a
           href="/#download"
@@ -128,9 +128,8 @@ export default function RequestDeletion() {
 
       {/* ── FOOTER ── */}
       <footer className="bg-dark py-6 px-12 flex items-center justify-between flex-wrap gap-3 max-[860px]:px-5">
-        <Link href="/" className="text-[15px] font-extrabold tracking-[-0.5px] no-underline">
-          <span className="text-white">Laundry</span>
-          <span className="text-lime">Free</span>
+        <Link href="/" className="no-underline">
+          <Logo className="h-9 w-auto" />
         </Link>
         <div className="flex gap-5">
           {[
