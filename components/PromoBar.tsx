@@ -42,7 +42,7 @@ export default function PromoBar() {
   }, []);
 
   return (
-    <div className="bg-lime py-[10px] px-12 text-center text-[13px] font-bold text-dark tracking-[0.1px]">
+    <div className="bg-lime py-[10px] px-12 max-[860px]:px-4 text-center text-[13px] font-bold text-dark tracking-[0.1px]">
       🎉 {discountText} off your first order{" "}
       <span className="font-normal opacity-70">— download the app to claim</span>
     </div>

@@ -155,8 +155,8 @@ export default function Home() {
           Schedule a pickup and let us handle the rest. We professionally clean and return your clothes to your doorstep—always with free collection and delivery.
         </p>
 
-        <div className="relative z-10 flex justify-center mb-9">
-          <span className="inline-flex items-center gap-2 bg-white/[0.07] border border-white/[0.10] rounded-full px-4 py-[7px] text-[12px] text-white/45 leading-[1.4]">
+        <div className="relative z-10 flex justify-center mb-9 px-4">
+          <span className="inline-flex items-center gap-2 bg-white/[0.07] border border-white/[0.10] rounded-full px-4 py-[7px] text-[12px] text-white/45 leading-[1.4] max-w-full text-center">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-lime">
               <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
             </svg>
@@ -177,7 +177,7 @@ export default function Home() {
           {/* Frosted glass card */}
           <div className="bg-white/[0.04] border border-white/[0.08] rounded-[24px] px-8 py-7 flex items-center justify-center gap-8 flex-wrap">
             {/* Badges */}
-            <div className="flex gap-3 flex-col items-center max-[600px]:flex-row">
+            <div className="flex gap-3 flex-col items-center">
               <a
                 href={APP_STORE_URL}
                 target="_blank"
@@ -432,7 +432,7 @@ export default function Home() {
         <Link href="/" className="no-underline">
           <Logo className="h-9 w-auto" />
         </Link>
-        <div className="flex gap-5">
+        <div className="flex gap-5 flex-wrap justify-end">
           {[
             { label: "Privacy", href: "/privacy-policy" },
             { label: "Terms", href: "/terms" },
@@ -442,7 +442,7 @@ export default function Home() {
             <Link
               key={link.label}
               href={link.href}
-              className="text-[12px] text-white/35 no-underline hover:text-white/70 transition-colors"
+              className="text-[12px] text-white/35 no-underline hover:text-white/70 transition-colors whitespace-nowrap"
             >
               {link.label}
             </Link>
