@@ -136,7 +136,7 @@ export default function RequestDeletion() {
             { label: "Privacy", href: "/privacy-policy" },
             { label: "Terms", href: "/terms" },
             { label: "Request Deletion", href: "/request-deletion" },
-            { label: "Contact", href: "#" },
+            { label: "Contact", href: "/contact" },
           ].map((link) => (
             <Link
               key={link.label}

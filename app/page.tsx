@@ -1,10 +1,11 @@
+import Image from "next/image";
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import PromoBar from "@/components/PromoBar";
 import { APP_STORE_URL, PLAY_STORE_URL } from "@/config";
 
 const AppStoreSVG = () => (
-  <svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="180" height="60" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect x="0.5" y="0.5" width="119" height="39" rx="5.5" fill="black"/>
     <rect x="0.5" y="0.5" width="119" height="39" rx="5.5" stroke="#A6A6A6"/>
     <path d="M24.7045 20.7631C24.7166 19.8432 24.9669 18.9413 25.4321 18.1412C25.8972 17.3411 26.5621 16.6688 27.3648 16.187C26.8548 15.476 26.1821 14.8908 25.4 14.478C24.6178 14.0652 23.7479 13.8361 22.8592 13.809C20.9635 13.6147 19.1258 14.9164 18.1598 14.9164C17.1751 14.9164 15.6878 13.8283 14.0862 13.8604C13.0502 13.8931 12.0406 14.1872 11.1557 14.7141C10.2708 15.241 9.54075 15.9827 9.03674 16.8669C6.85352 20.5573 8.48201 25.9809 10.5734 28.964C11.6197 30.4247 12.8426 32.0564 14.4428 31.9985C16.0086 31.9351 16.5934 31.0237 18.4835 31.0237C20.3561 31.0237 20.9048 31.9985 22.5374 31.9617C24.2176 31.9351 25.2762 30.4945 26.2859 29.02C27.0377 27.9792 27.6162 26.8288 28 25.6116C27.0238 25.2085 26.1908 24.5338 25.6048 23.6716C25.0187 22.8094 24.7056 21.7979 24.7045 20.7631Z" fill="white"/>
@@ -15,7 +16,7 @@ const AppStoreSVG = () => (
 );
 
 const GooglePlaySVG = () => (
-  <svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="180" height="60" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect x="0.5" y="0.5" width="119" height="39" rx="5.5" fill="black"/>
     <rect x="0.5" y="0.5" width="119" height="39" rx="5.5" stroke="#A6A6A6"/>
     <path d="M17.8048 19.4617L8.0896 30.0059C8.09051 30.0078 8.09051 30.0106 8.09142 30.0125C8.38981 31.1574 9.41179 32 10.6254 32C11.1108 32 11.5662 31.8656 11.9567 31.6305L11.9877 31.6118L22.9229 25.1593L17.8048 19.4617Z" fill="#EA4335"/>
@@ -137,10 +138,10 @@ export default function Home() {
             top: "-60px",
             left: "50%",
             transform: "translateX(-50%)",
-            width: "640px",
-            height: "420px",
+            width: "760px",
+            height: "500px",
             background:
-              "radial-gradient(ellipse, rgba(200,255,0,0.11) 0%, transparent 68%)",
+              "radial-gradient(ellipse, rgba(200,255,0,0.13) 0%, transparent 68%)",
           }}
         />
 
@@ -151,52 +152,75 @@ export default function Home() {
         </h1>
 
         <p className="relative z-10 text-[16px] text-white/50 max-w-[420px] mx-auto mb-2 leading-[1.65]">
-          Book a pickup, we professionally clean your clothes, and deliver them
-          back. Collection &amp; delivery always free.
+          Schedule a pickup and let us handle the rest. We professionally clean and return your clothes to your doorstep—always with free collection and delivery.
         </p>
 
-        <p className="relative z-10 text-[12px] text-white/30 max-w-[460px] mx-auto mb-9 leading-[1.5]">
-          Professional laundry collection &amp; delivery service in Epsom, Leatherhead, Ashtead, Ewell &amp; Fetcham, Surrey
-        </p>
+        <div className="relative z-10 flex justify-center mb-9">
+          <span className="inline-flex items-center gap-2 bg-white/[0.07] border border-white/[0.10] rounded-full px-4 py-[7px] text-[12px] text-white/45 leading-[1.4]">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-lime">
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            Serving Epsom &amp; Ewell (KT17–KT19), Ashtead, Leatherhead &amp; Fetcham · Expanding across Surrey
+          </span>
+        </div>
 
-        <div className="relative z-10 flex items-center justify-center gap-8 flex-wrap">
-          {/* Badges — stack vertically on desktop, row on mobile */}
-          <div className="flex gap-3 flex-col items-center max-[600px]:flex-row">
-            <a
-              href={APP_STORE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block transition-opacity duration-[180ms] hover:opacity-[0.78]"
-              aria-label="Download on the App Store"
-            >
-              <AppStoreSVG />
-            </a>
-            <a
-              href={PLAY_STORE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block transition-opacity duration-[180ms] hover:opacity-[0.78]"
-              aria-label="Get it on Google Play"
-            >
-              <GooglePlaySVG />
-            </a>
-          </div>
-
-          {/* Vertical divider — hidden on mobile */}
-          <div className="w-px h-[72px] bg-white/15 max-[600px]:hidden" />
-
-          {/* QR code — hidden on mobile */}
-          <div className="flex flex-col items-center gap-[10px] max-[600px]:hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=1A1A1A&bgcolor=FFFFFF&data=https://laundryfree.co.uk/download-app"
-              alt="Scan to download"
-              className="w-24 h-24 rounded-[10px] p-[6px] bg-white"
-            />
-            <span className="text-[11px] font-semibold text-white/45 tracking-[0.3px]">
-              Scan to download
+        <div id="download" className="relative z-10 max-w-[600px] mx-auto">
+          {/* Section label divider */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex-1 h-px bg-white/[0.10]" />
+            <span className="text-[10px] font-bold tracking-[2.5px] uppercase text-white/25 whitespace-nowrap">
+              Download to place your first order
             </span>
+            <div className="flex-1 h-px bg-white/[0.10]" />
           </div>
+
+          {/* Frosted glass card */}
+          <div className="bg-white/[0.04] border border-white/[0.08] rounded-[24px] px-8 py-7 flex items-center justify-center gap-8 flex-wrap">
+            {/* Badges */}
+            <div className="flex gap-3 flex-col items-center max-[600px]:flex-row">
+              <a
+                href={APP_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block transition-opacity duration-[180ms] hover:opacity-[0.78]"
+                aria-label="Download on the App Store"
+              >
+                <AppStoreSVG />
+              </a>
+              <a
+                href={PLAY_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block transition-opacity duration-[180ms] hover:opacity-[0.78]"
+                aria-label="Get it on Google Play"
+              >
+                <GooglePlaySVG />
+              </a>
+            </div>
+
+            {/* Vertical divider — hidden on mobile */}
+            <div className="w-px h-[134px] bg-white/15 max-[600px]:hidden" />
+
+            {/* QR code — hidden on mobile */}
+            <div className="flex flex-col items-center gap-[10px] max-[600px]:hidden">
+              <div className="relative w-[170px] h-[170px] rounded-[10px] overflow-hidden">
+                <Image
+                  src="/qr-code.png"
+                  alt="Scan to download"
+                  fill
+                  className="object-cover scale-[1.25]"
+                />
+              </div>
+              <span className="text-[11px] font-semibold text-white/45 tracking-[0.3px]">
+                Scan to download
+              </span>
+            </div>
+          </div>
+
+          {/* Web booking note */}
+          <p className="text-[11px] text-white/25 text-center mt-4 leading-[1.6]">
+            🌐 Web booking is currently in development — download the mobile app to schedule your collection.
+          </p>
         </div>
       </section>
 
@@ -333,11 +357,15 @@ export default function Home() {
 
       <div className="bg-white border-t border-lf-border py-8 px-12 text-center max-[860px]:px-5">
         <p className="text-[14px] text-muted leading-[1.6]">
-          📍{" "}
-          <strong className="text-dark">
-            Currently serving Epsom (KT17/KT18), Leatherhead (KT22), Ashtead (KT21), Ewell (KT17) &amp; Fetcham (KT22).
-          </strong>{" "}
-          More areas coming soon.
+          <span className="inline-flex items-center gap-1.5">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-lime">
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            <strong className="text-dark">
+              Serving Epsom &amp; Ewell (KT17–KT19), Ashtead, Leatherhead &amp; Fetcham·
+            </strong>{" "}
+            Expanding across Surrey.
+          </span>
         </p>
       </div>
 
@@ -409,15 +437,15 @@ export default function Home() {
             { label: "Privacy", href: "/privacy-policy" },
             { label: "Terms", href: "/terms" },
             { label: "Request Deletion", href: "/request-deletion" },
-            { label: "Contact", href: "#" },
+            { label: "Contact", href: "/contact" },
           ].map((link) => (
-            <a
+            <Link
               key={link.label}
               href={link.href}
               className="text-[12px] text-white/35 no-underline hover:text-white/70 transition-colors"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </div>
         <p className="text-[12px] text-white/35">
