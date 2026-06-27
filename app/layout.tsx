@@ -10,7 +10,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://laundryfree.co.uk"),
+  metadataBase: new URL("https://www.laundryfree.co.uk"),
   title: {
     default:
       "Laundry Free — Laundry Collection & Delivery in Epsom, Leatherhead & Ashtead | Free Pickup & Delivery",
@@ -82,7 +82,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_GB",
-    url: "https://laundryfree.co.uk",
+    url: "https://www.laundryfree.co.uk",
     siteName: "Laundry Free",
     title:
       "Laundry Free — Professional Laundry Collection & Delivery in Epsom, Leatherhead & Surrey",

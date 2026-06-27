@@ -69,8 +69,8 @@ const localBusinessSchema = {
   "@context": "https://schema.org",
   "@type": "LaundryService",
   name: "Laundry Free",
-  url: "https://laundryfree.co.uk",
-  logo: "https://laundryfree.co.uk/footerlogo.svg",
+  url: "https://www.laundryfree.co.uk",
+  logo: "https://www.laundryfree.co.uk/footerlogo.svg",
   description:
     "Professional laundry collection and delivery service with free pickup and delivery in Epsom, Leatherhead, Ashtead, Ewell and Fetcham, Surrey, UK.",
   priceRange: "££",
