@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
+import SmartBanner from "@/components/SmartBanner";
 
 const poppins = Poppins({
   weight: ["400", "500", "600", "700", "800"],
@@ -103,6 +104,8 @@ export const metadata: Metadata = {
     "geo.placename": "Epsom, Surrey",
     "geo.position": "51.3360;-0.2680",
     ICBM: "51.3360, -0.2680",
+    // iOS Safari reads this and renders a native "Open"/"Get" banner automatically
+    "apple-itunes-app": "app-id=6763839907",
   },
 };
 
@@ -113,7 +116,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={poppins.className}>
-      <body>{children}</body>
+      <body>
+        <SmartBanner />
+        {children}
+      </body>
     </html>
   );
 }
