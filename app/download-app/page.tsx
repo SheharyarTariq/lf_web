@@ -19,6 +19,7 @@ export default async function DownloadApp() {
   }
 
   // Desktop / unrecognized device (incl. iPadOS Safari reporting a Macintosh UA)
-  // → homepage, where both store badges and the QR code are shown.
-  redirect("/");
+  // → Google Play listing, which renders fine in a desktop browser (matches the
+  // Android Play badge).
+  redirect(PLAY_STORE_URL);
 }

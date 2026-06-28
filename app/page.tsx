@@ -124,7 +124,9 @@ export default function Home() {
           <Logo />
         </Link>
         <a
-          href="#download"
+          href="/download-app"
+          target="_blank"
+          rel="noopener noreferrer"
           className="bg-lime text-dark font-bold text-[13px] py-2 px-5 rounded-[30px] no-underline transition-opacity duration-[180ms] hover:opacity-[0.82]"
         >
           Get the App
@@ -185,7 +187,7 @@ export default function Home() {
                 className="inline-block transition-opacity duration-[180ms] hover:opacity-[0.78]"
                 aria-label="Download on the App Store"
               >
-                <AppStoreSVG className="w-[180px] max-[600px]:w-[135px] h-auto" />
+                <AppStoreSVG className="w-[120px] h-auto" />
               </a>
               <a
                 href={PLAY_STORE_URL}
@@ -194,7 +196,7 @@ export default function Home() {
                 className="inline-block transition-opacity duration-[180ms] hover:opacity-[0.78]"
                 aria-label="Get it on Google Play"
               >
-                <GooglePlaySVG className="w-[180px] max-[600px]:w-[135px] h-auto" />
+                <GooglePlaySVG className="w-[120px] h-auto" />
               </a>
             </div>
 
@@ -208,7 +210,7 @@ export default function Home() {
                   src="/qr-code.png"
                   alt="Scan to download"
                   fill
-                  className="object-cover scale-[1.25]"
+                  className="object-cover"
                 />
               </div>
               <span className="text-[11px] font-semibold text-white/45 tracking-[0.3px]">
@@ -355,20 +357,6 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="bg-white border-t border-lf-border py-8 px-12 text-center max-[860px]:px-5">
-        <p className="text-[14px] text-muted leading-[1.6]">
-          <span className="inline-flex items-center gap-1.5">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-lime">
-              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
-            </svg>
-            <strong className="text-dark">
-              Serving Epsom &amp; Ewell (KT17–KT19), Ashtead, Leatherhead &amp; Fetcham·
-            </strong>{" "}
-            Expanding across Surrey.
-          </span>
-        </p>
-      </div>
-
       <div className="bg-lf-bg">
         <div className="py-[72px] px-12 max-w-[1080px] mx-auto max-[860px]:py-[52px] max-[860px]:px-5">
           <SectionHeader label="Got questions?" heading="Frequently asked" />
@@ -405,7 +393,7 @@ export default function Home() {
           Free collection &amp; delivery on every order — only when you book
           through the app.
         </p>
-        <div className="flex flex-col gap-3 items-center justify-center w-full">
+        <div className="flex flex-row gap-3 items-center justify-center w-full">
           <a
             href={APP_STORE_URL}
             target="_blank"
@@ -413,7 +401,7 @@ export default function Home() {
             className="inline-block transition-opacity duration-[180ms] hover:opacity-[0.78]"
             aria-label="Download on the App Store"
           >
-            <AppStoreSVG className="w-[180px] max-[600px]:w-[135px] h-auto" />
+            <AppStoreSVG className="w-[120px] h-auto" />
           </a>
           <a
             href={PLAY_STORE_URL}
@@ -422,7 +410,7 @@ export default function Home() {
             className="inline-block transition-opacity duration-[180ms] hover:opacity-[0.78]"
             aria-label="Get it on Google Play"
           >
-            <GooglePlaySVG className="w-[180px] max-[600px]:w-[135px] h-auto" />
+            <GooglePlaySVG className="w-[120px] h-auto" />
           </a>
         </div>
       </section>

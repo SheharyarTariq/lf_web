@@ -20,7 +20,9 @@ export default function Contact() {
           <Logo />
         </Link>
         <a
-          href="/#download"
+          href="/download-app"
+          target="_blank"
+          rel="noopener noreferrer"
           className="bg-lime text-dark font-bold text-[13px] py-2 px-5 rounded-[30px] no-underline transition-opacity duration-[180ms] hover:opacity-[0.82]"
         >
           Get the App
