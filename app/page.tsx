@@ -1,7 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
-import Logo from "@/components/Logo";
-import PromoBar from "@/components/PromoBar";
 import { APP_STORE_URL, PLAY_STORE_URL } from "@/config";
 
 const AppStoreSVG = ({ className }: { className?: string }) => (
@@ -116,22 +113,6 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
-
-      <PromoBar />
-
-      <nav className="bg-dark px-12 h-[58px] flex items-center justify-between sticky top-0 z-[99] max-[860px]:px-5">
-        <Link href="/" className="no-underline">
-          <Logo />
-        </Link>
-        <a
-          href="/download-app"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-lime text-dark font-bold text-[13px] py-2 px-5 rounded-[30px] no-underline transition-opacity duration-[180ms] hover:opacity-[0.82]"
-        >
-          Get the App
-        </a>
-      </nav>
 
       <section className="bg-dark pt-16 px-12 pb-[60px] text-center relative overflow-hidden max-[860px]:pt-[52px] max-[860px]:px-5 max-[860px]:pb-12">
         <div
@@ -414,32 +395,6 @@ export default function Home() {
           </a>
         </div>
       </section>
-
-      {/* ── FOOTER ── */}
-      <footer className="bg-dark py-6 px-12 flex items-center justify-between flex-wrap gap-3 max-[860px]:px-5">
-        <Link href="/" className="no-underline">
-          <Logo className="h-9 w-auto" />
-        </Link>
-        <div className="flex gap-5 flex-wrap justify-end">
-          {[
-            { label: "Privacy", href: "/privacy-policy" },
-            { label: "Terms", href: "/terms" },
-            { label: "Request Deletion", href: "/request-deletion" },
-            { label: "Contact", href: "/contact" },
-          ].map((link) => (
-            <Link
-              key={link.label}
-              href={link.href}
-              className="text-[12px] text-white/35 no-underline hover:text-white/70 transition-colors whitespace-nowrap"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
-        <p className="text-[12px] text-white/35">
-          &copy; 2026 HQR LTD
-        </p>
-      </footer>
     </>
   );
 }

@@ -1,7 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import SmartBanner from "@/components/SmartBanner";
+import PromoBar from "@/components/PromoBar";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 const poppins = Poppins({
   weight: ["400", "500", "600", "700", "800"],
@@ -122,9 +125,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={poppins.className}>
-      <body>
+      {/* Flex column so the shared footer sticks to the bottom on short pages.
+          The shell (PromoBar / Header / Footer) lives here and persists across
+          client navigation — only {children} swaps, giving an SPA feel. */}
+      <body className="min-h-screen flex flex-col">
         <SmartBanner />
+        <PromoBar />
+        <Header />
         {children}
+        <Footer />
       </body>
     </html>
   );

@@ -1,6 +1,4 @@
 import Link from "next/link";
-import Logo from "@/components/Logo";
-import PromoBar from "@/components/PromoBar";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -10,27 +8,7 @@ export const metadata: Metadata = {
 
 export default function Contact() {
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* ── PROMO BAR ── */}
-      <PromoBar />
-
-      {/* ── NAV ── */}
-      <nav className="bg-dark px-12 h-[58px] flex items-center justify-between sticky top-0 z-[99] max-[860px]:px-5">
-        <Link href="/" className="no-underline">
-          <Logo />
-        </Link>
-        <a
-          href="/download-app"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-lime text-dark font-bold text-[13px] py-2 px-5 rounded-[30px] no-underline transition-opacity duration-[180ms] hover:opacity-[0.82]"
-        >
-          Get the App
-        </a>
-      </nav>
-
-      {/* ── CONTENT ── */}
-      <main className="flex-1 w-full max-w-[1080px] mx-auto px-12 py-[72px] max-[860px]:px-5 max-[860px]:py-[52px]">
+    <main className="flex-1 w-full max-w-[1080px] mx-auto px-12 py-[72px] max-[860px]:px-5 max-[860px]:py-[52px]">
         <div className="text-[10px] font-bold tracking-[2.5px] uppercase text-muted mb-2 text-center">
           Support
         </div>
@@ -80,30 +58,5 @@ export default function Contact() {
           </p>
         </div>
       </main>
-
-      {/* ── FOOTER ── */}
-      <footer className="bg-dark py-6 px-12 flex items-center justify-between flex-wrap gap-3 max-[860px]:px-5">
-        <Link href="/" className="no-underline">
-          <Logo className="h-9 w-auto" />
-        </Link>
-        <div className="flex gap-5">
-          {[
-            { label: "Privacy", href: "/privacy-policy" },
-            { label: "Terms", href: "/terms" },
-            { label: "Request Deletion", href: "/request-deletion" },
-            { label: "Contact", href: "/contact" },
-          ].map((link) => (
-            <Link
-              key={link.label}
-              href={link.href}
-              className="text-[12px] text-white/35 no-underline hover:text-white/70 transition-colors"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
-        <p className="text-[12px] text-white/35">&copy; 2026 LaundryFree. All rights reserved.</p>
-      </footer>
-    </div>
   );
 }
