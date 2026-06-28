@@ -78,7 +78,6 @@ export const metadata: Metadata = {
     apple: [{ url: "/favicon_io/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
     shortcut: "/favicon.ico",
   },
-  manifest: "/favicon_io/site.webmanifest",
   alternates: {
     canonical: "/",
   },
@@ -116,6 +115,13 @@ export const metadata: Metadata = {
     // iOS Safari reads this and renders a native "Open"/"Get" banner automatically
     "apple-itunes-app": "app-id=6763839907",
   },
+};
+
+// Explicit theme-color so iOS Safari doesn't sample the page to tint its chrome.
+// Matches the dark header (--color-dark: #1A1A1A) so the status-bar strip blends
+// into the nav instead of showing a light gap above it when scrolled.
+export const viewport: Viewport = {
+  themeColor: "#1A1A1A",
 };
 
 export default function RootLayout({
