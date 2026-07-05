@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
-import SmartBanner from "@/components/SmartBanner";
 import PromoBar from "@/components/PromoBar";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -135,12 +135,25 @@ export default function RootLayout({
           The shell (PromoBar / Header / Footer) lives here and persists across
           client navigation — only {children} swaps, giving an SPA feel. */}
       <body className="min-h-screen flex flex-col">
-        <SmartBanner />
         <PromoBar />
         <Header />
         {children}
         <Footer />
       </body>
+
+      {/* Google Ads global site tag (gtag.js) — traffic attribution for Google Ads.
+          Placed after </body> per the Next.js App Router pattern so it loads once
+          and persists across client navigation. */}
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=AW-18237111465"
+        strategy="afterInteractive"
+      />
+      <Script id="google-ads-gtag" strategy="afterInteractive">
+        {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'AW-18237111465');`}
+      </Script>
     </html>
   );
 }

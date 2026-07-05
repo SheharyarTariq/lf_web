@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { APP_STORE_URL, PLAY_STORE_URL } from "@/config";
+import ConversionLink from "@/components/ConversionLink";
 
 const AppStoreSVG = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -161,7 +162,7 @@ export default function Home() {
           <div className="bg-white/[0.04] border border-white/[0.08] rounded-[24px] px-8 py-7 flex items-center justify-center gap-8 flex-wrap">
             {/* Badges */}
             <div className="flex gap-3 flex-col items-center">
-              <a
+              <ConversionLink
                 href={APP_STORE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -169,8 +170,8 @@ export default function Home() {
                 aria-label="Download on the App Store"
               >
                 <AppStoreSVG className="w-[120px] h-auto" />
-              </a>
-              <a
+              </ConversionLink>
+              <ConversionLink
                 href={PLAY_STORE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -178,7 +179,7 @@ export default function Home() {
                 aria-label="Get it on Google Play"
               >
                 <GooglePlaySVG className="w-[120px] h-auto" />
-              </a>
+              </ConversionLink>
             </div>
 
             {/* Vertical divider — hidden on mobile */}
@@ -208,7 +209,8 @@ export default function Home() {
       </section>
 
       {/* ── HOW IT WORKS ── white bg */}
-      <div className="bg-white">
+      {/* id + scroll-mt: /how-it-works redirects here; scroll-mt clears the 58px sticky header */}
+      <div id="how-it-works" className="bg-white scroll-mt-[58px]">
         <div className="py-[72px] px-12 max-w-[1080px] mx-auto max-[860px]:py-[52px] max-[860px]:px-5">
           <SectionHeader label="Step by step" heading="How it works" />
           <div className="grid grid-cols-3 gap-4 max-[860px]:grid-cols-1 max-[860px]:gap-3">
@@ -338,7 +340,8 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="bg-lf-bg">
+      {/* id + scroll-mt: /faq redirects here; scroll-mt clears the 58px sticky header */}
+      <div id="faq" className="bg-lf-bg scroll-mt-[58px]">
         <div className="py-[72px] px-12 max-w-[1080px] mx-auto max-[860px]:py-[52px] max-[860px]:px-5">
           <SectionHeader label="Got questions?" heading="Frequently asked" />
           <div className="max-w-[680px] mx-auto flex flex-col gap-2">
@@ -375,7 +378,7 @@ export default function Home() {
           through the app.
         </p>
         <div className="flex flex-row gap-3 items-center justify-center w-full">
-          <a
+          <ConversionLink
             href={APP_STORE_URL}
             target="_blank"
             rel="noopener noreferrer"
@@ -383,8 +386,8 @@ export default function Home() {
             aria-label="Download on the App Store"
           >
             <AppStoreSVG className="w-[120px] h-auto" />
-          </a>
-          <a
+          </ConversionLink>
+          <ConversionLink
             href={PLAY_STORE_URL}
             target="_blank"
             rel="noopener noreferrer"
@@ -392,7 +395,7 @@ export default function Home() {
             aria-label="Get it on Google Play"
           >
             <GooglePlaySVG className="w-[120px] h-auto" />
-          </a>
+          </ConversionLink>
         </div>
       </section>
     </>
