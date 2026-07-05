@@ -161,7 +161,7 @@ export default function Home() {
           {/* Frosted glass card */}
           <div className="bg-white/[0.04] border border-white/[0.08] rounded-[24px] px-8 py-7 flex items-center justify-center gap-8 flex-wrap">
             {/* Badges */}
-            <div className="flex gap-3 flex-col items-center">
+            <div className="flex gap-3 flex-row items-center">
               <ConversionLink
                 href={APP_STORE_URL}
                 target="_blank"
