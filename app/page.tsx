@@ -230,48 +230,59 @@ export default function Home() {
       <div id="how-it-works" className="bg-white scroll-mt-[58px]">
         <div className="py-[72px] px-12 max-w-[1080px] mx-auto max-[860px]:py-[52px] max-[860px]:px-5">
           <SectionHeader label="Step by step" heading="How it works" />
-          <div className="grid grid-cols-3 gap-4 max-[860px]:grid-cols-1 max-[860px]:gap-3">
-            {/* Step 1 */}
-            <div className="bg-lf-bg rounded-[20px] p-7">
-              <div className="w-9 h-9 bg-dark rounded-full flex items-center justify-center font-extrabold text-[15px] text-lime mb-[18px]">
-                1
+
+          {/* Steps row — matches app stepsRow */}
+          <div className="flex flex-row items-start justify-between gap-2 max-[600px]:flex-col max-[600px]:gap-6">
+
+            {/* Step 1 — Book a Slot */}
+            <div className="relative flex flex-col items-center flex-1 text-center">
+              {/* Icon wrap */}
+              <div className="w-[52px] h-[52px] bg-lf-bg border border-lf-border rounded-[14px] flex items-center justify-center mb-4">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-dark">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
               </div>
-              <h3 className="text-[16px] font-bold mb-2">Download the app</h3>
-              <p className="text-[13px] text-muted leading-[1.65]">
-                Available on iPhone and Android. Create your account in under a
-                minute.
-              </p>
+              <p className="text-[13px] font-bold text-dark mb-1">Book a Slot</p>
+              <p className="text-[12px] text-muted leading-[1.5]">Pick a time</p>
+              {/* Connector */}
+              <div className="absolute top-[26px] left-[calc(50%+34px)] right-0 h-px bg-lf-border max-[600px]:hidden" />
             </div>
-            {/* Step 2 */}
-            <div className="bg-lf-bg rounded-[20px] p-7">
-              <div className="w-9 h-9 bg-dark rounded-full flex items-center justify-center font-extrabold text-[15px] text-lime mb-[18px]">
-                2
+
+            {/* Step 2 — We Collect */}
+            <div className="relative flex flex-col items-center flex-1 text-center">
+              <div className="w-[52px] h-[52px] bg-lf-bg border border-lf-border rounded-[14px] flex items-center justify-center mb-4">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-dark">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                </svg>
               </div>
-              <h3 className="text-[16px] font-bold mb-2">Book a pickup</h3>
-              <p className="text-[13px] text-muted leading-[1.65]">
-                Choose a collection slot that works for you. We come to your
-                door — no trips to a laundrette, no drop-off points.
-              </p>
-              <span className="inline-block mt-3 bg-dark rounded-[20px] py-1 px-3 text-[11px] font-bold text-lime">
-                🚗 Free collection
-              </span>
+              <p className="text-[13px] font-bold text-dark mb-1">We Collect</p>
+              <p className="text-[12px] text-muted leading-[1.5]">Hand us your laundry</p>
+              {/* Connector */}
+              <div className="absolute top-[26px] left-[calc(50%+34px)] right-0 h-px bg-lf-border max-[600px]:hidden" />
             </div>
-            {/* Step 3 */}
-            <div className="bg-lf-bg rounded-[20px] p-7">
-              <div className="w-9 h-9 bg-dark rounded-full flex items-center justify-center font-extrabold text-[15px] text-lime mb-[18px]">
-                3
+
+            {/* Step 3 — Done! */}
+            <div className="relative flex flex-col items-center flex-1 text-center">
+              <div className="w-[52px] h-[52px] bg-lf-bg border border-lf-border rounded-[14px] flex items-center justify-center mb-4">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-dark">
+                  <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9"/><path d="M9 12l2 2 4-4"/><path d="M17 3v4h4"/>
+                </svg>
               </div>
-              <h3 className="text-[16px] font-bold mb-2">
-                Receive it back clean
-              </h3>
-              <p className="text-[13px] text-muted leading-[1.65]">
-                Professionally cleaned, neatly folded, and delivered back to
-                your address on a slot you pick.
-              </p>
-              <span className="inline-block mt-3 bg-dark rounded-[20px] py-1 px-3 text-[11px] font-bold text-lime">
-                🎁 Free delivery
-              </span>
+              <p className="text-[13px] font-bold text-dark mb-1">Done!</p>
+              <p className="text-[12px] text-muted leading-[1.5]">Clean &amp; delivered</p>
             </div>
+          </div>
+
+          {/* Tip banner — matches app tipBanner */}
+          <div className="mt-8 flex flex-row items-center gap-3 bg-lf-bg border border-lf-border rounded-[14px] px-5 py-4">
+            {/* Shirt icon */}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#AAAAAA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.57a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.57a2 2 0 0 0-1.34-2.23z"/>
+            </svg>
+            <p className="text-[12px] text-muted leading-[1.5]">
+              <strong className="font-bold text-dark">Mixed, unsorted, messy</strong>
+              {" "}— just hand it over. We handle everything.
+            </p>
           </div>
         </div>
       </div>
