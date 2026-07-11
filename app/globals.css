@@ -13,18 +13,3 @@ body {
   color: #1A1A1A;
   -webkit-font-smoothing: antialiased;
 }
-
-/*
-  FAQ accordion — the only CSS that cannot be expressed in Tailwind:
-  pseudo-element content (+/−) on <details>/<summary> elements.
-*/
-details summary::-webkit-details-marker { display: none; }
-details summary { list-style: none; }
-details summary::after {
-  content: '+';
-  font-size: 20px;
-  font-weight: 400;
-  color: #767676;
-  flex-shrink: 0;
-}
-details[open] summary::after { content: '−'; }

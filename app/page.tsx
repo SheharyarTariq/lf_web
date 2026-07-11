@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { APP_STORE_URL, PLAY_STORE_URL } from "@/config";
 import ConversionLink from "@/components/ConversionLink";
+import FaqAccordion from "@/components/FaqAccordion";
 
 const AppStoreSVG = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -42,16 +43,32 @@ function SectionHeader({ label, heading }: { label: string; heading: React.React
 
 const faqData = [
   {
+    q: "Do I need to sort or count my laundry?",
+    a: "There is no sorting, counting, or preparation required on your end. Hand over your laundry however it is — mixed, unsorted, bagged or loose — and our team takes care of everything from there.",
+  },
+  {
+    q: "What happens after pickup?",
+    a: "Your laundry is transported to our facility, where every item is identified, counted, and logged against your order in the app — along with its price — before any cleaning begins. You will always have a full, itemised view of your order in the app. If you'd like to review and approve items before payment is taken, you can enable Price Review in your preferences.",
+  },
+  {
+    q: "How do you know how to handle my items?",
+    a: "Our team follows the care label on every individual item to determine the appropriate cleaning method. Where no label is present, our team uses their professional judgement and experience to treat the item appropriately. In addition, you can set your own preferences in the app — such as how you'd like your shirts returned (folded or on a hanger) and whether you'd like deep stain treatment applied. These preferences are saved to your account and applied to every order.",
+  },
+  {
+    q: "How do I know what I'll be charged?",
+    a: "Every item collected is added to your order with its individual price, based on our published price list. The full breakdown is visible in the app before any payment is taken — there are no estimates or surprises after the fact.",
+  },
+  {
+    q: "Can I approve charges before paying?",
+    a: "Yes. By enabling Price Review in your preferences, you will receive an email notification once your items have been counted and added to your order. You can review every item and its cost before approving payment. Nothing is charged until you have approved what has been logged.",
+  },
+  {
     q: "Any hidden costs?",
     a: "Collection and delivery are included in the service. You are charged only for the items we clean, at the prices listed in our price list — nothing more. There are no membership fees, minimum order requirements, or additional charges.",
   },
   {
-    q: "Do I need to sort or count my laundry?",
-    a: "No sorting, counting, or preparation required. Hand over your laundry however it is — mixed, unsorted, bagged or loose — and our team takes care of everything from there.",
-  },
-  {
-    q: "Can I approve charges before paying?",
-    a: "Yes. By enabling Price Review in your preferences, you will receive a notification once your items have been counted and added to your order. You can review every item and its cost before approving payment. Nothing is charged until you have approved what has been logged.",
+    q: "What if I need to change my delivery time?",
+    a: "Delivery slots can be updated directly from your order in the app, at any point before your order is out for delivery. Simply open the order, tap Edit, and select a new date and time that suits you.",
   },
   {
     q: "What if an item is missing or damaged?",
@@ -59,7 +76,7 @@ const faqData = [
   },
   {
     q: "Can I set up regular pickups?",
-    a: "Recurring orders are available on a weekly, fortnightly, or every-four-weeks schedule. Once set up, your pickups and deliveries are handled automatically with no action required each time. You can pause or cancel at any point from within the app.",
+    a: "Recurring orders are available on a weekly, fortnightly, or every-four-weeks schedule. Once set up, your pickups and deliveries are handled automatically with no action required each time. You can pause or cancel your recurring schedule at any point from within the app.",
   },
 ];
 
@@ -344,21 +361,7 @@ export default function Home() {
       <div id="faq" className="bg-lf-bg scroll-mt-[58px]">
         <div className="py-[72px] px-12 max-w-[1080px] mx-auto max-[860px]:py-[52px] max-[860px]:px-5">
           <SectionHeader label="Got questions?" heading="Frequently asked" />
-          <div className="max-w-[680px] mx-auto flex flex-col gap-2">
-            {faqData.map(({ q, a }) => (
-              <details
-                key={q}
-                className="bg-white border border-lf-border rounded-[14px] overflow-hidden open:border-[#C8C8C4]"
-              >
-                <summary className="px-6 py-5 text-[15px] font-semibold text-dark cursor-pointer flex justify-between items-center gap-3">
-                  {q}
-                </summary>
-                <div className="px-6 pb-5 text-[14px] text-muted leading-[1.7]">
-                  {a}
-                </div>
-              </details>
-            ))}
-          </div>
+          <FaqAccordion items={faqData} />
         </div>
       </div>
 
