@@ -276,10 +276,10 @@ export default function Home() {
       {/* ── HOW IT WORKS ── white bg */}
       {/* id + scroll-mt: /how-it-works redirects here; scroll-mt clears the 58px sticky header */}
       <div id="how-it-works" className="bg-white scroll-mt-[58px]">
-        <div className="py-24 px-6 max-[860px]:py-16 max-[860px]:px-5">
+        <div className="py-[72px] px-12 max-w-[1080px] mx-auto max-[860px]:py-[52px] max-[860px]:px-5">
           <SectionHeader label="Step by step" heading="How it works" />
 
-          <ol className="list-none p-0 max-w-[1120px] mx-auto grid grid-cols-3 gap-5 max-[860px]:grid-cols-1 max-[860px]:gap-4">
+          <ol className="list-none p-0 grid grid-cols-3 gap-5 max-[860px]:grid-cols-1 max-[860px]:gap-4">
             {HOW_STEPS.map((step) => (
               <li key={step.n} className="flex flex-col items-start p-9 rounded-[24px] bg-lf-bg max-[860px]:p-7">
                 <span aria-hidden className="w-11 h-11 rounded-full bg-dark text-lime text-[18px] font-bold inline-flex items-center justify-center mb-6">
@@ -295,7 +295,7 @@ export default function Home() {
             ))}
           </ol>
 
-          <div className="max-w-[1120px] mx-auto mt-6 py-8 px-10 rounded-[24px] bg-dark flex items-center justify-between gap-8 max-[860px]:flex-col max-[860px]:items-stretch max-[860px]:text-center max-[860px]:px-6 max-[860px]:gap-6 max-[860px]:mt-4">
+          <div className="mt-6 py-8 px-10 rounded-[24px] bg-dark flex items-center justify-between gap-8 max-[860px]:flex-col max-[860px]:items-stretch max-[860px]:text-center max-[860px]:px-6 max-[860px]:gap-6 max-[860px]:mt-4">
             <div className="flex-1 min-w-0">
               <p className="text-[clamp(18px,2.2vw,22px)] font-bold text-white mb-1.5 max-[860px]:whitespace-normal min-[861px]:truncate">
                 Laundry day, solved from your phone
