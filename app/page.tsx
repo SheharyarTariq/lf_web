@@ -277,12 +277,7 @@ export default function Home() {
       {/* id + scroll-mt: /how-it-works redirects here; scroll-mt clears the 58px sticky header */}
       <div id="how-it-works" className="bg-white scroll-mt-[58px]">
         <div className="py-24 px-6 max-[860px]:py-16 max-[860px]:px-5">
-          <p className="text-[13px] font-semibold tracking-[4px] uppercase text-muted text-center mb-3">
-            Step by step
-          </p>
-          <h2 className="text-[clamp(40px,6vw,64px)] font-extrabold tracking-[-1.5px] text-dark text-center mb-14 max-[860px]:mb-10">
-            How it works
-          </h2>
+          <SectionHeader label="Step by step" heading="How it works" />
 
           <ol className="list-none p-0 max-w-[1120px] mx-auto grid grid-cols-3 gap-5 max-[860px]:grid-cols-1 max-[860px]:gap-4">
             {HOW_STEPS.map((step) => (
@@ -315,6 +310,45 @@ export default function Home() {
             >
               Get the app — 25% off your first order
             </a>
+          </div>
+        </div>
+      </div>
+
+      {/* ── WHAT'S INCLUDED ── off-white bg */}
+      <div className="bg-lf-bg">
+        <div className="py-[72px] px-12 max-w-[1080px] mx-auto max-[860px]:py-[52px] max-[860px]:px-5">
+          <SectionHeader label="Everything included" heading="What&apos;s included" />
+          <div className="grid grid-cols-3 gap-3 max-[860px]:grid-cols-2 max-[540px]:grid-cols-1">
+            {/* Hero perk — dark card spanning 2 cols */}
+            <div className="col-span-2 bg-dark rounded-[18px] p-6 max-[540px]:col-span-1">
+              <div className="w-11 h-11 bg-[rgba(200,255,0,0.12)] border border-[rgba(200,255,0,0.28)] rounded-[12px] flex items-center justify-center text-[22px] mb-[14px]">
+                🚗
+              </div>
+              <h4 className="text-[15px] font-bold text-white mb-[6px]">
+                Free Collection &amp; Delivery
+              </h4>
+              <p className="text-[13px] text-white/50 leading-[1.6]">
+                Every order includes free door-to-door collection and delivery —
+                no minimum spend, no hidden charges. Just book through the app
+                and we handle the rest.
+              </p>
+            </div>
+
+            {/* Regular perk cards */}
+            {[
+              { icon: "👕", title: "Professional Cleaning", body: "Care labels followed on every item, with professional judgement where needed." },
+              { icon: "🔁", title: "Recurring Orders", body: "Set weekly or fortnightly pickups and never think about laundry day again." },
+              { icon: "✏️", title: "Your Preferences, Saved", body: "Folded or on hangers? Stain treatment? Set it once in the app — we remember for every order." },
+              { icon: "💳", title: "Secure App Payments", body: "Card details are stored securely on Stripe's PCI-compliant servers — never with us." },
+            ].map(({ icon, title, body }) => (
+              <div key={title} className="bg-white border border-lf-border rounded-[18px] p-6">
+                <div className="w-11 h-11 bg-lf-bg rounded-[12px] flex items-center justify-center text-[22px] mb-[14px]">
+                  {icon}
+                </div>
+                <h4 className="text-[15px] font-bold text-dark mb-[6px]">{title}</h4>
+                <p className="text-[13px] text-muted leading-[1.6]">{body}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
