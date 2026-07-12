@@ -41,6 +41,54 @@ function SectionHeader({ label, heading }: { label: string; heading: React.React
   );
 }
 
+/* How it works — step icons (stroke inherits currentColor from the chip) */
+const STEP_ICONS = {
+  truck: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+      <circle cx="7" cy="17" r="2" />
+      <circle cx="17" cy="17" r="2" />
+      <path d="M5 17H3V6a1 1 0 0 1 1-1h9v12M9 17h6M15 6h4l3 4v7h-2" />
+    </svg>
+  ),
+  clipboard: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+      <rect x="9" y="3" width="6" height="4" rx="1" />
+      <path d="m9 14 2 2 4-4" />
+    </svg>
+  ),
+  track: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 3" />
+    </svg>
+  ),
+} as const;
+
+const HOW_STEPS = [
+  {
+    n: "1",
+    title: "Book a pickup in the app",
+    body: "Set up in under a minute, pick slots that suit you, and a driver comes to your door.",
+    icon: "truck",
+    label: "Free pickup & delivery",
+  },
+  {
+    n: "2",
+    title: "Hand it over as-is",
+    body: "No sorting, no counting. We itemise every piece and the full list appears in your order.",
+    icon: "clipboard",
+    label: "You approve the price before we clean",
+  },
+  {
+    n: "3",
+    title: "Back fresh in 48h",
+    body: "Cleaned to care labels, neatly folded, delivered in the slot you picked.",
+    icon: "track",
+    label: "Track every step in the app",
+  },
+] as const;
+
 const faqData = [
   {
     q: "Do I need to sort or count my laundry?",
@@ -228,100 +276,45 @@ export default function Home() {
       {/* ── HOW IT WORKS ── white bg */}
       {/* id + scroll-mt: /how-it-works redirects here; scroll-mt clears the 58px sticky header */}
       <div id="how-it-works" className="bg-white scroll-mt-[58px]">
-        <div className="py-[72px] px-12 max-w-[1080px] mx-auto max-[860px]:py-[52px] max-[860px]:px-5">
-          <SectionHeader label="Step by step" heading="How it works" />
+        <div className="py-24 px-6 max-[860px]:py-16 max-[860px]:px-5">
+          <p className="text-[13px] font-semibold tracking-[4px] uppercase text-muted text-center mb-3">
+            Step by step
+          </p>
+          <h2 className="text-[clamp(40px,6vw,64px)] font-extrabold tracking-[-1.5px] text-dark text-center mb-14 max-[860px]:mb-10">
+            How it works
+          </h2>
 
-          {/* Steps row — matches app stepsRow */}
-          <div className="flex flex-row items-start justify-between gap-2 max-[600px]:flex-col max-[600px]:gap-6">
+          <ol className="list-none p-0 max-w-[1120px] mx-auto grid grid-cols-3 gap-5 max-[860px]:grid-cols-1 max-[860px]:gap-4">
+            {HOW_STEPS.map((step) => (
+              <li key={step.n} className="flex flex-col items-start p-9 rounded-[24px] bg-lf-bg max-[860px]:p-7">
+                <span aria-hidden className="w-11 h-11 rounded-full bg-dark text-lime text-[18px] font-bold inline-flex items-center justify-center mb-6">
+                  {step.n}
+                </span>
+                <h3 className="text-[22px] font-bold text-dark mb-[10px]">{step.title}</h3>
+                <p className="text-[16px] leading-[1.6] text-muted mb-5 grow">{step.body}</p>
+                <span className="inline-flex items-center gap-2 py-[9px] px-4 rounded-full bg-dark text-lime text-[14px] font-semibold leading-[1.3] max-w-full">
+                  <span aria-hidden className="shrink-0 inline-flex w-4 h-4">{STEP_ICONS[step.icon]}</span>
+                  {step.label}
+                </span>
+              </li>
+            ))}
+          </ol>
 
-            {/* Step 1 — Book a Slot */}
-            <div className="relative flex flex-col items-center flex-1 text-center">
-              {/* Icon wrap */}
-              <div className="w-[52px] h-[52px] bg-lf-bg border border-lf-border rounded-[14px] flex items-center justify-center mb-4">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-dark">
-                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                </svg>
-              </div>
-              <p className="text-[13px] font-bold text-dark mb-1">Book a Slot</p>
-              <p className="text-[12px] text-muted leading-[1.5]">Pick a time</p>
-              {/* Connector */}
-              <div className="absolute top-[26px] left-[calc(50%+34px)] right-0 h-px bg-lf-border max-[600px]:hidden" />
-            </div>
-
-            {/* Step 2 — We Collect */}
-            <div className="relative flex flex-col items-center flex-1 text-center">
-              <div className="w-[52px] h-[52px] bg-lf-bg border border-lf-border rounded-[14px] flex items-center justify-center mb-4">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-dark">
-                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                </svg>
-              </div>
-              <p className="text-[13px] font-bold text-dark mb-1">We Collect</p>
-              <p className="text-[12px] text-muted leading-[1.5]">Hand us your laundry</p>
-              {/* Connector */}
-              <div className="absolute top-[26px] left-[calc(50%+34px)] right-0 h-px bg-lf-border max-[600px]:hidden" />
-            </div>
-
-            {/* Step 3 — Done! */}
-            <div className="relative flex flex-col items-center flex-1 text-center">
-              <div className="w-[52px] h-[52px] bg-lf-bg border border-lf-border rounded-[14px] flex items-center justify-center mb-4">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-dark">
-                  <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9"/><path d="M9 12l2 2 4-4"/><path d="M17 3v4h4"/>
-                </svg>
-              </div>
-              <p className="text-[13px] font-bold text-dark mb-1">Done!</p>
-              <p className="text-[12px] text-muted leading-[1.5]">Clean &amp; delivered</p>
-            </div>
-          </div>
-
-          {/* Tip banner — matches app tipBanner */}
-          <div className="mt-8 flex flex-row items-center gap-3 bg-lf-bg border border-lf-border rounded-[14px] px-5 py-4">
-            {/* Shirt icon */}
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#AAAAAA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-              <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.57a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.57a2 2 0 0 0-1.34-2.23z"/>
-            </svg>
-            <p className="text-[12px] text-muted leading-[1.5]">
-              <strong className="font-bold text-dark">Mixed, unsorted, messy</strong>
-              {" "}— just hand it over. We handle everything.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── WHAT'S INCLUDED ── off-white bg */}
-      <div className="bg-lf-bg">
-        <div className="py-[72px] px-12 max-w-[1080px] mx-auto max-[860px]:py-[52px] max-[860px]:px-5">
-          <SectionHeader label="Everything included" heading="What&apos;s included" />
-          <div className="grid grid-cols-3 gap-3 max-[860px]:grid-cols-2 max-[540px]:grid-cols-1">
-            {/* Hero perk — dark card spanning 2 cols */}
-            <div className="col-span-2 bg-dark rounded-[18px] p-6 max-[540px]:col-span-1">
-              <div className="w-11 h-11 bg-[rgba(200,255,0,0.12)] border border-[rgba(200,255,0,0.28)] rounded-[12px] flex items-center justify-center text-[22px] mb-[14px]">
-                🚗
-              </div>
-              <h4 className="text-[15px] font-bold text-white mb-[6px]">
-                Free Collection &amp; Delivery
-              </h4>
-              <p className="text-[13px] text-white/50 leading-[1.6]">
-                Every order includes free door-to-door collection and delivery —
-                no minimum spend, no hidden charges. Just book through the app
-                and we handle the rest.
+          <div className="max-w-[1120px] mx-auto mt-6 py-8 px-10 rounded-[24px] bg-dark flex items-center justify-between gap-8 max-[860px]:flex-col max-[860px]:items-stretch max-[860px]:text-center max-[860px]:px-6 max-[860px]:gap-6 max-[860px]:mt-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-[clamp(18px,2.2vw,22px)] font-bold text-white mb-1.5 max-[860px]:whitespace-normal min-[861px]:truncate">
+                Laundry day, solved from your phone
+              </p>
+              <p className="text-[15px] text-white/50 min-[861px]:truncate">
+                15% off your second order · Free on iOS &amp; Android
               </p>
             </div>
-
-            {/* Regular perk cards */}
-            {[
-              { icon: "👕", title: "Professional Cleaning", body: "Care labels followed on every item, with professional judgement where needed." },
-              { icon: "🔁", title: "Recurring Orders", body: "Set weekly or fortnightly pickups and never think about laundry day again." },
-              { icon: "✏️", title: "Your Preferences, Saved", body: "Folded or on hangers? Stain treatment? Set it once in the app — we remember for every order." },
-              { icon: "💳", title: "Secure App Payments", body: "Card details are stored securely on Stripe's PCI-compliant servers — never with us." },
-            ].map(({ icon, title, body }) => (
-              <div key={title} className="bg-white border border-lf-border rounded-[18px] p-6">
-                <div className="w-11 h-11 bg-lf-bg rounded-[12px] flex items-center justify-center text-[22px] mb-[14px]">
-                  {icon}
-                </div>
-                <h4 className="text-[15px] font-bold text-dark mb-[6px]">{title}</h4>
-                <p className="text-[13px] text-muted leading-[1.6]">{body}</p>
-              </div>
-            ))}
+            <a
+              href="#download"
+              className="shrink-0 py-[18px] px-8 rounded-full bg-lime text-dark text-[17px] font-bold no-underline text-center transition-transform duration-150 hover:scale-[1.03] max-[860px]:w-full max-[860px]:py-4 max-[860px]:text-[16px]"
+            >
+              Get the app — 25% off your first order
+            </a>
           </div>
         </div>
       </div>
