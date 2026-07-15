@@ -147,8 +147,19 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // motion-safe:scroll-smooth animates the in-page jumps to #download, #faq and
+  // #how-it-works, and respects prefers-reduced-motion. data-scroll-behavior is
+  // required alongside it: as of Next 16 the router no longer overrides
+  // scroll-behavior during navigation unless it's set, so without it every
+  // cross-page navigation would animate a long scroll to top instead of jumping.
+  // With it, Next forces "auto" for route changes and keeps smooth for hash-only
+  // navigation — which is exactly what we want.
   return (
-    <html lang="en-GB" className={poppins.className}>
+    <html
+      lang="en-GB"
+      className={`${poppins.className} motion-safe:scroll-smooth`}
+      data-scroll-behavior="smooth"
+    >
       {/* Flex column so the shared footer sticks to the bottom on short pages.
           The shell (PromoBar / Header / Footer) lives here and persists across
           client navigation — only {children} swaps, giving an SPA feel. */}

@@ -2,6 +2,7 @@ import Image from "next/image";
 import { APP_STORE_URL, PLAY_STORE_URL } from "@/config";
 import ConversionLink from "@/components/ConversionLink";
 import FaqAccordion from "@/components/FaqAccordion";
+import GetAppButton from "@/components/GetAppButton";
 
 const AppStoreSVG = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -257,7 +258,18 @@ export default function Home() {
           </span>
         </div>
 
-        <div id="download" className="relative z-10 max-w-[600px] mx-auto">
+        {/* id + scroll-mt: the "Get the app" CTAs send desktop users here for the
+            QR; scroll-mt clears the 58px sticky header. tabIndex lets Next's
+            fragment scroll move focus here too — it calls .focus() on the
+            target, which no-ops on a plain div — so a keyboard user carries on
+            tabbing from the card rather than from the header. outline-none hides
+            the ring that focus would otherwise draw around the whole section;
+            the card isn't interactive, so the ring is noise, not information. */}
+        <div
+          id="download"
+          tabIndex={-1}
+          className="relative z-10 max-w-[600px] mx-auto scroll-mt-[58px] focus:outline-none"
+        >
           {/* Section label divider */}
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-px bg-white/[0.10]" />
@@ -348,12 +360,9 @@ export default function Home() {
                 15% off your second order · Free on iOS &amp; Android
               </p>
             </div>
-            <a
-              href="#download"
-              className="shrink-0 py-[18px] px-8 rounded-full bg-lime text-dark text-[17px] font-bold no-underline text-center transition-transform duration-150 hover:scale-[1.03] max-[860px]:w-full max-[860px]:py-4 max-[860px]:text-[16px]"
-            >
+            <GetAppButton className="shrink-0 py-[18px] px-8 rounded-full bg-lime text-dark text-[17px] font-bold no-underline text-center transition-transform duration-150 hover:scale-[1.03] max-[860px]:w-full max-[860px]:py-4 max-[860px]:text-[16px]">
               Get the app — 25% off your first order
-            </a>
+            </GetAppButton>
           </div>
         </div>
       </div>
@@ -448,8 +457,11 @@ export default function Home() {
       </div>
 
       {/* ── DOWNLOAD CTA ── lime bg */}
+      {/* id is "get-started", not "download": the hero card above owns #download
+          (it's the one with the QR that the "Get the app" CTAs point at), and an
+          id can only live in one place. */}
       <section
-        id="download"
+        id="get-started"
         className="bg-lime py-16 px-12 text-center max-[860px]:py-[52px] max-[860px]:px-5"
       >
         <div className="text-[10px] font-bold tracking-[2.5px] uppercase text-black/45 mb-2">
