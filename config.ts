@@ -7,3 +7,10 @@ export const config = {
 export const APP_STORE_URL = "https://apps.apple.com/app/id6763839907";
 export const PLAY_STORE_URL =
   "https://play.google.com/store/apps/details?id=uk.co.laundryfree.app";
+
+// Deep-link identity of the mobile app, mirrored from lf-app/app.json
+// (`scheme` and `android.package`). Used by the smart app-redirect fallback
+// (components/AppRedirect.tsx) to build `laundryfree://…` URLs and the Android
+// `intent://…` URL. Keep in sync with app.json.
+export const APP_SCHEME = "laundryfree";
+export const ANDROID_PACKAGE = "uk.co.laundryfree.app";
