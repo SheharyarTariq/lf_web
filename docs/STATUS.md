@@ -121,6 +121,56 @@ branch there — check `curl -s localhost:3000/ | grep -c "Log in"` returns 1.
 real account, so it is being checked by hand. Everything above used either a real 401 or a
 structurally valid fake JWT with a stubbed `/my-status`.
 
+## Done — the skills restructure
+
+The codebase predated the three imported skills and followed almost none of them. It does
+now, in five verified stages.
+
+**Routing.** `app/(site)` is gone, replaced by three groups sharing one `SiteShell`
+component: `(main)` the product, `(seo)` content that exists to be found, `(legal)` required
+documents and support. Route groups do not appear in URLs — the build's route list was
+byte-identical at every step, which is the proof.
+
+**SPA.** Sixteen internal links were raw anchors forcing a full document reload — the whole
+header nav, the drawer, "Get the app", the footer's section links, and `/terms` and
+`/privacy-policy` from inside the checkout. All `<Link>` now. Anchors with `target="_blank"`
+stay anchors; a new tab is a new document either way.
+
+**Layout.** Every component is a folder with `index.tsx`. `lib/` is gone, its twelve modules
+under `utils/`. `booking/parts.tsx` split into four components with its class constants moved
+to `utils/booking/styles`; `booking/context.tsx` moved to `utils/`, being state rather than UI.
+
+**Components.** `components/common/{Button,Input,Textarea,Loader,Card}`. 76 of 77 raw
+`<button>` and every recipe-carrying form control routed through them. `Select` and
+`FormDialog` were deliberately not built — the skill says "create on first need", there is no
+`<select>` anywhere, and `booking/common/Modal` already covers the dialog.
+
+**`cn()`.** 69 composed class strings. Module-level recipe constants keep their `+`, which
+wraps lines rather than composing conditionally.
+
+**Validation.** Four Yup schemas beside their components, every message carried over verbatim.
+`utils/validation` gained `validateFormSync` because the checkout computes a field's error
+during render.
+
+**Icons.** Swapped to lucide. Archived first — see `docs/ICONS.md` and `public/icons/`.
+
+### Two things this left that are worth knowing
+
+**`Button` and `Input` both take a `surface`.** The landing page, the checkout and the auth
+modal are genuinely different systems, not one with modifiers. The auth modal's field is 52px
+where the checkout's is 48, with a different radius, padding, text size and placeholder — a
+shared recipe restyles one of them. That was caught by the audit, not by reading.
+
+**`tailwind-merge` changes how class conflicts resolve** — by source order, where Tailwind
+uses its own sort order. That is the fix for trap 4 above, but it means a base and a state
+recipe setting the same property now behave differently. `scripts/audit/deep.mjs` drives the
+conditional states (selected day, selected slot, open accordion) for exactly this reason.
+
+**`yup` is in the client bundle on every page** — a 56K chunk, because `AuthProvider` imports
+`AuthModal` statically from the root layout. Loading the modal with `next/dynamic` would move
+it out of the initial bundle; not done, since it changes loading behaviour and deserves its
+own pass.
+
 ## Pending — integration
 
 **Agreed order: the logged-in user flow first, guest checkout after.**
