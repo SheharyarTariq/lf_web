@@ -1,3 +1,4 @@
+import { cn } from "@/utils/cn";
 import Link from "next/link";
 import { StepIcon, TrustIcon } from "@/components/icons";
 import { PANEL_TRUST, STEPS } from "@/utils/content";
@@ -46,7 +47,7 @@ export default function HowItWorks() {
               </p>
               <h2
                 id="lf-how"
-                className={`mb-1.5 text-[clamp(28px,3.1vw,40px)] font-extrabold leading-[1.1] tracking-[-1.2px] ${SECTION_H2_MARGIN}`}
+                className={cn("mb-1.5 text-[clamp(28px,3.1vw,40px)] font-extrabold leading-[1.1] tracking-[-1.2px]", SECTION_H2_MARGIN)}
               >
                 How to live laundry-free
               </h2>

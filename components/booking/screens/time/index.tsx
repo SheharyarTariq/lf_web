@@ -4,6 +4,7 @@
    2 · Time
    ══════════════════════════════════════════════════════════════════ */
 
+import { cn } from "@/utils/cn";
 import Textarea from "@/components/common/Textarea";
 import Button from "@/components/common/Button";
 import { useEffect, useId, useMemo, useState } from "react";
@@ -208,7 +209,7 @@ export default function TimeScreen() {
             id={`${ids}-tab-${id}`}
             aria-selected={leg === id}
             aria-controls={`${ids}-panel-${id}`}
-            className={`${LEG} ${leg === id ? LEG_ON : LEG_OFF}`}
+            className={cn(LEG, leg === id ? LEG_ON : LEG_OFF)}
             disabled={!enabled}
             onClick={() => setLeg(id)}
           >
@@ -217,9 +218,7 @@ export default function TimeScreen() {
               {done && " ✓"}
             </b>
             <span
-              className={`max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px] ${
-                leg === id ? "text-bk-ink-2" : "text-bk-ink-3"
-              }`}
+              className={cn("max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px]", leg === id ? "text-bk-ink-2" : "text-bk-ink-3")}
             >
               {sub}
             </span>
@@ -317,7 +316,7 @@ export default function TimeScreen() {
                   {REPEAT_EVERY.map(([id, label]) => {
                     const on = data.repeatEvery === id;
                     return (
-                      <label key={id} className={`${CHIP} ${on ? CHIP_ON : CHIP_OFF}`}>
+                      <label key={id} className={cn(CHIP, on ? CHIP_ON : CHIP_OFF)}>
                         <input
                           className={CONTROL_PEER}
                           type="radio"

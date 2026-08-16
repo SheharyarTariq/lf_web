@@ -4,6 +4,7 @@
    3 · Details
    ══════════════════════════════════════════════════════════════════ */
 
+import { cn } from "@/utils/cn";
 import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
@@ -423,7 +424,7 @@ export default function ContactScreen() {
                     the half-typed address and closes the list before the
                     tap lands on anything. */}
                 <Button variant="bare"
-                  className={`${SUG_BTN} ${i === sugIndex ? "bg-bk-paper-2" : "bg-transparent hover:bg-bk-paper-2"}`}
+                  className={cn(SUG_BTN, i === sugIndex ? "bg-bk-paper-2" : "bg-transparent hover:bg-bk-paper-2")}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => chooseSuggestion(s)}
                   tabIndex={-1}

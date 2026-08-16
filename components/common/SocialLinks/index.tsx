@@ -1,3 +1,4 @@
+import { cn } from "@/utils/cn";
 import { SocialGlyph } from "@/components/icons";
 import { BRAND, SOCIALS } from "@/utils/content";
 
@@ -24,7 +25,7 @@ export default function SocialLinks({
       : "hover:bg-brand hover:-translate-y-0.5";
 
   return (
-    <ul className={`flex gap-2.5 ${variant === "dark" ? "mt-[18px]" : ""} ${className}`.trim()}>
+    <ul className={cn("flex gap-2.5", variant === "dark" ? "mt-[18px]" : "", className)}>
       {SOCIALS.map((s) => (
         <li key={s.name}>
           {s.href ? (
@@ -33,12 +34,12 @@ export default function SocialLinks({
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`${BRAND.name} on ${s.name} (opens in a new tab)`}
-              className={`${chip} ${tone} ${hover}`}
+              className={cn(chip, tone, hover)}
             >
               <SocialGlyph name={s.name} />
             </a>
           ) : (
-            <span className={`${chip} ${tone} cursor-default opacity-55`} aria-hidden="true">
+            <span className={cn(chip, tone, "cursor-default opacity-55")} aria-hidden="true">
               <SocialGlyph name={s.name} />
             </span>
           )}

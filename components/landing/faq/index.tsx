@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
 import { useState } from "react";
 import { FAQ, FAQ_PREVIEW_COUNT } from "@/utils/content";
@@ -35,13 +36,13 @@ export default function Faq() {
               const isOpen = open === i;
               return (
                 <div
-                  className={`mb-2.5 overflow-hidden rounded-card-md border bg-white transition-colors duration-150 ease-[ease] hover:border-line-2 ${isOpen ? "border-line-2" : "border-line"}`}
+                  className={cn("mb-2.5 overflow-hidden rounded-card-md border bg-white transition-colors duration-150 ease-[ease] hover:border-line-2", isOpen ? "border-line-2" : "border-line")}
                   key={q}
                 >
                   <h3 className="m-0 text-[1.17em] font-bold">
                     <Button
                       variant="bare"
-                      className={`${ROW} group cursor-pointer border-none bg-transparent font-semibold text-ink`}
+                      className={cn(ROW, "group cursor-pointer border-none bg-transparent font-semibold text-ink")}
                       aria-expanded={isOpen}
                       aria-controls={`lf-fp-${i}`}
                       onClick={() => setOpen(isOpen ? -1 : i)}
@@ -51,7 +52,7 @@ export default function Faq() {
                           would tint only the question and leave the open
                           answer white, splitting the card into two tones. */}
                       <span
-                        className={`${SIGN} ${isOpen ? "rotate-45 bg-brand" : "bg-paper-2 group-hover:bg-line"}`}
+                        className={cn(SIGN, isOpen ? "rotate-45 bg-brand" : "bg-paper-2 group-hover:bg-line")}
                         aria-hidden="true"
                       >
                         +
@@ -72,7 +73,7 @@ export default function Faq() {
 
             <Button
               variant="bare"
-              className={`${ROW} group w-full cursor-pointer rounded-card-md border border-line bg-white font-bold text-ink-2 transition-colors duration-150 ease-[ease] hover:border-line-2`}
+              className={cn(ROW, "group w-full cursor-pointer rounded-card-md border border-line bg-white font-bold text-ink-2 transition-colors duration-150 ease-[ease] hover:border-line-2")}
               aria-expanded={showAll}
               onClick={() => {
                 setShowAll((v) => !v);
@@ -90,7 +91,7 @@ export default function Faq() {
                 )}
               </span>
               <span
-                className={`${SIGN} bg-brand text-ink group-hover:bg-brand-hover`}
+                className={cn(SIGN, "bg-brand text-ink group-hover:bg-brand-hover")}
                 aria-hidden="true"
               >
                 <svg
@@ -102,7 +103,7 @@ export default function Faq() {
                   strokeWidth="2.6"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className={`transition-transform duration-200 ease-[ease] ${showAll ? "rotate-180" : ""}`}
+                  className={cn("transition-transform duration-200 ease-[ease]", showAll ? "rotate-180" : "")}
                 >
                   <path d="M6 9l6 6 6-6" />
                 </svg>

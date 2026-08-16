@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import { CLOSE_BTN_MODAL } from "@/utils/booking/styles";
@@ -42,8 +43,10 @@ export default function Modal({
     >
       <div
         className={
-          "flex max-h-full w-full flex-col rounded-card-lg bg-white shadow-lift focus:outline-none " +
-          (wide ? "max-w-[620px] px-6 pt-5 pb-6" : "max-w-[400px] p-6")
+          cn(
+            "flex max-h-full w-full flex-col rounded-card-lg bg-white shadow-lift focus:outline-none",
+            wide ? "max-w-[620px] px-6 pt-5 pb-6" : "max-w-[400px] p-6",
+          )
         }
         role="dialog"
         aria-modal="true"

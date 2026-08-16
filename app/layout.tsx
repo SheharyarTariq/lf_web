@@ -1,3 +1,4 @@
+import { cn } from "@/utils/cn";
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import Script from "next/script";
@@ -157,7 +158,7 @@ export default function RootLayout({
   return (
     <html
       lang="en-GB"
-      className={`${poppins.className} motion-safe:scroll-smooth`}
+      className={cn(poppins.className, "motion-safe:scroll-smooth")}
       data-scroll-behavior="smooth"
     >
       {/* Flex column so a page's footer sticks to the bottom on short pages.

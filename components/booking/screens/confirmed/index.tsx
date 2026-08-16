@@ -4,6 +4,7 @@
    5 · Confirmed
    ══════════════════════════════════════════════════════════════════ */
 
+import { cn } from "@/utils/cn";
 import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import Link from "next/link";
@@ -92,7 +93,7 @@ export default function ConfirmedScreen() {
         {steps.map(([title, body], i) => (
           <li
             key={title}
-            className={`flex gap-[14px] py-[14px] text-left${i ? " border-t border-t-bk-line" : ""}`}
+            className={cn("flex gap-[14px] py-[14px] text-left", i ? " border-t border-t-bk-line" : "")}
           >
             <span
               className="flex h-7 w-7 flex-none items-center justify-center rounded-[50%] bg-bk-ink text-[13px] font-bold text-white"

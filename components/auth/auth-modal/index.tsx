@@ -14,6 +14,7 @@
    one — it belongs to the product, not the marketing page.
    ══════════════════════════════════════════════════════════════════ */
 
+import { cn } from "@/utils/cn";
 import { AUTH_INPUT_BASE } from "@/utils/auth/styles";
 import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
@@ -586,7 +587,7 @@ export default function AuthModal({
                 </span>
                 <input
                   id={`${ids}-tel`}
-                  className={`h-[50px] ${AUTH_INPUT_BASE} rounded-none border-none shadow-none focus:shadow-none`}
+                  className={cn("h-[50px]", AUTH_INPUT_BASE, "rounded-none border-none shadow-none focus:shadow-none")}
                   type="tel"
                   inputMode="tel"
                   value={form.phone}
@@ -627,7 +628,7 @@ export default function AuthModal({
             </Field>
 
             <Button variant="bare"
-              className={`${BTN_LIME} mt-1.5`}
+              className={cn(BTN_LIME, "mt-1.5")}
               disabled={!signupReady || busy}
               onClick={submitSignup}
             >
@@ -699,7 +700,7 @@ export default function AuthModal({
             </Field>
 
             <Button variant="bare"
-              className={`${BTN_LIME} mt-1.5`}
+              className={cn(BTN_LIME, "mt-1.5")}
               disabled={!EMAIL_RE.test(form.email.trim()) || busy}
               onClick={submitForgot}
             >

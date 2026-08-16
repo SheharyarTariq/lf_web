@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
 import { useEffect, useState } from "react";
 import Stars from "@/components/common/StarsRating";
@@ -60,7 +61,7 @@ function BeforeAfter() {
       <div className="mask-hero-fade absolute inset-0 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          className={`${frame} ${showAfter ? "opacity-0" : "opacity-100"}`}
+          className={cn(frame, showAfter ? "opacity-0" : "opacity-100")}
           src={ASSETS.heroBefore}
           srcSet={`${ASSETS.heroBeforeSmall} 800w, ${ASSETS.heroBefore} 1600w`}
           sizes="(max-width: 1024px) 92vw, 46vw"
@@ -72,7 +73,7 @@ function BeforeAfter() {
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          className={`${frame} ${showAfter ? "opacity-100" : "opacity-0"}`}
+          className={cn(frame, showAfter ? "opacity-100" : "opacity-0")}
           src={ASSETS.heroAfter}
           srcSet={`${ASSETS.heroAfterSmall} 800w, ${ASSETS.heroAfter} 1600w`}
           sizes="(max-width: 1024px) 92vw, 46vw"
@@ -95,7 +96,7 @@ export default function Hero() {
        a left-aligned block reads as if it has slipped off centre. */
     <section aria-labelledby="lf-h1" className="to-1024:text-center">
       <div
-        className={`${WRAP} grid grid-cols-[1.05fr_.95fr] items-center gap-12 pb-14 pt-[60px] to-1280:pb-[46px] to-1280:pt-12 to-1180:gap-9 to-1024:grid-cols-[1fr] to-1024:gap-10 to-720:pb-11 to-720:pt-10`}
+        className={cn(WRAP, "grid grid-cols-[1.05fr_.95fr] items-center gap-12 pb-14 pt-[60px] to-1280:pb-[46px] to-1280:pt-12 to-1180:gap-9 to-1024:grid-cols-[1fr] to-1024:gap-10 to-720:pb-11 to-720:pt-10")}
       >
         <div>
           {/* Headline is completely static — it is the thing people actually

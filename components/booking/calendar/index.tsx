@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
 import { useMemo, useRef } from "react";
 import { Icon, P } from "@/components/booking/icons";
@@ -164,9 +165,7 @@ export default function Calendar({
             <Button variant="bare"
               key={k}
               data-k={k}
-              className={`${CELL} ${on ? CELL_ON : CELL_OFF} ${
-                on ? "" : isToday ? "border-bk-line-2" : "border-transparent"
-              }`}
+              className={cn(CELL, on ? CELL_ON : CELL_OFF, on ? "" : isToday ? "border-bk-line-2" : "border-transparent")}
               aria-pressed={on}
               disabled={!open}
               onClick={() => onChange(k)}
@@ -231,20 +230,22 @@ export function SlotPicker({
           <label
             key={label}
             className={
-              "flex min-h-11 cursor-pointer items-center justify-center rounded-ctl-lg " +
-              "to-720:min-h-[42px] to-400:text-[13px] " +
-              "border-[1.5px] px-1.5 py-2 text-center text-[14px] font-semibold text-bk-ink " +
-              "transition-[border-color,background-color] duration-150 ease-[ease] " +
-              "has-[input:focus-visible]:outline has-[input:focus-visible]:outline-[3px] " +
-              "has-[input:focus-visible]:outline-offset-[3px] has-[input:focus-visible]:outline-bk-ink " +
-              /* Positioned only where something is positioned against it —
-                 the Eco pill hangs off the top edge, and nothing else does. */
-              (eco ? "relative " : "") +
-              /* Border and background are each said once, here, for the same
-                 reason as the calendar cell above. */
-              (on
-                ? "border-brand bg-panel shadow-[inset_0_0_0_1px_var(--color-brand)]"
-                : "border-bk-line-2 bg-white hover:border-bk-ink-3")
+              cn(
+                "flex min-h-11 cursor-pointer items-center justify-center rounded-ctl-lg",
+                "to-720:min-h-[42px] to-400:text-[13px]",
+                "border-[1.5px] px-1.5 py-2 text-center text-[14px] font-semibold text-bk-ink",
+                "transition-[border-color,background-color] duration-150 ease-[ease]",
+                "has-[input:focus-visible]:outline has-[input:focus-visible]:outline-[3px]",
+                "has-[input:focus-visible]:outline-offset-[3px] has-[input:focus-visible]:outline-bk-ink",
+                /* Positioned only where something is positioned against it —
+                   the Eco pill hangs off the top edge, and nothing else does. */
+                eco && "relative",
+                /* Border and background are each said once, here, for the same
+                   reason as the calendar cell above. */
+                on
+                  ? "border-brand bg-panel shadow-[inset_0_0_0_1px_var(--color-brand)]"
+                  : "border-bk-line-2 bg-white hover:border-bk-ink-3",
+              )
             }
           >
             <input
@@ -258,7 +259,7 @@ export function SlotPicker({
             {label}
             {eco && (
               <>
-                <span className={`${ECO_TAG} absolute -top-2 right-2`} aria-hidden="true">
+                <span className={cn(ECO_TAG, "absolute -top-2 right-2")} aria-hidden="true">
                   Eco
                 </span>
                 <span className="visually-hidden"> — greener window</span>

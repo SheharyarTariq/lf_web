@@ -24,6 +24,7 @@
    renders and validates normally; only confirmation is unavailable.
    ══════════════════════════════════════════════════════════════════ */
 
+import { cn } from "@/utils/cn";
 import { useEffect, useRef, useState } from "react";
 import { Icon, P } from "@/components/booking/icons";
 
@@ -190,9 +191,9 @@ export default function StripePayment({
 
   return (
     <div className="min-h-[60px]">
-      {status === "loading" && <p className={`${STATE} text-bk-ink-3`}>Loading secure payment…</p>}
+      {status === "loading" && <p className={cn(STATE, "text-bk-ink-3")}>Loading secure payment…</p>}
       {status === "failed" && (
-        <p className={`${STATE} text-danger`}>
+        <p className={cn(STATE, "text-danger")}>
           <Icon d={P.alert} size={17} className="mt-0.5 flex-none" />
           <span>
             Secure payment could not load{message ? `: ${message}` : ""}. Check your connection or

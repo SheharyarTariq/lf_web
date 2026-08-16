@@ -11,6 +11,7 @@
    option would simply lose people.
    ══════════════════════════════════════════════════════════════════ */
 
+import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
 import { useEffect, useId, useRef, useState } from "react";
 import { Icon, P } from "@/components/booking/icons";
@@ -153,7 +154,7 @@ export default function IdentityPanel({
         <div className="flex items-stretch gap-2.5">
           <input
             id={`${ids}-c`}
-            className={`${CODE_INPUT} min-w-0 flex-auto`}
+            className={cn(CODE_INPUT, "min-w-0 flex-auto")}
             inputMode="numeric"
             autoComplete="one-time-code"
             maxLength={CODE_LENGTH}
@@ -189,7 +190,7 @@ export default function IdentityPanel({
         )}
         <p className={ALT}>
           <Button variant="bare"
-            className={`${BTN_LINK} disabled:cursor-default disabled:opacity-50`}
+            className={cn(BTN_LINK, "disabled:cursor-default disabled:opacity-50")}
             disabled={cooldown > 0}
             onClick={() => {
               setCooldown(RESEND_SECONDS);
@@ -301,7 +302,7 @@ export default function IdentityPanel({
             aria-hidden="true"
           >
             <i
-              className={`block h-full rounded-[inherit] transition-[width,background-color] duration-200 ease-[ease] ${METER_FILL[strength.level]}`}
+              className={cn("block h-full rounded-[inherit] transition-[width,background-color] duration-200 ease-[ease]", METER_FILL[strength.level])}
               style={{ width: `${strength.pct}%` }}
             />
           </span>

@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/common/AuthProvider";
@@ -182,7 +183,7 @@ export default function BookingShell({ children }: { children: React.ReactNode }
           capped at 620 the whole way. Without it every inherited size
           between 721 and 1180 came out half a pixel small. */}
       <div
-        className={`lf-controls lf-book ${INHERIT_FONT} flex min-h-screen flex-1 flex-col bg-bk-paper text-bk-ink`}
+        className={cn("lf-controls lf-book", INHERIT_FONT, "flex min-h-screen flex-1 flex-col bg-bk-paper text-bk-ink")}
       >
         <Header
           onBack={back}
@@ -227,12 +228,14 @@ export default function BookingShell({ children }: { children: React.ReactNode }
         <main
           ref={bodyRef}
           className={
-            "mx-auto flex w-full max-w-[var(--bk-col)] flex-auto flex-col px-5 pb-0 pt-7 " +
-            "to-720:pt-3.5 to-400:px-4 " +
-            "from-1024:flex-row from-1024:items-stretch from-1024:gap-8 from-1024:px-6 " +
-            (split
-              ? "from-1024:max-w-[calc(620px+32px+328px+48px)]"
-              : "from-1024:max-w-wrap")
+            cn(
+              "mx-auto flex w-full max-w-[var(--bk-col)] flex-auto flex-col px-5 pb-0 pt-7",
+              "to-720:pt-3.5 to-400:px-4",
+              "from-1024:flex-row from-1024:items-stretch from-1024:gap-8 from-1024:px-6",
+              split
+                ? "from-1024:max-w-[calc(620px+32px+328px+48px)]"
+                : "from-1024:max-w-wrap",
+            )
           }
         >
           {/* The screens still own the column, so every existing rule — the
@@ -240,8 +243,10 @@ export default function BookingShell({ children }: { children: React.ReactNode }
               keeps working whether or not there is a panel beside it. */}
           <div
             className={
-              "flex min-w-0 flex-auto flex-col from-1024:max-w-[var(--bk-col)]" +
-              (split ? "" : " from-1024:mx-auto from-1024:w-full")
+              cn(
+                "flex min-w-0 flex-auto flex-col from-1024:max-w-[var(--bk-col)]",
+                split ? "" : "from-1024:mx-auto from-1024:w-full",
+              )
             }
           >
             {children}

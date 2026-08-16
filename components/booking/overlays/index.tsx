@@ -6,6 +6,7 @@
    Exit confirmation · FAQs · How billing works · Log in
    ══════════════════════════════════════════════════════════════════ */
 
+import { cn } from "@/utils/cn";
 import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import Link from "next/link";
@@ -97,7 +98,7 @@ export function FaqModal({ onClose }: { onClose: () => void }) {
                       matched, not out-weighted: in the source both rules
                       score 0,3,0 and the expanded one simply comes last. */}
                   <span
-                    className={`${SIGN} ${isOpen ? "rotate-45 bg-brand" : "bg-bk-paper-2 group-hover:bg-bk-line"}`}
+                    className={cn(SIGN, isOpen ? "rotate-45 bg-brand" : "bg-bk-paper-2 group-hover:bg-bk-line")}
                     aria-hidden="true"
                   >
                     +
@@ -180,7 +181,7 @@ export function BillingModal({ onClose }: { onClose: () => void }) {
         {BILLING_POINTS.map(([icon, title, body], i) => (
           <li
             key={title}
-            className={`flex gap-[14px] py-[14px]${i ? " border-t border-bk-line" : ""}`}
+            className={cn("flex gap-[14px] py-[14px]", i ? " border-t border-bk-line" : "")}
           >
             <span
               className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-card-md bg-panel text-bk-ink"
@@ -338,7 +339,7 @@ export function LoginSheet({
           </Button>
           <p className="mt-[14px] text-center">
             <Button variant="bare"
-              className={`${BTN_LINK} disabled:cursor-default disabled:opacity-50`}
+              className={cn(BTN_LINK, "disabled:cursor-default disabled:opacity-50")}
               disabled={cooldown > 0}
               onClick={() => {
                 setCooldown(RESEND_SECONDS);

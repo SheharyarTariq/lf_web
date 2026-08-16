@@ -9,6 +9,7 @@
    sits outside that route group so the two never both render.
    ══════════════════════════════════════════════════════════════════ */
 
+import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -66,8 +67,10 @@ export function Header({
   return (
     <header
       className={
-        "sticky top-0 z-[60] bg-white transition-shadow duration-[180ms] ease-[ease]" +
-        (scrolled ? " shadow-[0_6px_18px_-14px_rgba(20,20,15,.55)]" : "")
+        cn(
+          "sticky top-0 z-[60] bg-white transition-shadow duration-[180ms] ease-[ease]",
+          scrolled && "shadow-[0_6px_18px_-14px_rgba(20,20,15,.55)]",
+        )
       }
     >
       {/* Two widths, on purpose. The chrome spans the page like the landing
@@ -105,12 +108,12 @@ export function Header({
           onLogin && (
             /* order 3 so it sits before FAQs, and the same weight as it:
                this is a way back in, not a competing call to action. */
-            <Button variant="bare" className={`${HELP_BASE} order-3 text-bk-ink`} onClick={onLogin}>
+            <Button variant="bare" className={cn(HELP_BASE, "order-3 text-bk-ink")} onClick={onLogin}>
               Log in
             </Button>
           )
         )}
-        <Button variant="bare" className={`${HELP_BASE} order-4 text-bk-ink-2`} onClick={onFaq}>
+        <Button variant="bare" className={cn(HELP_BASE, "order-4 text-bk-ink-2")} onClick={onFaq}>
           FAQs
         </Button>
         {/* Back walks the flow one step at a time; this leaves it. On a
@@ -194,9 +197,11 @@ export function Steps({
                   the hover treatment is withheld rather than overridden. */}
               <Button variant="bare"
                 className={
-                  "group flex min-h-11 min-w-0 cursor-pointer items-center gap-2 rounded-ctl-md " +
-                  "border-none bg-transparent px-0.5 py-1 text-[16px] leading-[1.6] text-inherit " +
-                  "disabled:cursor-default to-720:text-[15.5px]"
+                  cn(
+                    "group flex min-h-11 min-w-0 cursor-pointer items-center gap-2 rounded-ctl-md",
+                    "border-none bg-transparent px-0.5 py-1 text-[16px] leading-[1.6] text-inherit",
+                    "disabled:cursor-default to-720:text-[15.5px]",
+                  )
                 }
                 disabled={disabled}
                 aria-current={state === "now" ? "step" : undefined}

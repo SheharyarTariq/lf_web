@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import { ERR, FIELD, HINT, LABEL } from "@/utils/booking/styles";
@@ -23,7 +24,7 @@ export default function Field({
   children: ReactNode;
 }) {
   return (
-    <div className={`${FIELD} ${className}`.trimEnd()}>
+    <div className={cn(FIELD, className)}>
       <label className={LABEL} htmlFor={id}>
         {label}
       </label>

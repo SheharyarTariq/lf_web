@@ -22,6 +22,7 @@
    scrollbar rides the inside edge and the rules still span full width.
    ══════════════════════════════════════════════════════════════════ */
 
+import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
@@ -149,7 +150,7 @@ export default function SummaryPanel() {
             lines={[oneLine(delivery, data.deliverySlot), repeat]}
             tag={
               data.deliveryEco ? (
-                <span className={`${ECO_TAG} static ml-2 w-auto align-[1px]`} aria-label="Greener window">
+                <span className={cn(ECO_TAG, "static ml-2 w-auto align-[1px]")} aria-label="Greener window">
                   Eco
                 </span>
               ) : null

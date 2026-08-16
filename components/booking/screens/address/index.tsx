@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import { useId, useState } from "react";
@@ -233,7 +234,7 @@ export default function AddressScreen() {
             {results.map((a) => (
               <li key={a.id} className="[&:not(:first-child)]:border-t [&:not(:first-child)]:border-t-bk-line">
                 <Button variant="bare"
-                  className={`${INHERIT_FONT} flex w-full cursor-pointer items-center justify-between gap-3.5 border-none bg-transparent px-4 py-[13px] text-left transition-colors duration-[140ms] ease-[ease] hover:bg-bk-paper-2`}
+                  className={cn(INHERIT_FONT, "flex w-full cursor-pointer items-center justify-between gap-3.5 border-none bg-transparent px-4 py-[13px] text-left transition-colors duration-[140ms] ease-[ease] hover:bg-bk-paper-2")}
                   onClick={() => choose(a)}
                 >
                   <AddressLines a={a} postcode={searched} />

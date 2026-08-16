@@ -7,6 +7,7 @@
    beside the form the whole way through — see SummaryPanel.
    ══════════════════════════════════════════════════════════════════ */
 
+import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
@@ -96,7 +97,7 @@ export default function ReviewScreen() {
       </p>
 
       {discount && (
-        <div className={`${DISC} mb-4`}>
+        <div className={cn(DISC, "mb-4")}>
           <Icon d={P.spark} size={22} fill className="flex-none" />
           <span>
             <b className="block text-[15px] font-bold">{discount.label}</b>

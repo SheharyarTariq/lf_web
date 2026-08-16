@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -88,7 +89,7 @@ export default function SiteHeader() {
     <>
       <header className="lf-controls sticky top-0 z-[60] border-b border-b-line bg-white">
         <div
-          className={`${WRAP} flex h-[72px] items-center gap-[34px] to-1024:gap-[22px] to-900:relative to-900:gap-2.5`}
+          className={cn(WRAP, "flex h-[72px] items-center gap-[34px] to-1024:gap-[22px] to-900:relative to-900:gap-2.5")}
         >
           {/* First in the DOM, not just first on screen. On a phone this is
               the left-hand control, and tab order should agree with what the
@@ -206,13 +207,13 @@ export default function SiteHeader() {
       {mounted && (
         <>
           <div
-            className={`fixed inset-0 z-[200] bg-[rgba(20,20,15,.45)] ${open ? "animate-fade-in" : "animate-fade-out"}`}
+            className={cn("fixed inset-0 z-[200] bg-[rgba(20,20,15,.45)]", open ? "animate-fade-in" : "animate-fade-out")}
             role="presentation"
             onClick={close}
           />
           <div
             id="lf-mobile-nav"
-            className={`lf-controls fixed bottom-0 left-0 top-0 z-[201] flex w-[min(86vw,340px)] flex-col overflow-y-auto overscroll-contain bg-white px-[22px] pb-[30px] pt-0 shadow-[0_0_60px_-12px_rgba(20,20,15,.45)] ${open ? "animate-slide-in" : "animate-slide-out"}`}
+            className={cn("lf-controls fixed bottom-0 left-0 top-0 z-[201] flex w-[min(86vw,340px)] flex-col overflow-y-auto overscroll-contain bg-white px-[22px] pb-[30px] pt-0 shadow-[0_0_60px_-12px_rgba(20,20,15,.45)]", open ? "animate-slide-in" : "animate-slide-out")}
             role="dialog"
             aria-modal="true"
             aria-label="Menu"
@@ -259,7 +260,7 @@ export default function SiteHeader() {
                       it does not read as another destination, and truncated
                       because the drawer is only 340px at its widest. */}
                   <span
-                    className={`${DRAWER_ITEM} block overflow-hidden text-ellipsis whitespace-nowrap text-[15px] font-medium tracking-normal text-ink-2`}
+                    className={cn(DRAWER_ITEM, "block overflow-hidden text-ellipsis whitespace-nowrap text-[15px] font-medium tracking-normal text-ink-2")}
                     title={user.email}
                   >
                     {user.email}
@@ -269,7 +270,7 @@ export default function SiteHeader() {
                       close();
                       signOut();
                     }}
-                    className={`${DRAWER_ITEM} cursor-pointer border-l-0 border-r-0 border-t-0 bg-transparent text-left text-ink`}
+                    className={cn(DRAWER_ITEM, "cursor-pointer border-l-0 border-r-0 border-t-0 bg-transparent text-left text-ink")}
                   >
                     Log out
                   </Button>
@@ -280,7 +281,7 @@ export default function SiteHeader() {
                     close();
                     openAuth("login");
                   }}
-                  className={`${DRAWER_ITEM} cursor-pointer border-l-0 border-r-0 border-t-0 bg-transparent text-left text-ink`}
+                  className={cn(DRAWER_ITEM, "cursor-pointer border-l-0 border-r-0 border-t-0 bg-transparent text-left text-ink")}
                 >
                   Log in
                 </Button>

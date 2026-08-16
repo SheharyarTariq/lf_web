@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import type { ReactNode } from "react";
 import { ACTIONS, ACTIONS_MORE, NAV } from "@/utils/booking/styles";
 
@@ -18,7 +19,7 @@ export default function ActionBar({
   children: ReactNode;
 }) {
   return (
-    <div className={`${ACTIONS}${nav ? ` ${NAV}` : ""}${more ? ` ${ACTIONS_MORE}` : ""}`}>
+    <div className={cn(ACTIONS, nav ? ` ${NAV}` : "", more ? ` ${ACTIONS_MORE}` : "")}>
       {children}
     </div>
   );

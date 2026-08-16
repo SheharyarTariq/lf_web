@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import { useId } from "react";
 
 /**
@@ -14,7 +15,7 @@ export default function Stars({ value, className = "" }: { value: number; classN
   const pct = (Math.max(0, Math.min(5, value)) / 5) * 100;
   return (
     <svg
-      className={`shrink-0 ${className}`.trim()}
+      className={cn("shrink-0", className)}
       width="90"
       height="18"
       viewBox="0 0 90 18"

@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
 import { useCallback, useEffect, useState } from "react";
 
@@ -105,9 +106,7 @@ export default function AppRedirect({ platform }: { platform: Platform }) {
         </p>
 
         <div
-          className={`mt-8 flex w-full flex-col gap-3 transition-opacity duration-300 ${
-            showManual ? "opacity-100" : "pointer-events-none opacity-0"
-          }`}
+          className={cn("mt-8 flex w-full flex-col gap-3 transition-opacity duration-300", showManual ? "opacity-100" : "pointer-events-none opacity-0")}
         >
           <Button variant="bare"
             onClick={openApp}

@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
 import { useMemo, useRef, useState } from "react";
 import { Check } from "@/components/icons";
@@ -18,11 +19,11 @@ function GarmentCard({ name, services }: { name: string; services: Garment[1] })
       </div>
       {services.map(([service, price], i) => (
         <div
-          className={`flex items-center gap-[9px] py-[7px] ${i > 0 ? "border-t border-line" : ""}`}
+          className={cn("flex items-center gap-[9px] py-[7px]", i > 0 ? "border-t border-line" : "")}
           key={service}
         >
           <i
-            className={`h-[7px] w-[7px] flex-none rounded-[50%] ${service === WASH ? "bg-brand" : "bg-ink-3"}`}
+            className={cn("h-[7px] w-[7px] flex-none rounded-[50%]", service === WASH ? "bg-brand" : "bg-ink-3")}
             aria-hidden="true"
           />
           <span className="flex-1 text-[13.5px] text-ink-2">{service}</span>
@@ -106,7 +107,7 @@ function CategoryPills({ value, onChange }: { value: string; onChange: (c: strin
           <Button
             key={cat}
             variant="bare"
-            className={`${TAB} ${value === cat ? TAB_ON : TAB_OFF}`}
+            className={cn(TAB, value === cat ? TAB_ON : TAB_OFF)}
             aria-pressed={value === cat}
             onClick={(e) => {
               onChange(cat);

@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import { NOTE, NOTE_TONE } from "@/utils/booking/styles";
@@ -18,7 +19,7 @@ export default function Notice({
   children?: ReactNode;
 }) {
   return (
-    <div className={`${NOTE} ${NOTE_TONE[tone]}`}>
+    <div className={cn(NOTE, NOTE_TONE[tone])}>
       <Icon d={icon} size={19} className="mt-0.5 flex-none" />
       <div>
         {title && <b className="mb-0.5 block">{title}</b>}

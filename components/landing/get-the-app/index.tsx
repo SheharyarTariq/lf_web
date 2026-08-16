@@ -1,3 +1,4 @@
+import { cn } from "@/utils/cn";
 import StoreButtons from "@/components/common/StoreButtons";
 import { ASSETS, BRAND } from "@/utils/content";
 import { SECTION, SECTION_H2_MARGIN, WRAP } from "@/utils/styles";
@@ -15,14 +16,14 @@ import { SECTION, SECTION_H2_MARGIN, WRAP } from "@/utils/styles";
  */
 export default function GetTheApp() {
   return (
-    <section className={`${SECTION} bg-white`} id="get-the-app" aria-labelledby="lf-app-h">
+    <section className={cn(SECTION, "bg-white")} id="get-the-app" aria-labelledby="lf-app-h">
       <div
-        className={`${WRAP} grid grid-cols-[1.05fr_.95fr] items-center gap-12 to-1180:gap-9 to-1024:grid-cols-[1fr]`}
+        className={cn(WRAP, "grid grid-cols-[1.05fr_.95fr] items-center gap-12 to-1180:gap-9 to-1024:grid-cols-[1fr]")}
       >
         <div>
           <h2
             id="lf-app-h"
-            className={`mb-2.5 text-[clamp(26px,2.9vw,36px)] font-extrabold leading-[1.12] tracking-[-1.1px] ${SECTION_H2_MARGIN}`}
+            className={cn("mb-2.5 text-[clamp(26px,2.9vw,36px)] font-extrabold leading-[1.12] tracking-[-1.1px]", SECTION_H2_MARGIN)}
           >
             Do it all from your phone.
           </h2>

@@ -12,12 +12,13 @@
  * Bidding feed.
  */
 
+import { cn } from "@/utils/cn";
 import ConversionLink from "@/components/common/ConversionLink";
 import { BRAND } from "@/utils/content";
 
 export default function StoreButtons({ className = "" }: { className?: string }) {
   return (
-    <div className={`flex flex-wrap items-center gap-3 ${className}`.trim()}>
+    <div className={cn("flex flex-wrap items-center gap-3", className)}>
       <ConversionLink
         className="inline-block no-underline transition-opacity duration-[180ms] ease-[ease] hover:opacity-[.78]"
         href={BRAND.ios}

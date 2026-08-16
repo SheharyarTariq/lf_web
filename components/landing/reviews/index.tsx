@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/utils/cn";
 import { useRef } from "react";
 import Stars from "@/components/common/StarsRating";
 import { AppleGlyph, PlayGlyph } from "@/components/icons";
@@ -12,7 +13,7 @@ export default function Reviews() {
   const edges = useScrollEdges(scroller);
 
   return (
-    <section className={`${SECTION} bg-panel`} aria-labelledby="lf-rev-h">
+    <section className={cn(SECTION, "bg-panel")} aria-labelledby="lf-rev-h">
       <div className={WRAP}>
         <h2 id="lf-rev-h" className={SECTION_H2}>
           What our customers say
