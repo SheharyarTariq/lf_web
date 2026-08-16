@@ -6,6 +6,23 @@ const BASE_URL = config.apiUrl;
 
 const apiCache = new Map<string, ApiResponse<unknown>>();
 
+/**
+ * Empty the GET cache.
+ *
+ * It is keyed on method, endpoint and params — **no token and no user
+ * identity** — and entries never expire, so a response read while one person
+ * is signed in is readable by whoever is signed in next. Mutations clear it as
+ * a side effect, which is the only reason that has never bitten: the app's two
+ * GETs happen to be separated by a POST on every realistic path. That is an
+ * accident, not a guarantee.
+ *
+ * Signing out is the other moment when whose data is whose changes, and it has
+ * no mutation to ride on. utils/auth calls this from logout().
+ */
+export function clearApiCache(): void {
+  apiCache.clear();
+}
+
 interface ApiCallParams {
   endpoint: string;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";

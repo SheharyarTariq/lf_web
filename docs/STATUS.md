@@ -154,6 +154,46 @@ one.
 **Not verified by me:** the happy path with a genuine code, which only the inbox has. Every
 other branch above is real.
 
+## Done — logout confirmation
+
+"Log out" in the header (desktop bar and mobile drawer) now raises a confirmation instead of
+ending the session on one tap.
+
+**`signOut` on the auth context means "ask, then sign out".** The immediate version is private
+inside `AuthProvider`. That is deliberate: if the public function were the one that signs you
+out, the next call site added would skip the dialog just by reaching for the obvious name. The
+automatic `logout()` in `components/verify-email` (a 401 while auto-submitting a code) is
+untouched — it is not a user action and goes to `utils/auth` directly.
+
+**`components/booking/common/Modal` → `components/common/Modal`.** Rather than hand-roll a
+fourth dialog shell, the existing one moved. Cheaper than it looked: exactly one file imported
+it, and both checkout ties dissolved — `P.close` *is* lucide's `X` and the `Icon` wrapper only
+restated lucide's own defaults, so the close button reaches lucide directly; and
+`CLOSE_BTN_MODAL` had no other consumer, so its recipe now lives in the component (the `-mr-2.5`
+`CLOSE_BTN` stays in `utils/booking/styles.ts` for the chrome). Two additions: `lf-controls` on
+the panel, needed because it can now render outside `.lf-book` where Preflight's `font: inherit`
+would make buttons ~5px taller; and an `elevated` prop for `z-[210]`, because the header's
+mobile drawer is `z-[201]` — above every dialog in the app — so a confirm raised from it would
+otherwise hide underneath during the 200ms slide-out.
+
+**Still three dialog shells**, not one: `AuthModal` and the header drawer each hand-roll their
+own. `AuthModal`'s is the better implementation (it has the only Tab trap in the codebase); the
+moved one is the better-packaged. Worth converging, not done here — the point of moving it was
+to stop the count going up.
+
+**Verified**, 14/14 with a stubbed `/my-status` and an `authtoken` cookie: the dialog opens
+without clearing anything; **Escape and a backdrop click both cancel rather than log out**
+(`onClose` is bound to the safe action, which is the one that would be easy to get backwards);
+confirming clears both cookies and flips the header; and on a 390px viewport the confirm sits
+above the drawer mid-slide-out. Separately 6/6 on the checkout's modals, confirming the close X
+still renders at 20px/stroke 2.2 and the wide variant is still 620px.
+
+**Not black-box tested:** the cache clear. It is genuinely unobservable today for the reason
+recorded above — it is a preventive fix, verified by reading the code and by the type checker.
+
+**Backend observation:** there is no `POST /logout` and nothing revokes the token server-side,
+so the JWT stays valid for its full 365 days. Logging out only stops us sending it.
+
 ## Done — the skills restructure
 
 The codebase predated the three imported skills and followed almost none of them. It does
@@ -271,6 +311,16 @@ contained.
 ### The shared `utils/` layer — one change made, several open
 
 `utils/` is shared with the other developer's project, so everything here needs telling them.
+
+**Changed while adding the logout confirmation:** `apiCall` now exports **`clearApiCache()`**.
+Purely additive — no existing caller behaves differently. It exists because the GET cache is
+keyed on method, endpoint and params with **no token and no user identity**, and entries never
+expire, so a response read while one person is signed in was readable by whoever signed in
+next. Mutations clear it as a side effect, which is the only reason this never bit: the app's
+two GETs happen to be separated by a POST on every realistic path. `utils/auth` `logout()` now
+calls it, which covers the one moment when whose data is whose changes with no mutation to ride
+on. **Add an authenticated GET without this and log-out-then-log-in-as-someone-else in the same
+tab serves the previous account's data.**
 
 **Changed while wiring verification:** `utils/api` now **exports** `readViolations`,
 `readMessage` and the `ErrorBody` type, which were module-private. `utils/auth` needs them

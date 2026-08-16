@@ -14,7 +14,7 @@ import { useEffect, useId, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Icon, P, ProviderMark } from "@/components/booking/icons";
 import Field from "@/components/booking/common/Field";
-import Modal from "@/components/booking/common/Modal";
+import Modal from "@/components/common/Modal";
 import { MODAL_FOOT, MODAL_NAV, MODAL_NAV_BTN } from "@/utils/booking/styles";
 import { verifyCode, signInWith } from "@/utils/booking/mocks";
 import {

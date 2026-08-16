@@ -268,7 +268,10 @@ const CLOSE_BASE =
   "transition-[background-color] duration-150 ease-[ease] hover:bg-bk-paper-2";
 
 export const CLOSE_BTN = `${CLOSE_BASE} -mr-2.5`;
-export const CLOSE_BTN_MODAL = `${CLOSE_BASE} -mr-2`;
+/* The -mr-2 variant went with components/common/Modal, which was its only
+   consumer. The recipe is written out there rather than imported back across
+   the boundary — a shared component should not reach into the checkout's
+   stylesheet. Keep the two in step if this base ever changes. */
 
 export const MODAL_FOOT = "mt-4 text-[13.5px] text-bk-ink-2";
 

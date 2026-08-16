@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AuthModal, { type View as AuthView } from "@/components/auth/auth-modal";
+import LogoutConfirm from "@/components/auth/logout-confirm";
 import { loadSession, logout as clearSession } from "@/utils/auth";
 
 /**
@@ -49,6 +50,8 @@ interface AuthContextValue {
   loading: boolean;
   openAuth: (view?: AuthView) => void;
   closeAuth: () => void;
+  /** Raises the confirmation dialog. It does **not** sign anyone out by
+   *  itself — nothing does, outside this provider. */
   signOut: () => void;
   /** Re-read /my-status. For anything that changes the session from outside
    *  this provider — the verify-email page promotes a token itself, and the
@@ -69,6 +72,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [view, setView] = useState<AuthView | null>(null);
   const [user, setUser] = useState<AuthedUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
 
   /* The token outlives the page, so the session has to be rebuilt from it on
      every load — without this, a refresh looks exactly like a sign-out even
@@ -126,9 +130,17 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   const openAuth = useCallback((next: AuthView = "login") => setView(next), []);
   const closeAuth = useCallback(() => setView(null), []);
-  const signOut = useCallback(() => {
+
+  /* `signOut` asks first — that is what the name means on this context now.
+     The immediate version is private on purpose: if the public function were
+     the one that signs you out, the next call site added would skip the
+     dialog just by reaching for the obvious name. */
+  const signOut = useCallback(() => setConfirmingSignOut(true), []);
+
+  const performSignOut = useCallback(() => {
     clearSession();
     setUser(null);
+    setConfirmingSignOut(false);
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -147,6 +159,12 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
             setUser(who);
             setView(null);
           }}
+        />
+      )}
+      {confirmingSignOut && (
+        <LogoutConfirm
+          onCancel={() => setConfirmingSignOut(false)}
+          onConfirm={performSignOut}
         />
       )}
     </AuthContext.Provider>

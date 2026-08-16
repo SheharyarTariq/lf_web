@@ -168,7 +168,10 @@ export default function SiteHeader() {
                 <span className={AUTH_EMAIL} title={user.email}>
                   {user.email}
                 </span>
-                <Button variant="bare" onClick={signOut} className={AUTH_BTN}>
+                {/* Wrapped, not passed directly: onClick would hand signOut a
+                  MouseEvent as its first argument. Harmless today, a trap the
+                  moment it grows a parameter. */}
+              <Button variant="bare" onClick={() => signOut()} className={AUTH_BTN}>
                   Log out
                 </Button>
               </>

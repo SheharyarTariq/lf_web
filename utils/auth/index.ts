@@ -33,7 +33,7 @@
    account holding no orders, no card and no address.
    ══════════════════════════════════════════════════════════════════ */
 
-import apiCall from "@/utils/api-call";
+import apiCall, { clearApiCache } from "@/utils/api-call";
 import { routes } from "@/utils/routes";
 import { deleteCookie, getCookie, setCookie } from "@/utils/helper";
 import { readMessage, readViolations, type ErrorBody } from "@/utils/api";
@@ -202,6 +202,13 @@ export function promotePendingToken(): void {
 export function logout(): void {
   deleteCookie(TOKEN_COOKIE);
   deleteCookie(PENDING_COOKIE);
+  /* Dropping the credential is not enough on its own: apiCall's GET cache is
+     keyed without any identity in it, so anything read while signed in would
+     still be served to whoever signs in next in the same tab. Correct on all
+     three paths into here — a real sign-out, a 401, and login() clearing a
+     stale session — because each is a moment when whose data is whose has
+     changed. */
+  clearApiCache();
   announce();
 }
 
