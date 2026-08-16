@@ -24,12 +24,12 @@ export const deepLinkMetadata: Metadata = {
  *
  * When the association does work the OS opens the app and this never renders, so
  * this is purely the fallback path. Desktop can't run the app at all, so it gets
- * a server-side redirect (no interstitial flash) to the homepage download card
- * with its QR + store badges. Phones fall through to <AppRedirect/>.
+ * a server-side redirect (no interstitial flash) to the homepage download
+ * section with its QR + store badges. Phones fall through to <AppRedirect/>.
  *
  * Reading headers() opts these routes into dynamic rendering — they must never
- * be cached. The UA → store mapping is shared with GetAppButton and /download-app
- * so the three can't drift apart.
+ * be cached. The UA → store mapping is shared with /download-app so the two
+ * can't drift apart.
  */
 export default async function DeepLinkFallback() {
   const ua = (await headers()).get("user-agent") ?? "";
@@ -37,7 +37,7 @@ export default async function DeepLinkFallback() {
 
   // Desktop / unrecognised device (incl. iPadOS Safari reporting a Macintosh UA
   // — maxTouchPoints, the only tell, doesn't exist server-side).
-  if (!storeUrl) redirect("/#download");
+  if (!storeUrl) redirect("/#get-the-app");
 
   return (
     <AppRedirect platform={storeUrl === APP_STORE_URL ? "ios" : "android"} />

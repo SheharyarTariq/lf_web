@@ -1,0 +1,98 @@
+"use client";
+
+/* ══════════════════════════════════════════════════════════════════
+   4b · Payment
+   ══════════════════════════════════════════════════════════════════ */
+
+import { Icon, P } from "@/components/booking/icons";
+import { ActionBar } from "@/components/booking/parts";
+import StripePayment from "@/components/booking/StripePayment";
+import { useBooking } from "@/components/booking/context";
+import {
+  BTN_LINK,
+  CONTROL_PEER,
+  H1,
+  LEDE,
+  NAV_BACK,
+  NAV_FORWARD,
+  bkBtn,
+} from "@/lib/booking/styles";
+
+/* ── Checkbox ─────────────────────────────────────────────────────
+   The tick is always in the box and always the same size; only its
+   colour changes, so nothing moves as it is switched. */
+const BOX =
+  "mt-px flex h-6 w-6 flex-none items-center justify-center rounded-[7px] border-[1.5px] " +
+  "border-bk-line-2 bg-white text-transparent " +
+  "transition-[background-color,border-color,color] duration-150 ease-[ease] " +
+  "peer-checked:border-brand peer-checked:bg-brand peer-checked:text-bk-ink " +
+  "peer-focus-visible:outline peer-focus-visible:outline-[3px] " +
+  "peer-focus-visible:outline-offset-[3px] peer-focus-visible:outline-bk-ink";
+
+export default function PaymentScreen() {
+  const { data, patch, back, moreBelow, confirmOrder, openBilling } = useBooking();
+  const ready = data.cardReady && data.terms;
+
+  return (
+    <>
+      <h1 className={H1} tabIndex={-1}>
+        Add a payment method
+      </h1>
+      {/* One line, not a paragraph and a boxed notice repeating it. The
+          detail lives behind "How billing works" for anyone who wants
+          it, which is where it was always going to be read properly. */}
+      <p className={LEDE}>
+        Nothing is charged today — we count your items first.{" "}
+        <button type="button" className={BTN_LINK} onClick={openBilling}>
+          How billing works
+        </button>
+      </p>
+
+      <StripePayment onCompleteChange={(ok) => patch({ cardReady: ok })} />
+
+      <label className="mt-[18px] flex cursor-pointer items-start gap-3 text-[14.5px]">
+        <input
+          className={CONTROL_PEER}
+          type="checkbox"
+          checked={data.terms}
+          onChange={(e) => patch({ terms: e.target.checked })}
+        />
+        <span className={BOX} aria-hidden="true">
+          <Icon d={P.tick} size={14} />
+        </span>
+        {/* New tab, deliberately. People tap anywhere in this sentence to
+            tick the box; landing on a link would otherwise navigate away
+            and take the whole unsaved booking with it. */}
+        <span>
+          I agree to the{" "}
+          <a className="underline" href="/terms" target="_blank" rel="noopener noreferrer">
+            terms
+          </a>{" "}
+          and{" "}
+          <a className="underline" href="/privacy-policy" target="_blank" rel="noopener noreferrer">
+            privacy policy
+          </a>
+          .
+        </span>
+      </label>
+
+      <ActionBar more={moreBelow} nav>
+        <button
+          type="button"
+          className={bkBtn({ variant: "ghost", size: "lg", className: NAV_BACK })}
+          onClick={back}
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          className={bkBtn({ size: "lg", className: NAV_FORWARD })}
+          disabled={!ready}
+          onClick={confirmOrder}
+        >
+          Confirm order
+        </button>
+      </ActionBar>
+    </>
+  );
+}

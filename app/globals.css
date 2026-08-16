@@ -1,15 +1,448 @@
 @import "tailwindcss";
 
+/* ══════════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   ══════════════════════════════════════════════════════════════════
+
+   Ported from the three token scopes in the design prototype
+   (.lf landing, .lfb checkout, .lfa auth modal). Those three scopes
+   reuse the SAME names for DIFFERENT values — the landing page is warm
+   (paper #FAF8F2 / ink #14140F), the checkout is neutral and matched to
+   the mobile app (paper #F2F2EF / ink #1F1F1F). Merging them would flatten
+   the landing page's warmth, so the checkout set is namespaced `bk-`
+   instead.
+
+   The five original lf_web tokens are kept untouched: every legacy page
+   (privacy-policy, terms, contact, blog, the laundry-service-* SEO pages)
+   is written against them and must not shift colour.
+   ══════════════════════════════════════════════════════════════════ */
+
 @theme {
-  --color-lime: #C8FF00;
-  --color-dark: #1A1A1A;
-  --color-lf-bg: #F2F2EF;
+  /* ── Original tokens — legacy pages depend on these ────────────── */
+  --color-lime: #c8ff00;
+  --color-dark: #1a1a1a;
+  --color-lf-bg: #f2f2ef;
   --color-muted: #767676;
-  --color-lf-border: #E3E3E0;
+  --color-lf-border: #e3e3e0;
+
+  /* ── Landing page + site shell (was .lf) ───────────────────────── */
+  --color-paper: #faf8f2;
+  --color-paper-2: #f1eee3;
+  --color-ink: #14140f;
+  --color-ink-2: #55524a;
+  --color-ink-3: #7a776d;
+  /* Hover for the ink-filled button. Was a raw hex in the prototype. */
+  --color-ink-hover: #2c2c24;
+  --color-line: #e4e0d2;
+  --color-line-2: #d5d0be;
+  --color-brand: #c1f11d;
+  --color-brand-hover: #b0df12;
+  --color-brand-ink: #8fbe12;
+  --color-gold: #d08a17;
+  /* Soft lime tint for the how-it-works panel */
+  --color-panel: #eff6d9;
+
+  /* Text on the near-black panels — lightened for contrast */
+  --color-on-dark: #e3e1d8;
+  --color-on-dark-2: #b8b5ab;
+  --color-surface-dark: #1f1f1a;
+  --color-line-dark: #2e2e27;
+
+  /* ── Checkout + auth modal (was .lfb / .lfa) ───────────────────── */
+  /* Matched to the mobile app, with one deliberate deviation: the app's
+     #8E8E8E scores 2.8:1 on #F2F2EF, so bk-ink-3 is #6D6D6D. */
+  --color-bk-paper: #f2f2ef;
+  --color-bk-paper-2: #e9e9e4;
+  --color-bk-ink: #1f1f1f;
+  --color-bk-ink-2: #5a5a5a;
+  --color-bk-ink-3: #6d6d6d;
+  --color-bk-line: #eeeee9;
+  --color-bk-line-2: #dcdcdc;
+  --color-danger: #b3261e;
+  --color-danger-bg: #fceeed;
+
+  /* ── Radii ─────────────────────────────────────────────────────── */
+  /* Cards and surfaces (was --r-*) */
+  --radius-card-sm: 10px;
+  --radius-card-md: 14px;
+  --radius-card-lg: 18px;
+  --radius-card-xl: 24px;
+  /* Buttons and fields, mirrored from the app's theme/radius.ts (was --radius-*) */
+  --radius-ctl-sm: 8px;
+  --radius-ctl-md: 12px;
+  --radius-ctl-lg: 16px;
+  --radius-ctl-xl: 24px;
+  /* The design's --r-pill. rounded-full resolves to calc(infinity), which is
+     the same circle but not the same computed value. */
+  --radius-pill: 999px;
+
+  /* ── Shadows ───────────────────────────────────────────────────── */
+  --shadow-soft: 0 1px 2px rgba(20, 20, 15, 0.04);
+  --shadow-lift: 0 6px 20px -6px rgba(20, 20, 15, 0.12);
+
+  /* ── Layout ────────────────────────────────────────────────────── */
+  --container-wrap: 1180px;
+
+  /* ── Animation ─────────────────────────────────────────────────── */
+  --animate-slide-in: lf-slide-in 0.26s cubic-bezier(0.32, 0.72, 0, 1) both;
+  --animate-slide-out: lf-slide-out 0.2s ease-in both;
+  --animate-fade-in: lf-fade-in 0.22s ease both;
+  --animate-fade-out: lf-fade-out 0.2s ease-in both;
+  --animate-spin-fast: lf-spin 0.7s linear infinite;
+
+  @keyframes lf-slide-in {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: none;
+    }
+  }
+  @keyframes lf-slide-out {
+    from {
+      transform: none;
+    }
+    to {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes lf-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes lf-fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes lf-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
 }
 
-body {
-  background: #F2F2EF;
-  color: #1A1A1A;
-  -webkit-font-smoothing: antialiased;
+/* ══════════════════════════════════════════════════════════════════
+   BREAKPOINT VARIANTS
+   ══════════════════════════════════════════════════════════════════
+
+   Tailwind's `max-[1280px]` compiles to `@media not (min-width: 1280px)` —
+   that is, width < 1280 — while the design's `@media (max-width: 1280px)`
+   includes 1280 itself. At a viewport of exactly 1280, 1024 or 720 the two
+   disagree and the layout snaps a breakpoint late: the audit measured the
+   page 927px taller than the design at 1024 for this reason alone.
+
+   These restore the inclusive bound. Declared largest-first so the narrower
+   one wins where two overlap, which is the order the source relies on.
+
+   The `min-*` direction needs no help: Tailwind's `min-[Npx]` is already
+   `width >= N`.
+   ══════════════════════════════════════════════════════════════════ */
+
+@custom-variant to-1280 (@media (max-width: 1280px));
+@custom-variant to-1180 (@media (max-width: 1180px));
+@custom-variant to-1024 (@media (max-width: 1024px));
+@custom-variant to-900 (@media (max-width: 900px));
+@custom-variant to-834 (@media (max-width: 834px));
+@custom-variant to-720 (@media (max-width: 720px));
+@custom-variant to-580 (@media (max-width: 580px));
+@custom-variant to-560 (@media (max-width: 560px));
+@custom-variant to-559 (@media (max-width: 559px));
+@custom-variant to-480 (@media (max-width: 480px));
+@custom-variant to-400 (@media (max-width: 400px));
+@custom-variant to-360 (@media (max-width: 360px));
+
+@custom-variant from-481 (@media (min-width: 481px));
+@custom-variant from-721 (@media (min-width: 721px));
+@custom-variant from-1024 (@media (min-width: 1024px));
+
+/* Not theme tokens — plain custom properties read by arbitrary values
+   (scroll-mt-(--hdr-h), top-(--hdr-h)) and by the Stripe Payment Element's
+   appearance object, which resolves them off :root at runtime. */
+:root {
+  /* Height of the sticky site header: the 72px row plus its 1px bottom
+     border. Anchor targets subtract this so they do not land underneath it.
+     Keep in step with the header's h-[72px]. */
+  --hdr-h: 73px;
+  /* Checkout header is shorter — no nav, no CTA. */
+  --bk-hdr-h: 64px;
+  /* Checkout form column width. */
+  --bk-col: 620px;
+}
+
+@layer base {
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Below the 1180px container cap the content column starts shrinking,
+     so the inherited base size comes down with it. */
+  @media (max-width: 1180px) {
+    body {
+      font-size: 15.5px;
+    }
+  }
+
+  /* Jumping to #pricing put its heading behind the sticky header, hiding
+     the first 73px of every section. scroll-margin-top is the fix rather
+     than a spacer element or a JS offset: the browser applies it to anchor
+     jumps, scrollIntoView and focus scrolling alike, so every route to a
+     section is covered at once. */
+  [id] {
+    scroll-margin-top: var(--hdr-h);
+  }
+
+  /* Scoped to the marketing shell (app/(site)/layout.tsx), not global. In the
+     design this ring belonged to the landing page's own scope; the auth modal
+     and the checkout deliberately keep the browser's default treatment on
+     buttons and paint their own ring on fields. Applying it everywhere would
+     put an ink outline on the modal's controls, which the design does not
+     have. */
+  .lf-focus :focus-visible {
+    outline: 3px solid var(--color-ink);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  /* Lime ring on the near-black panels, where ink is invisible. */
+  .lf-focus .on-dark :focus-visible {
+    outline-color: var(--color-brand);
+  }
+
+  /* Preflight puts max-width:100% on img and video but not on svg, and the
+     design's reset covered both. Without it an inline icon can push its
+     container wider than the page. */
+  .lf-focus svg {
+    max-width: 100%;
+  }
+
+  /**
+   * Restore the user-agent font metrics on form controls.
+   *
+   * Preflight gives every control `font: inherit`. The design's own reset only
+   * forced the family, leaving the UA's font-size and line-height in place —
+   * and that is not cosmetic. A button's own metrics set the strut of the line
+   * boxes inside it, so a control that does not name its own size renders
+   * about 5px taller under Preflight than it does in the design. The hero's
+   * slot buttons were 67.6px instead of 62px for exactly this reason.
+   *
+   * `revert` rolls back to the UA origin rather than hardcoding Chrome's
+   * 13.3333px, so it stays right in other engines.
+   *
+   * This must live in @layer base, not in an @utility. As a utility the
+   * descendant selector scores (0,2,0) and outranks the single-class size
+   * utilities on the controls that *do* name a size — which silently shrank
+   * every pill, field and label that had been set correctly. In the base
+   * layer every utility wins, which is the intent: supply the UA default,
+   * lose to anything explicit.
+   *
+   * Opt-in rather than global: the legacy pages under app/(site) were built
+   * against Preflight's inheritance and their inputs would shrink. Applied to
+   * the header, drawer, footer, landing main, auth modal and checkout root.
+   */
+  .lf-controls :is(button, input, select, textarea, optgroup) {
+    font-size: revert;
+    line-height: revert;
+  }
+
+  /**
+   * The checkout's own scope (was `.lfb`), applied to app/book/layout.tsx's
+   * root element. Three things the design put there that no utility can carry:
+   *
+   *  - The focus ring. Contrary to the note above, the checkout DOES paint one
+   *    — `.lfb :focus-visible` in the source. It is the same ring as the
+   *    landing page's but in the checkout's ink (#1F1F1F, not #14140F), so it
+   *    cannot simply reuse .lf-focus.
+   *  - `max-width: 100%` on svg. Preflight puts it on img and video only; the
+   *    design's reset covered svg too, and every icon in here is an svg.
+   *  - A 64px header for anchor offsets. The global [id] rule above is written
+   *    for the site's 73px bar, which would leave checkout anchors 9px high.
+   */
+  .lf-book :focus-visible {
+    outline: 3px solid var(--color-bk-ink);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  .lf-book svg {
+    max-width: 100%;
+  }
+  .lf-book [id] {
+    scroll-margin-top: var(--bk-hdr-h);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ESCAPE-HATCH UTILITIES
+
+   Everything from the design that cannot be expressed as a utility
+   composition and had to come across verbatim. Each is used as a single
+   class alongside ordinary Tailwind utilities.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Feathers all four edges of the hero photograph into the page. One gradient
+   can only run in one direction, hence two layers and the intersect. Every
+   stop matters — the ramp eases in and out so the alpha never ends on a
+   visible crease. Do not simplify to a two-stop fade. */
+@utility mask-hero-fade {
+  -webkit-mask-image:
+  linear-gradient(to right,
+  rgba(0,0,0,0) 0%,rgba(0,0,0,.04) 5%,rgba(0,0,0,.16) 10%,rgba(0,0,0,.32) 15%,
+  rgba(0,0,0,.5) 20%,rgba(0,0,0,.68) 25%,rgba(0,0,0,.84) 30%,rgba(0,0,0,.96) 35%,
+  #000 40%,#000 84%,
+  rgba(0,0,0,.96) 86%,rgba(0,0,0,.84) 88%,rgba(0,0,0,.68) 90%,rgba(0,0,0,.5) 92%,
+  rgba(0,0,0,.32) 94%,rgba(0,0,0,.16) 96%,rgba(0,0,0,.04) 98%,rgba(0,0,0,0) 100%),
+  linear-gradient(to bottom,
+  rgba(0,0,0,0) 0%,rgba(0,0,0,.04) 2%,rgba(0,0,0,.16) 4%,rgba(0,0,0,.32) 6%,
+  rgba(0,0,0,.5) 8%,rgba(0,0,0,.68) 10%,rgba(0,0,0,.84) 12%,rgba(0,0,0,.96) 14%,
+  #000 16%,#000 84%,
+  rgba(0,0,0,.96) 86%,rgba(0,0,0,.84) 88%,rgba(0,0,0,.68) 90%,rgba(0,0,0,.5) 92%,
+  rgba(0,0,0,.32) 94%,rgba(0,0,0,.16) 96%,rgba(0,0,0,.04) 98%,rgba(0,0,0,0) 100%);
+  -webkit-mask-composite:source-in;
+  mask-image:
+  linear-gradient(to right,
+  rgba(0,0,0,0) 0%,rgba(0,0,0,.04) 5%,rgba(0,0,0,.16) 10%,rgba(0,0,0,.32) 15%,
+  rgba(0,0,0,.5) 20%,rgba(0,0,0,.68) 25%,rgba(0,0,0,.84) 30%,rgba(0,0,0,.96) 35%,
+  #000 40%,#000 84%,
+  rgba(0,0,0,.96) 86%,rgba(0,0,0,.84) 88%,rgba(0,0,0,.68) 90%,rgba(0,0,0,.5) 92%,
+  rgba(0,0,0,.32) 94%,rgba(0,0,0,.16) 96%,rgba(0,0,0,.04) 98%,rgba(0,0,0,0) 100%),
+  linear-gradient(to bottom,
+  rgba(0,0,0,0) 0%,rgba(0,0,0,.04) 2%,rgba(0,0,0,.16) 4%,rgba(0,0,0,.32) 6%,
+  rgba(0,0,0,.5) 8%,rgba(0,0,0,.68) 10%,rgba(0,0,0,.84) 12%,rgba(0,0,0,.96) 14%,
+  #000 16%,#000 84%,
+  rgba(0,0,0,.96) 86%,rgba(0,0,0,.84) 88%,rgba(0,0,0,.68) 90%,rgba(0,0,0,.5) 92%,
+  rgba(0,0,0,.32) 94%,rgba(0,0,0,.16) 96%,rgba(0,0,0,.04) 98%,rgba(0,0,0,0) 100%);
+  mask-composite:intersect;
+}
+
+/* Same smoothstep feather as the hero, tuned for the app screenshot. The
+   ratio it sits on matches the source (1419x1108) so object-fit never crops
+   the phone. */
+@utility mask-shot-fade {
+  -webkit-mask-image:
+  linear-gradient(to right,
+  rgba(0,0,0,0) 0%,rgba(0,0,0,.04) 3%,rgba(0,0,0,.16) 6%,rgba(0,0,0,.32) 9%,
+  rgba(0,0,0,.5) 12%,rgba(0,0,0,.68) 15%,rgba(0,0,0,.84) 18%,rgba(0,0,0,.96) 21%,
+  #000 24%,#000 88%,
+  rgba(0,0,0,.84) 92%,rgba(0,0,0,.5) 96%,rgba(0,0,0,0) 100%),
+  linear-gradient(to bottom,
+  rgba(0,0,0,0) 0%,rgba(0,0,0,.16) 3%,rgba(0,0,0,.5) 6%,rgba(0,0,0,.84) 9%,
+  #000 12%,#000 88%,
+  rgba(0,0,0,.84) 91%,rgba(0,0,0,.5) 94%,rgba(0,0,0,.16) 97%,rgba(0,0,0,0) 100%);
+  -webkit-mask-composite:source-in;
+  mask-image:
+  linear-gradient(to right,
+  rgba(0,0,0,0) 0%,rgba(0,0,0,.04) 3%,rgba(0,0,0,.16) 6%,rgba(0,0,0,.32) 9%,
+  rgba(0,0,0,.5) 12%,rgba(0,0,0,.68) 15%,rgba(0,0,0,.84) 18%,rgba(0,0,0,.96) 21%,
+  #000 24%,#000 88%,
+  rgba(0,0,0,.84) 92%,rgba(0,0,0,.5) 96%,rgba(0,0,0,0) 100%),
+  linear-gradient(to bottom,
+  rgba(0,0,0,0) 0%,rgba(0,0,0,.16) 3%,rgba(0,0,0,.5) 6%,rgba(0,0,0,.84) 9%,
+  #000 12%,#000 88%,
+  rgba(0,0,0,.84) 91%,rgba(0,0,0,.5) 94%,rgba(0,0,0,.16) 97%,rgba(0,0,0,0) 100%);
+  mask-composite:intersect;
+}
+
+/* Softens whichever edge of a horizontal scroller still has content past it.
+   The widths come from JS as --fade-l / --fade-r (see useScrollEdges and
+   fadeVars), so an edge only fades when there is actually more to scroll to —
+   a permanent fade reads as a design flourish and stops meaning anything. */
+@utility mask-edge-fade {
+  -webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade-l,0px),
+  #000 calc(100% - var(--fade-r,0px)),transparent 100%);
+  mask-image:linear-gradient(to right,transparent 0,#000 var(--fade-l,0px),
+  #000 calc(100% - var(--fade-r,0px)),transparent 100%);
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Static gradient border. A pseudo-element carries the gradient and a mask
+   hides everything but the border band, so the interior stays transparent and
+   the button works on any background. Every stop is opaque — a light or
+   transparent stop reads as a gap in the border on a pale page. Brighter end
+   first, but floored at #A8D613: anything lighter than the lime itself drops
+   under ~1.2:1 against the paper and the edge vanishes. */
+@utility btn-shine {
+  position: relative;
+  isolation: isolate;
+  border-color: transparent;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 2px;
+    pointer-events: none;
+    z-index: 1;
+    background: linear-gradient(135deg, #d6f84a 0%, var(--color-brand) 42%, #a8d613 100%);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    transition: background 0.2s ease;
+  }
+
+  &:hover::before {
+    background: linear-gradient(135deg, #a8d613 0%, var(--color-brand) 55%, #d6f84a 100%);
+  }
+}
+
+/* Browser autofill paints its own yellow below the level background-color
+   reaches, so it takes an inset shadow to cover. The absurd transition delay
+   is the standard trick to stop Chrome animating its own colour back in. */
+@utility autofill-white {
+  &:-webkit-autofill,
+  &:-webkit-autofill:hover,
+  &:-webkit-autofill:focus,
+  &:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+    -webkit-text-fill-color: var(--color-bk-ink);
+    caret-color: var(--color-bk-ink);
+    transition: background-color 100000s ease-in-out 0s;
+  }
+}
+
+/* Screen-reader-only text. Tailwind ships `sr-only`, but the prototype's
+   version is what the layout was measured against, so it is kept verbatim
+   for the spans that live inside scroll containers. */
+@utility visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }

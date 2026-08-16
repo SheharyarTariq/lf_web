@@ -9,8 +9,8 @@ import { storeUrlForUserAgent } from "@/lib/device";
 // correct store. Reading headers() opts this route into dynamic rendering, which
 // is exactly what we want — it must never be statically cached.
 //
-// The UA → store mapping is shared with components/GetAppButton.tsx so the QR
-// path and the button path can't drift apart.
+// The UA → store mapping is shared with components/DeepLinkFallback.tsx so the
+// QR path and the deep-link path can't drift apart.
 export default async function DownloadApp() {
   const ua = (await headers()).get("user-agent") ?? "";
 
