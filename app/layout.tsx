@@ -1,10 +1,10 @@
+import { cn } from "@/utils/cn";
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import Script from "next/script";
+import { Toaster } from "react-hot-toast";
 import "./globals.css";
-import PromoBar from "@/components/PromoBar";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import AuthProvider from "@/components/common/AuthProvider";
 
 const poppins = Poppins({
   weight: ["400", "500", "600", "700", "800"],
@@ -136,10 +136,11 @@ export const metadata: Metadata = {
 };
 
 // Explicit theme-color so iOS Safari doesn't sample the page to tint its chrome.
-// Matches the dark header (--color-dark: #1A1A1A) so the status-bar strip blends
-// into the nav instead of showing a light gap above it when scrolled.
+// Matches the lime announce bar (--color-brand: #C1F11D), which is now the
+// topmost element on every page, so the status-bar strip blends into it instead
+// of showing a dark band above it. Was #1A1A1A when the dark nav sat on top.
 export const viewport: Viewport = {
-  themeColor: "#1A1A1A",
+  themeColor: "#C1F11D",
 };
 
 export default function RootLayout({
@@ -147,8 +148,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // motion-safe:scroll-smooth animates the in-page jumps to #download, #faq and
-  // #how-it-works, and respects prefers-reduced-motion. data-scroll-behavior is
+  // motion-safe:scroll-smooth animates the in-page jumps to #how-it-works,
+  // #pricing, #areas, #faq and #get-the-app, and respects prefers-reduced-motion. data-scroll-behavior is
   // required alongside it: as of Next 16 the router no longer overrides
   // scroll-behavior during navigation unless it's set, so without it every
   // cross-page navigation would animate a long scroll to top instead of jumping.
@@ -157,17 +158,29 @@ export default function RootLayout({
   return (
     <html
       lang="en-GB"
-      className={`${poppins.className} motion-safe:scroll-smooth`}
+      className={cn(poppins.className, "motion-safe:scroll-smooth")}
       data-scroll-behavior="smooth"
     >
-      {/* Flex column so the shared footer sticks to the bottom on short pages.
-          The shell (PromoBar / Header / Footer) lives here and persists across
-          client navigation — only {children} swaps, giving an SPA feel. */}
+      {/* Flex column so a page's footer sticks to the bottom on short pages.
+          The marketing shell (AnnounceBar / SiteHeader / SiteFooter) is NOT
+          here — it lives in app/(site)/layout.tsx, because the checkout at
+          /book/* brings its own header and footer and must not show both.
+
+          AuthProvider renders no DOM of its own, so it does not disturb the
+          flex column. It sits at the root so the site header, the mobile
+          drawer and the checkout all drive one login dialog. */}
       <body className="min-h-screen flex flex-col">
-        <PromoBar />
-        <Header />
-        {children}
-        <Footer />
+        <AuthProvider>{children}</AuthProvider>
+
+        {/* apiCall (utils/api-call) reports every failure as a toast, and with
+            no Toaster mounted those calls are silent — the request fails and
+            nothing appears. Mounted here rather than per-page so there is one
+            of them for the whole site.
+
+            It renders a position:fixed container, which is out of flow, so it
+            is not a flex item and cannot disturb the column above it. When
+            there is nothing to show it renders an empty div. */}
+        <Toaster position="top-center" />
       </body>
 
       {/* Google Ads global site tag (gtag.js) — traffic attribution for Google Ads.
