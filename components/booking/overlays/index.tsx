@@ -6,6 +6,7 @@
    Exit confirmation · FAQs · How billing works · Log in
    ══════════════════════════════════════════════════════════════════ */
 
+import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
@@ -21,7 +22,7 @@ import {
   SOCIAL,
   type ProviderId,
 } from "@/utils/booking/model";
-import { BTN_LINK, CODE_INPUT, INPUT, SEC_H, SEC_P } from "@/utils/booking/styles";
+import { BTN_LINK, SEC_H, SEC_P } from "@/utils/booking/styles";
 import { routes } from "@/utils/routes";
 import { BRAND, FAQ, FAQ_PREVIEW_COUNT } from "@/utils/content";
 
@@ -278,9 +279,8 @@ export function LoginSheet({
       {view === "email" && (
         <>
           <Field label="To log in, please enter your email" id={`${ids}-le`}>
-            <input
+            <Input
               id={`${ids}-le`}
-              className={INPUT}
               type="email"
               value={addr}
               onChange={(e) => setAddr(e.target.value)}
@@ -308,9 +308,9 @@ export function LoginSheet({
             We have sent a {CODE_LENGTH}-digit code to {addr}.
           </p>
           <Field label={`${CODE_LENGTH}-digit code`} id={`${ids}-lc`} error={error}>
-            <input
+            <Input
               id={`${ids}-lc`}
-              className={CODE_INPUT}
+              className="text-center text-[19px] font-bold tracking-[.45em]"
               inputMode="numeric"
               autoComplete="one-time-code"
               maxLength={CODE_LENGTH}

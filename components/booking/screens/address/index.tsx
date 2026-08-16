@@ -1,5 +1,6 @@
 "use client";
 
+import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import { useId, useState } from "react";
 import ActionBar from "@/components/booking/common/ActionBar";
@@ -22,7 +23,6 @@ import {
   CARD,
   INHERIT_FONT,
   H1,
-  INPUT,
   LABEL,
   LEDE,
   ROW,
@@ -158,9 +158,9 @@ export default function AddressScreen() {
               shrinks and the button is only ~124px wide, which still leaves
               a usable field at 320px. */}
           <div className="flex items-stretch gap-2.5">
-            <input
+            <Input
               id={`${ids}-pc`}
-              className={`${INPUT} min-w-0 flex-auto`}
+              className="min-w-0 flex-auto"
               value={postcode}
               /* Uppercased on every keystroke rather than on blur, so it never
                  briefly shows lowercase. The length is unchanged, so the caret
@@ -196,9 +196,8 @@ export default function AddressScreen() {
             you — no other mail, ever.
           </p>
           <Field label="Email address" id={`${ids}-wl`}>
-            <input
+            <Input
               id={`${ids}-wl`}
-              className={INPUT}
               type="email"
               value={waitEmail}
               onChange={(e) => setWaitEmail(e.target.value)}
@@ -300,9 +299,8 @@ export default function AddressScreen() {
                 id={`${ids}-${key}`}
                 error={errors[key]}
               >
-                <input
+                <Input
                   id={`${ids}-${key}`}
-                  className={INPUT}
                   value={data[key]}
                   onChange={(e) => patch({ [key]: e.target.value })}
                   onBlur={() => setTouched((t) => ({ ...t, [key]: true }))}

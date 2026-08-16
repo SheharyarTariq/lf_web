@@ -14,6 +14,8 @@
    one — it belongs to the product, not the marketing page.
    ══════════════════════════════════════════════════════════════════ */
 
+import { AUTH_INPUT_BASE } from "@/utils/auth/styles";
+import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import { useCallback, useEffect, useId, useRef, useState, type SVGProps } from "react";
 import { register as apiRegister } from "@/utils/api";
@@ -123,16 +125,6 @@ function ProviderMark({ id }: { id: "google" | "apple" }) {
 
 /* ── Class recipes ────────────────────────────────────────────── */
 
-/* Height is separate so the phone field can override it without two
-   competing `h-*` utilities on one element — which resolve by Tailwind's sort
-   order, not by authoring order, and left the tel row 2px too tall. */
-const INPUT_BASE =
-  "autofill-white w-full px-4 py-0 bg-white rounded-card-md " +
-  "text-[15.5px] leading-[1.6] text-bk-ink placeholder:text-[#9A9A94] focus:outline-none " +
-  "focus:border-bk-ink focus:shadow-[0_0_0_3px_rgba(20,20,15,.08)] aria-invalid:border-danger";
-/* The border lives outside the base so the phone field, which has none, does
-   not have to fight a colour it never asked for. */
-const INPUT = `h-[52px] border-[1.5px] border-bk-line-2 ${INPUT_BASE}`;
 
 const BTN =
   "inline-flex w-full min-h-[52px] items-center justify-center gap-2.5 px-5 py-2 " +
@@ -218,9 +210,9 @@ function Password({
   const [show, setShow] = useState(false);
   return (
     <span className="relative">
-      <input
+      <Input surface="auth"
         id={id}
-        className={`${INPUT} pr-[52px]`}
+        className="pr-[52px]"
         type={show ? "text" : "password"}
         value={value}
         onChange={onChange}
@@ -510,10 +502,9 @@ export default function AuthModal({
             <p className="text-[15px] text-bk-ink-2">Enter your details below to log in</p>
 
             <Field label="Email" id={`${ids}-e`}>
-              <input
+              <Input surface="auth"
                 id={`${ids}-e`}
                 ref={firstField}
-                className={INPUT}
                 type="email"
                 value={form.email}
                 onChange={set("email")}
@@ -574,10 +565,9 @@ export default function AuthModal({
             <p className="text-[15px] text-bk-ink-2">Enter your details to get started</p>
 
             <Field label="Full name" id={`${ids}-n`} error={errors.name}>
-              <input
+              <Input surface="auth"
                 id={`${ids}-n`}
                 ref={firstField}
-                className={INPUT}
                 value={form.name}
                 onChange={set("name")}
                 placeholder="Enter your full name"
@@ -596,7 +586,7 @@ export default function AuthModal({
                 </span>
                 <input
                   id={`${ids}-tel`}
-                  className={`h-[50px] ${INPUT_BASE} rounded-none border-none shadow-none focus:shadow-none`}
+                  className={`h-[50px] ${AUTH_INPUT_BASE} rounded-none border-none shadow-none focus:shadow-none`}
                   type="tel"
                   inputMode="tel"
                   value={form.phone}
@@ -613,9 +603,8 @@ export default function AuthModal({
             </Field>
 
             <Field label="Email" id={`${ids}-se`} error={errors.email}>
-              <input
+              <Input surface="auth"
                 id={`${ids}-se`}
-                className={INPUT}
                 type="email"
                 value={form.email}
                 onChange={set("email")}
@@ -697,10 +686,9 @@ export default function AuthModal({
             </p>
 
             <Field label="Email" id={`${ids}-fe`}>
-              <input
+              <Input surface="auth"
                 id={`${ids}-fe`}
                 ref={firstField}
-                className={INPUT}
                 type="email"
                 value={form.email}
                 onChange={set("email")}

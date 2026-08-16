@@ -4,6 +4,7 @@
    3 · Details
    ══════════════════════════════════════════════════════════════════ */
 
+import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import IdentityPanel from "@/components/booking/identity-panel";
@@ -21,7 +22,6 @@ import {
 import {
   BTN_LINK,
   H1,
-  INPUT,
   LEDE,
   NAV_BACK,
   NAV_FORWARD,
@@ -338,10 +338,9 @@ export default function ContactScreen() {
       )}
 
       <Field label="Full name" id={`${ids}-fn`} error={errors.fullName}>
-        <input
+        <Input
           id={`${ids}-fn`}
           ref={nameRef}
-          className={INPUT}
           value={data.fullName}
           onChange={(e) => patch({ fullName: e.target.value })}
           onBlur={() => setTouched((t) => ({ ...t, fullName: true }))}
@@ -353,10 +352,9 @@ export default function ContactScreen() {
       </Field>
 
       <Field label="Mobile number" id={`${ids}-mb`} error={errors.mobile}>
-        <input
+        <Input
           id={`${ids}-mb`}
           ref={mobileRef}
-          className={INPUT}
           type="tel"
           inputMode="tel"
           value={data.mobile}
@@ -383,10 +381,10 @@ export default function ContactScreen() {
             below moves while it runs. Block, not inline, or the
             label-to-field rhythm shifts by the line-height. */}
         <span className="relative block">
-          <input
+          <Input
             id={`${ids}-em`}
             ref={emailRef}
-            className={`${INPUT}${checking ? " pr-[46px]" : ""}`}
+            className={checking ? "pr-[46px]" : ""}
             type="email"
             value={data.email}
             onChange={onEmailChange}

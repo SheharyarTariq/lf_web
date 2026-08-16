@@ -4,6 +4,7 @@
    2 · Time
    ══════════════════════════════════════════════════════════════════ */
 
+import Textarea from "@/components/common/Textarea";
 import Button from "@/components/common/Button";
 import { useEffect, useId, useMemo, useState } from "react";
 import Calendar, { SlotPicker } from "@/components/booking/calendar";
@@ -33,7 +34,6 @@ import {
   NAV_BACK,
   NAV_FORWARD,
   SWITCH,
-  TEXTAREA,
   TOGGLE,
   TOGGLE_SUB,
   TOGGLE_TEXT,
@@ -351,9 +351,8 @@ export default function TimeScreen() {
         <>
           <div className={DIVIDER} />
           <Field label="Anything else we should know? (optional)" id={`${ids}-note`}>
-            <textarea
+            <Textarea
               id={`${ids}-note`}
-              className={TEXTAREA}
               value={data.access}
               onChange={(e) => patch({ access: e.target.value })}
               placeholder="Buzzer 12, side gate is unlocked until 8pm"

@@ -4,6 +4,7 @@
    5 · Confirmed
    ══════════════════════════════════════════════════════════════════ */
 
+import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import Link from "next/link";
 import { useId, useState } from "react";
@@ -18,7 +19,6 @@ import {
   CONTROL_PEER,
   DIVIDER,
   H1,
-  INPUT,
   SEC_H,
   SEC_P,
   SWITCH,
@@ -127,9 +127,8 @@ export default function ConfirmedScreen() {
           ) : (
             <div className={CARD}>
               <Field label="Choose a password" id={`${ids}-np`} hint="At least 8 characters.">
-                <input
+                <Input
                   id={`${ids}-np`}
-                  className={INPUT}
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
