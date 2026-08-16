@@ -1,11 +1,17 @@
 "use client";
 
 /* ══════════════════════════════════════════════════════════════════
-   Log in · Sign up · Forgot password
+   Log in · Sign up · Forgot password · Verify email
    ══════════════════════════════════════════════════════════════════
 
-   One component, four panes, opened from the site header and from the
+   One component, seven panes, opened from the site header and from the
    checkout. Rendered by AuthProvider at the root so there is only ever one.
+
+   Signing up or logging in with an address nobody has proved lands on the
+   `verify` pane instead of closing, and no session is written until the code
+   comes back good — see the note at the top of utils/auth. So `onAuthed` here
+   means "there is now a cookie", not "a request succeeded", and three of the
+   panes exist to get from one to the other.
 
    Full screen on a phone, a centred dialog from 560px. The phone treatment
    is the one in the app: nothing but the form, no chrome competing with it.
@@ -14,16 +20,40 @@
    one — it belongs to the product, not the marketing page.
    ══════════════════════════════════════════════════════════════════ */
 
-import { Check, ChevronLeft, Eye, EyeOff, Mail, TriangleAlert, X } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  Eye,
+  EyeOff,
+  Mail,
+  MailCheck,
+  Pencil,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { validateAndSetErrors } from "@/utils/validation";
-import { EMAIL_RE, PASSWORD_RE, PASSWORD_RULE, signupSchema } from "./schema";
+import {
+  changeEmailSchema,
+  codeSchema,
+  EMAIL_RE,
+  PASSWORD_RE,
+  PASSWORD_RULE,
+  signupSchema,
+} from "./schema";
 import { cn } from "@/utils/cn";
-import { AUTH_INPUT_BASE } from "@/utils/auth/styles";
+import { AUTH_CODE_INPUT, AUTH_INPUT_BASE } from "@/utils/auth/styles";
 import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { register as apiRegister } from "@/utils/api";
-import { login as apiLogin } from "@/utils/auth";
+import {
+  changeEmailAddress,
+  login as apiLogin,
+  resendVerification,
+  verifyEmail,
+  type AuthUser,
+} from "@/utils/auth";
+import { CODE_LENGTH, RESEND_SECONDS } from "@/utils/auth/model";
 import type { AuthedUser } from "@/components/common/AuthProvider";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -103,6 +133,11 @@ const BTN =
 
 const BTN_LIME =
   `${BTN} font-semibold bg-brand border-brand text-bk-ink enabled:hover:bg-brand-hover enabled:hover:border-brand-hover`;
+
+/* The quiet twin of BTN_LIME, for a pane whose only action is a secondary one
+   — "Update email" sits alone on the verify screen, and putting it in lime
+   would read as the thing to do next, which it is not. */
+const BTN_OUTLINE = `${BTN} font-semibold bg-white border-bk-line-2 text-bk-ink enabled:hover:bg-[#F4F4F0]`;
 
 /* Both companies specify the treatment. Google is white with a hairline and
    their own mark; Apple is black. Neither may be restyled. */
@@ -232,7 +267,34 @@ const Divider = () => (
    The modal
    ══════════════════════════════════════════════════════════════════ */
 
-type View = "login" | "signup" | "forgot" | "sent";
+export type View =
+  | "login"
+  | "signup"
+  | "forgot"
+  | "sent"
+  | "verify"
+  | "code"
+  | "change-email";
+
+/* Where the chevron goes, and whether there is one at all. Was a hardcoded
+   two-view test that always returned to `login`, which cannot express
+   change-email → verify.
+
+   `verify` is deliberately absent. By the time it shows, the account exists
+   and a token is held; a route back to a pane that looks signed-out would
+   strand both. The X still closes the dialog — the pending cookie outlives it
+   on purpose, so closing and clicking the link in the email still works. */
+const BACK: Partial<Record<View, View>> = {
+  forgot: "login",
+  sent: "login",
+  code: "verify",
+  "change-email": "verify",
+};
+
+const BACK_LABEL: Partial<Record<View, string>> = {
+  login: "Back to log in",
+  verify: "Back to email verification",
+};
 
 export default function AuthModal({
   view: initialView = "login",
@@ -251,12 +313,54 @@ export default function AuthModal({
   const [alert, setAlert] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [form, setForm] = useState({ name: "", phone: "", email, password: "" });
+  /* `email` is the address the account currently has; `newEmail` is the draft
+     on the change-email pane. Separate keys, so typing a correction does not
+     rewrite the address the verify pane is telling them to check. */
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    email,
+    password: "",
+    code: "",
+    newEmail: "",
+  });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
     setErrors((x) => ({ ...x, [k]: "" }));
     setAlert("");
   };
+
+  /* The account behind an unverified sign-in. Never becomes an AuthedUser —
+     that is the whole point — but change-email needs its id, and the id is
+     dropped everywhere downstream of login(). */
+  const [held, setHeld] = useState<AuthUser | null>(null);
+
+  /* A deadline, not a counter. Ticking a number down means re-creating the
+     interval on every tick, which drifts and stops dead in a backgrounded tab;
+     recomputing from the wall clock does neither. It also survives switching
+     panes, since `go` touches only the alert and the errors — so verify → code
+     → verify picks the countdown up where it was rather than restarting it. */
+  const [resendAt, setResendAt] = useState(0);
+  const [left, setLeft] = useState(0);
+
+  /* The seed is set by startCooldown rather than by the effect, so nothing
+     here writes state during the effect body — that causes a cascading render,
+     and react-hooks/set-state-in-effect is right to refuse it. The interval
+     only ever writes from its own callback. */
+  useEffect(() => {
+    if (!resendAt) return;
+    const id = setInterval(() => {
+      const n = Math.max(0, Math.ceil((resendAt - Date.now()) / 1000));
+      setLeft(n);
+      if (n === 0) clearInterval(id);
+    }, 250);
+    return () => clearInterval(id);
+  }, [resendAt]);
+
+  const startCooldown = useCallback(() => {
+    setResendAt(Date.now() + RESEND_SECONDS * 1000);
+    setLeft(RESEND_SECONDS);
+  }, []);
 
   const panel = useRef<HTMLDivElement>(null);
   const firstField = useRef<HTMLInputElement>(null);
@@ -307,6 +411,49 @@ export default function AuthModal({
     setErrors({});
   }, []);
 
+  /* Only ever called once a session cookie exists — see the header note. */
+  const finish = useCallback(
+    (who: AuthUser | null, fallbackEmail: string) => {
+      onAuthed?.({
+        id: who?.id,
+        email: who?.email || fallbackEmail,
+        fullName: who?.name,
+        mobile: who?.phone,
+        identity: "",
+        verified: true,
+        signedIn: true,
+      });
+    },
+    [onAuthed],
+  );
+
+  /* An address nobody has proved. Hold the account, start the clock, show the
+     code screen. /login-check has already sent the email by this point, so
+     landing here must not fire a resend of its own. */
+  const awaitVerification = useCallback(
+    (who: AuthUser) => {
+      setHeld(who);
+      setForm((f) => ({ ...f, email: who.email || f.email, code: "", newEmail: "" }));
+      startCooldown();
+      go("verify");
+    },
+    [go, startCooldown],
+  );
+
+  /* apiCall toasts a dropped connection whatever showErrorToast says, because
+     nothing else would report it — so a banner for the same thing says it
+     twice. status === null is that case. */
+  const showFailure = (r: { message: string; status: number | null }) => {
+    if (r.status !== null) setAlert(r.message);
+  };
+
+  /* The held token died. Resending would only mail a code they still could not
+     submit, so send them back to the start. setAlert after go, which clears it. */
+  const sessionExpired = () => {
+    go("login");
+    setAlert("Your session timed out. Log in again to finish verifying.");
+  };
+
   const social = async (provider: "google" | "apple") => {
     setBusy(true);
     const who = signInWith(provider);
@@ -327,18 +474,16 @@ export default function AuthModal({
       setAlert(r.message);
       return;
     }
-    onAuthed?.({
-      email: r.user.email,
-      fullName: r.user.name,
-      mobile: r.user.phone,
-      identity: "",
-      /* Having the password does not prove the inbox — the account can exist
-         with the address unconfirmed. emailVerifiedAt is the server's answer
-         and the only one that counts, and it is why the response body is read
-         instead of the JWT. */
-      verified: Boolean(r.user.emailVerifiedAt),
-      signedIn: true,
-    });
+    /* Having the password does not prove the inbox — the account can exist
+       with the address unconfirmed. emailVerifiedAt is the server's answer and
+       the only one that counts, and it is why the response body is read
+       instead of the JWT. An unverified answer stops here: utils/auth has
+       written no cookie, so from the app's point of view nobody logged in. */
+    if (!r.verified) {
+      awaitVerification(r.user);
+      return;
+    }
+    finish(r.user, form.email.trim());
   };
 
   /* ── Sign up ── */
@@ -361,19 +506,109 @@ export default function AuthModal({
       else setAlert(r.message);
       return;
     }
-    /* 201 gives no token, so sign them straight in with what they just typed.
-       Two calls, one action, and the busy state covers both. */
+    /* 201 gives no token, and proving the address needs one, so sign them
+       straight in with what they just typed. Two calls, one action, and the
+       busy state covers both. */
     const l = await apiLogin(form.email, form.password);
     setBusy(false);
-    onAuthed?.({
-      email: form.email.trim(),
-      fullName: form.name.trim(),
-      mobile: form.phone.trim(),
-      identity: "",
-      /* The account exists but nobody has proved they can read that inbox. */
-      verified: false,
-      signedIn: l.ok,
-    });
+    if (!l.ok) {
+      /* The account is real but no token came back, so there is nothing to
+         verify with. Saying so beats parking them on a code screen that
+         cannot work. */
+      go("login");
+      setAlert("Your account is created. Log in to finish setting it up.");
+      return;
+    }
+    /* Registering never returns a proved address today. The check costs
+       nothing and keeps this honest if that ever changes. */
+    if (!l.verified) {
+      awaitVerification({ ...l.user, name: l.user.name || form.name.trim() });
+      return;
+    }
+    finish(l.user, form.email.trim());
+  };
+
+  /* ── Verify ── */
+  const submitCode = async () => {
+    if (busy) return;
+    if (!(await validateAndSetErrors(codeSchema, form, setErrors))) return;
+    setBusy(true);
+    setAlert("");
+    const r = await verifyEmail(form.code);
+    setBusy(false);
+    if (!r.ok) {
+      if (r.status === 401 || r.status === 403) return sessionExpired();
+      if (r.status === null) return;
+      /* Under the field rather than above the form: it names the one thing
+         they have to retype, and a banner up top makes people hunt for it. */
+      setErrors({ code: r.message });
+      return;
+    }
+    /* The cookie exists now. /my-status is the better source, but it can come
+       back empty, and the held account is a good enough fallback. */
+    finish(r.user ?? held, form.email.trim());
+  };
+
+  const resend = async () => {
+    if (left > 0 || busy) return;
+    setBusy(true);
+    setAlert("");
+    const r = await resendVerification();
+    setBusy(false);
+    if (!r.ok) {
+      if (r.status === 401 || r.status === 403) return sessionExpired();
+      showFailure(r);
+      return;
+    }
+    setForm((f) => ({ ...f, code: "" }));
+    setErrors({});
+    startCooldown();
+  };
+
+  /* ── Change email ── */
+  const openChangeEmail = () => {
+    setForm((f) => ({ ...f, newEmail: f.email }));
+    go("change-email");
+  };
+
+  const changeReady =
+    EMAIL_RE.test(form.newEmail.trim()) &&
+    form.newEmail.trim().toLowerCase() !== form.email.trim().toLowerCase();
+
+  const submitChangeEmail = async () => {
+    if (busy || !changeReady) return;
+    if (!(await validateAndSetErrors(changeEmailSchema, form, setErrors))) return;
+    if (!held?.id) {
+      setAlert("We could not tell which account to update. Log in again.");
+      return;
+    }
+    setBusy(true);
+    setAlert("");
+    const r = await changeEmailAddress(held.id, form.newEmail);
+    setBusy(false);
+    if (!r.ok) {
+      if (r.status === 401 || r.status === 403) return sessionExpired();
+      if (r.status === null) return;
+      /* The server calls this field `email`; the form calls it `newEmail`.
+         Remapped here rather than in utils/api's global alias table, because
+         `email` means `email` on every other pane. */
+      const field = r.fields.email ?? Object.values(r.fields)[0];
+      if (field) setErrors({ newEmail: field });
+      else setAlert(r.message);
+      return;
+    }
+    /* They proved the address somewhere else while this pane sat open, and
+       utils/auth has already turned that into a session. */
+    if (r.promoted) {
+      finish(r.promoted, form.email.trim());
+      return;
+    }
+    const next = form.newEmail.trim();
+    setForm((f) => ({ ...f, email: next, code: "" }));
+    setHeld((h) => (h ? { ...h, email: next } : h));
+    /* A fresh code goes to the new address, so the clock starts again. */
+    startCooldown();
+    go("verify");
   };
 
   /* ── Forgot ── */
@@ -393,6 +628,17 @@ export default function AuthModal({
   };
 
   const titleId = `${ids}-t`;
+  const back = BACK[view];
+
+  const setCode = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm((f) => ({ ...f, code: e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH) }));
+    setErrors((x) => ({ ...x, code: "" }));
+    setAlert("");
+  };
+
+  /* Disabled reads as "not yet", so it keeps the underline off and does not
+     dim to the point of looking broken. */
+  const RESEND_BTN = cn(LINK_BTN, "disabled:cursor-default disabled:no-underline disabled:opacity-60");
 
   return (
     /* Phones get the app treatment: the form and nothing else. A dialog
@@ -415,11 +661,11 @@ export default function AuthModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="-mt-2 mb-[18px] flex min-h-11 items-center justify-between gap-3">
-          {view === "forgot" || view === "sent" ? (
+          {back ? (
             <Button variant="bare"
               className="flex h-11 w-11 flex-none cursor-pointer items-center justify-center py-px px-1.5 rounded-[50%] border-none bg-transparent text-bk-ink hover:bg-[#E9E9E4]"
-              onClick={() => go("login")}
-              aria-label="Back to log in"
+              onClick={() => go(back)}
+              aria-label={BACK_LABEL[back] ?? "Back"}
             >
               <ChevronLeft size={22} strokeWidth={2} aria-hidden="true" />
             </Button>
@@ -699,6 +945,157 @@ export default function AuthModal({
               Done
             </Button>
           </div>
+        )}
+
+        {/* ── Verify your email ──────────────────────────────── */}
+        {view === "verify" && (
+          <div className="px-0 pb-1 pt-1.5 text-center">
+            <span
+              className="mx-auto mb-[18px] flex h-16 w-16 items-center justify-center rounded-[50%] bg-brand text-bk-ink"
+              aria-hidden="true"
+            >
+              <MailCheck size={28} aria-hidden="true" />
+            </span>
+            <h2
+              className="text-[26px] font-extrabold leading-[1.12] tracking-[-1px]"
+              id={titleId}
+            >
+              Verify your email
+            </h2>
+            {/* Named, not "your email". Half the reason this screen has an
+                Update email button is that people mistype the address, and
+                they cannot spot that unless it is in front of them. */}
+            <p className="text-[15px] text-bk-ink-2">
+              We&rsquo;ve sent a verification link to
+              <b className="mt-1 block break-words text-[15.5px] text-bk-ink">
+                {form.email.trim()}
+              </b>
+            </p>
+            <p className="mb-6 mt-3 text-[13.5px] leading-[1.5] text-bk-ink-3">
+              Can&rsquo;t find it? Check the address above is right, and look in your spam or junk
+              folder.
+            </p>
+
+            <Button variant="bare" className={BTN_OUTLINE} onClick={openChangeEmail}>
+              <Pencil size={17} aria-hidden="true" />
+              Update email
+            </Button>
+
+            <p className="mt-[18px]">
+              <Button variant="bare" className={LINK_BTN} onClick={() => go("code")}>
+                Enter code manually
+              </Button>
+            </p>
+
+            <p className="text-[14px] text-bk-ink-2">
+              Didn&rsquo;t get it?{" "}
+              <Button
+                variant="bare"
+                className={RESEND_BTN}
+                disabled={left > 0 || busy}
+                onClick={resend}
+              >
+                {busy ? "Sending" : left > 0 ? `Resend link in ${left}s` : "Resend link"}
+              </Button>
+            </p>
+          </div>
+        )}
+
+        {/* ── Enter the code ─────────────────────────────────── */}
+        {view === "code" && (
+          <>
+            <h2
+              className="text-[30px] font-extrabold leading-[1.12] tracking-[-1px] to-559:text-[33px]"
+              id={titleId}
+            >
+              Enter verification code
+            </h2>
+            <p className="text-[15px] text-bk-ink-2">
+              Enter the code from your verification email.
+            </p>
+
+            <Field label="Verification code" id={`${ids}-vc`} error={errors.code}>
+              <Input surface="auth"
+                id={`${ids}-vc`}
+                ref={firstField}
+                className={AUTH_CODE_INPUT}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={CODE_LENGTH}
+                value={form.code}
+                onChange={setCode}
+                onKeyDown={onEnter(submitCode)}
+                aria-invalid={errors.code ? "true" : undefined}
+              />
+            </Field>
+
+            <Button variant="bare"
+              className={cn(BTN_LIME, "mt-1.5")}
+              disabled={form.code.length !== CODE_LENGTH || busy}
+              onClick={submitCode}
+            >
+              {busy ? <Spinner /> : null}
+              {busy ? "Verifying" : "Verify"}
+            </Button>
+
+            <p className="text-center text-[14px] text-bk-ink-2">
+              <Button
+                variant="bare"
+                className={RESEND_BTN}
+                disabled={left > 0 || busy}
+                onClick={resend}
+              >
+                {left > 0 ? `Resend code in ${left}s` : "Resend code"}
+              </Button>
+            </p>
+          </>
+        )}
+
+        {/* ── Change email ───────────────────────────────────── */}
+        {view === "change-email" && (
+          <>
+            <h2
+              className="text-[30px] font-extrabold leading-[1.12] tracking-[-1px] to-559:text-[33px]"
+              id={titleId}
+            >
+              Change email
+            </h2>
+            <p className="text-[15px] text-bk-ink-2">
+              Enter the correct address. We&rsquo;ll send a new verification code to it.
+            </p>
+
+            <Field label="Email address" id={`${ids}-ne`} error={errors.newEmail}>
+              <Input surface="auth"
+                id={`${ids}-ne`}
+                ref={firstField}
+                type="email"
+                value={form.newEmail}
+                onChange={set("newEmail")}
+                onKeyDown={onEnter(submitChangeEmail)}
+                placeholder="Enter your email address"
+                autoComplete="email"
+                aria-invalid={errors.newEmail ? "true" : undefined}
+              />
+            </Field>
+
+            {/* Dead until the address is both valid and actually different —
+                sending the same one again would look like it worked and change
+                nothing, which is the worst answer available. */}
+            <Button variant="bare"
+              className={cn(BTN_LIME, "mt-1.5")}
+              disabled={!changeReady || busy}
+              onClick={submitChangeEmail}
+            >
+              {busy ? <Spinner /> : null}
+              {busy ? "Updating" : "Update & resend code"}
+            </Button>
+
+            <p className="text-center text-[14px] text-bk-ink-2">
+              <Button variant="bare" className={LINK_BTN} onClick={() => go("verify")}>
+                Cancel
+              </Button>
+            </p>
+          </>
         )}
       </div>
     </div>

@@ -59,11 +59,14 @@ export const routes = {
     terms: "/terms",
     requestDeletion: "/request-deletion",
 
-    /* These four are currently DeepLinkFallback stubs that hand off to the
-       native app. The backend brief expects /verify-email and /reset-password
-       to become real pages that read `token` from the query string and submit
-       it — changing them touches the .well-known association files, because
-       the app claims the same paths. See docs/STATUS.md. */
+    /* verifyEmail is a real page: it reads `token` from the query string and
+       submits it as `code`. The association files still claim the path, so a
+       phone with the app installed opens the app and the page never renders —
+       which is why making it real needed no change there.
+
+       The three below are still DeepLinkFallback stubs. /reset-password is the
+       one that should follow, once the modal's forgot pane calls
+       /reset-password/request for real. See docs/STATUS.md. */
     verifyEmail: "/verify-email",
     resetPassword: "/reset-password",
     paymentMethodAdd: "/payment-methods/add",
@@ -72,12 +75,20 @@ export const routes = {
   },
 
   api: {
-    /* ── Public: the only four that work without a Bearer token ─────── */
+    /* ── Public: no Bearer token ────────────────────────────────────── */
     register: "/register",
     loginCheck: "/login-check",
     systemStatus: "/system-status",
     resetPasswordRequest: "/reset-password/request",
     resetPasswordConfirm: "/reset-password/confirm",
+
+    /* { email, purpose } where purpose is one of email_verification, login or
+       password_reset — anything else is a 422 naming `purpose`. Answers 200
+       even for an address with no account, so it cannot be used to ask who is
+       a customer, which also means it cannot report that nothing was sent.
+       Prefer emailVerificationResend wherever a token is in hand; this is for
+       the verify-email page reached from a mail client with no session. */
+    verificationCodeRequest: "/verification-code/request",
 
     /* ── Authenticated ──────────────────────────────────────────────── */
 
@@ -86,8 +97,9 @@ export const routes = {
        paymentMethods, recurring, nextOrderDiscount. */
     myStatus: "/my-status",
 
-    /* Both require the user to be logged in first. Trigger is
-       emailVerifiedAt === null from /login-check or /my-status. */
+    /* Both need a Bearer token, but not a *session* — utils/auth runs them on
+       the pending token, since an unverified account deliberately never gets
+       one. Trigger is emailVerifiedAt === null from /login-check or /my-status. */
     emailVerificationVerify: "/email-verification/verify",
     emailVerificationResend: "/email-verification/resend",
 

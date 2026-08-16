@@ -24,3 +24,13 @@ export const AUTH_INPUT_BASE =
 /* The border lives outside the base so the phone field, which has none, does
    not have to fight a colour it never asked for. */
 export const AUTH_INPUT = `h-[52px] border-[1.5px] border-bk-line-2 ${AUTH_INPUT_BASE}`;
+
+/* The verification code field. Bigger, bolder and widely tracked, because six
+   digits copied from an email get checked against the email — which is much
+   easier when the characters are not crowded.
+
+   The same treatment as the checkout's code inputs (booking/overlays), kept
+   identical on purpose: two screens in one product that ask for the same six
+   digits should not look like two different fields. Applied on top of
+   AUTH_INPUT, so it only has to say what differs. */
+export const AUTH_CODE_INPUT = "text-center text-[19px] font-bold tracking-[.45em]";

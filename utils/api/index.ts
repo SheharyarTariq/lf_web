@@ -51,7 +51,11 @@ interface Violation {
   message?: string;
 }
 
-interface ErrorBody {
+/* Exported alongside the two readers below: utils/auth needs them because
+   apiCall only surfaces the backend's own wording for 409 and 422, and the
+   verification errors that matter ("Incorrect code", "Email is already
+   verified.") are 400s. The header comment above anticipated this lift. */
+export interface ErrorBody {
   violations?: Violation[];
   "hydra:violations"?: Violation[];
   "hydra:description"?: string;
@@ -68,7 +72,7 @@ const FIELD_ALIASES: Record<string, string> = {
   password: "password",
 };
 
-function readViolations(body: ErrorBody | null): Record<string, string> {
+export function readViolations(body: ErrorBody | null): Record<string, string> {
   const list = body?.violations || body?.["hydra:violations"] || [];
   const fields: Record<string, string> = {};
   for (const v of list) {
@@ -79,13 +83,12 @@ function readViolations(body: ErrorBody | null): Record<string, string> {
   return fields;
 }
 
-function readMessage(body: ErrorBody | null, status: number): string {
+/** undefined when the body carries no wording of its own, so callers can fall
+ *  back to something better than a status code — apiCall's network-error copy,
+ *  say, which is more useful than "Something went wrong (0)." */
+export function readMessage(body: ErrorBody | null): string | undefined {
   return (
-    body?.["hydra:description"] ||
-    body?.detail ||
-    body?.message ||
-    body?.error ||
-    `Something went wrong (${status}).`
+    body?.["hydra:description"] || body?.detail || body?.message || body?.error || undefined
   );
 }
 
@@ -127,7 +130,7 @@ async function send<T = Record<string, unknown>>(
   return {
     ok: false,
     status: res.status,
-    message: readMessage(body, res.status),
+    message: readMessage(body) ?? `Something went wrong (${res.status}).`,
     fields: readViolations(body),
   };
 }

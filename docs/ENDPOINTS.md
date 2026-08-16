@@ -4,8 +4,11 @@ Which file calls which endpoint, and what it replaces. Source of truth for the e
 themselves is [`FE-API-GUIDE.md`](./FE-API-GUIDE.md); this file maps that brief onto our
 code. Path constants live in [`utils/routes/index.tsx`](../utils/routes/index.tsx).
 
-**Nothing below is wired yet** except the four rows marked *live*. Integration order is
+**Nothing below is wired yet** except the rows marked *live*. Integration order is
 recorded in [`STATUS.md`](./STATUS.md): logged-in flow first, guest checkout after.
+
+Registration, login and email verification are done. The rest of the logged-in flow —
+address, slots, card, order — is still mocked.
 
 ## Ground rules from the brief
 
@@ -24,6 +27,7 @@ recorded in [`STATUS.md`](./STATUS.md): logged-in flow first, guest checkout aft
 | `POST /register` | [`utils/api/index.ts`](../utils/api/index.ts) `register()` → [`AuthModal.tsx:402`](../components/auth/auth-modal/index.tsx) | **live**, payload matches: `{ email, plainPassword, name, phone? }` |
 | `POST /login-check` | [`utils/auth`](../utils/auth/index.ts) `login()` → [`AuthModal.tsx`](../components/auth/auth-modal/index.tsx) `submitLogin` | **live and integrated** — goes through `apiCall`, reads the response's `user` object (the only source of `emailVerifiedAt`), stores the JWT in the `authtoken` cookie |
 | `GET /my-status` | [`utils/auth`](../utils/auth/index.ts) `loadSession()` → [`AuthProvider.tsx`](../components/common/AuthProvider/index.tsx) on mount | **live and integrated** — restores the session on load; a 401 clears the dead token |
+| `POST /verification-code/request` | [`utils/auth`](../utils/auth/index.ts) `requestVerificationCode()` | **wrapper written, no call site yet** — `{ email, purpose }`, purpose ∈ `email_verification` \| `login` \| `password_reset`. Live on staging: 200 for an unknown address, 422 naming `purpose` for a bad one. Everywhere we hold a token, `emailVerificationResend` is preferred — it follows the account rather than an address in our state, and it can actually report a failure |
 | `POST /reset-password/request` | [`AuthModal.tsx`](../components/auth/auth-modal/index.tsx) `forgot` view | mocked — [line 23](../components/auth/auth-modal/index.tsx) says no endpoint exists. It does now |
 | `POST /reset-password/confirm` | `/reset-password` page — **does not exist as a real page yet** | currently a `DeepLinkFallback` stub |
 
@@ -40,13 +44,20 @@ recorded in [`STATUS.md`](./STATUS.md): logged-in flow first, guest checkout aft
 
 | Endpoint | Call site | Replaces |
 |---|---|---|
-| `POST /email-verification/verify` | [`IdentityPanel.tsx`](../components/booking/identity-panel/index.tsx), [`Overlays.tsx:326`](../components/booking/overlays/index.tsx) | `verifyCode` in [`utils/booking/mocks.ts`](../utils/booking/mocks.ts) |
-| `POST /email-verification/resend` | [`IdentityPanel.tsx:201`](../components/booking/identity-panel/index.tsx) — the resend button already has its cooldown | nothing |
-| `POST /users/{id}/change-email` | no UI exists | — |
+| `POST /email-verification/verify` | [`utils/auth`](../utils/auth/index.ts) `verifyEmail()` → the modal's `code` pane and [`components/verify-email`](../components/verify-email/index.tsx) | **live** — success promotes the held token into `authtoken`, and that is the moment anyone is signed in |
+| `POST /email-verification/resend` | [`utils/auth`](../utils/auth/index.ts) `resendVerification()` → the modal's `verify` pane and the verify-email page | **live**, with a 60s cooldown held as a deadline so it survives pane switches |
+| `POST /users/{id}/change-email` | [`utils/auth`](../utils/auth/index.ts) `changeEmailAddress()` → the modal's `change-email` pane | **live** — 400 "Email is already verified." is treated as a trigger to re-check `/my-status`, not as a message to show |
 
 Verification is gated behind login: register → login → `emailVerifiedAt === null` → verify.
-The email also links to `{site}/verify-email?token=<code>`, so that page must read the token
-from the URL and submit it as `code`.
+**An unverified account gets no session.** `/login-check` hands back a working token either
+way — probed, it reads `/my-status` fine — so the gate is entirely ours: the token goes in a
+one-hour `pendingtoken` cookie that only these three calls read, and `authtoken` is written
+only once the code comes back good. See the header of [`utils/auth`](../utils/auth/index.ts).
+
+The email carries a 6-digit code **and** a link to `{site}/verify-email?token=<code>`.
+[`app/(main)/verify-email`](<../app/(main)/verify-email/page.tsx>) is a real page now: same
+browser, the pending cookie is there and it verifies with no interaction; a different device
+has nothing to authenticate with, so it asks for a login once and resumes by itself.
 
 ### Address
 
@@ -121,7 +132,7 @@ Each of these is one function body in [`utils/booking/mocks.ts`](../utils/bookin
 | `lookupAddresses` | → `POST /find-addresses` |
 | `fetchCollectionAvailability` | → `GET /slots/pickup` |
 | `fetchDeliveryAvailability` | → `GET /slots/dropoff` |
-| `verifyCode` | → `POST /email-verification/verify` |
+| `verifyCode` | still mocked **in the checkout only**. `utils/auth` `verifyEmail()` is the real one; `IdentityPanel` and `LoginSheet` still compare against `"123456"` and are part of the checkout pass |
 | `makeReference` | → `POST /orders` (server mints `number`) |
 | `attemptLogin` | → `POST /login-check` — delete it, `utils/auth` `login()` already does this |
 | `checkAccount`, `accountExists`, `mobileHasAccount` | **unbacked** |

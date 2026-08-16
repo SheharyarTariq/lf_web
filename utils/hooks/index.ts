@@ -16,6 +16,7 @@ import {
   type RefObject,
 } from "react";
 import { DELETE_SPEED, HOLD_EMPTY, HOLD_FULL, TYPE_SPEED } from "@/utils/content";
+import { getBearerToken, subscribeToken } from "@/utils/auth";
 
 /**
  * Enter the booking flow, optionally with a slot preselected.
@@ -67,6 +68,26 @@ function useMediaQuery(query: string): boolean {
 
 export function usePrefersReducedMotion(): boolean {
   return useMediaQuery("(prefers-reduced-motion: reduce)");
+}
+
+/**
+ * The live bearer token — the session one if there is a session, otherwise the
+ * short-lived one held while somebody proves their address.
+ *
+ * A cookie fires no event, so anything that has to react to one being written
+ * needs telling; utils/auth announces on every write. Same shape as
+ * useMediaQuery above and for the same reason, and the server snapshot is
+ * `null` because a cookie is not readable during SSR anyway — so the first
+ * client render matches the markup.
+ *
+ * The verify-email page is why this exists. Someone arriving from a mail
+ * client with no session logs in on the spot, and this is what tells the page
+ * a credential now exists so it can submit the code it is already holding.
+ * Deliberately not `useAuth().user`, which is null for an unverified account
+ * by design and would therefore never fire.
+ */
+export function useBearerToken(): string | null {
+  return useSyncExternalStore(subscribeToken, getBearerToken, () => null);
 }
 
 /** Types each word out, holds, backspaces it, then moves on. Loops. */

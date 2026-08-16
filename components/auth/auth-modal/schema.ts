@@ -1,4 +1,5 @@
 import * as yup from "yup";
+import { CODE_LENGTH } from "@/utils/auth/model";
 
 /* ══════════════════════════════════════════════════════════════════
    Auth modal validation
@@ -38,11 +39,34 @@ export const signupSchema = yup.object({
   password: yup.string().matches(PASSWORD_RE, `${PASSWORD_RULE}.`),
 });
 
-/* The login pane deliberately has no per-field validation. A message pointing
-   at the email box would tell whoever asked that the address exists, and one
-   pointing at the password would say the same by omission — so a failed login
-   gets a single banner from the server instead. What is enforced here is only
-   whether the button is live. */
+/* The login pane deliberately has no per-field validation, which is why no
+   schema for it appears in this file. A message pointing at the email box
+   would tell whoever asked that the address exists, and one pointing at the
+   password would say the same by omission — so a failed login gets a single
+   banner from the server instead. What is enforced there is only whether the
+   button is live. */
+
 export const forgotSchema = yup.object({
   email: yup.string().trim().matches(EMAIL_RE, "Enter a valid email address."),
+});
+
+/* Six numeric digits — see utils/auth/model for why that is now settled. The
+   length governs the regex, the message and the input's maxLength from one
+   constant, so they cannot drift apart if the backend ever changes it. */
+export const codeSchema = yup.object({
+  code: yup
+    .string()
+    .trim()
+    .matches(
+      new RegExp(`^\\d{${CODE_LENGTH}}$`),
+      `Enter the ${CODE_LENGTH}-digit code from your email.`,
+    ),
+});
+
+/* A separate key from `email`, not the same one. `email` holds the address the
+   account currently has — it is what the verify pane reads back and what the
+   "has it actually changed?" test compares against — so the draft needs
+   somewhere of its own to live while it is being typed. */
+export const changeEmailSchema = yup.object({
+  newEmail: yup.string().trim().matches(EMAIL_RE, "Enter a valid email address."),
 });

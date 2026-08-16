@@ -121,6 +121,39 @@ branch there — check `curl -s localhost:3000/ | grep -c "Log in"` returns 1.
 real account, so it is being checked by hand. Everything above used either a real 401 or a
 structurally valid fake JWT with a stubbed `/my-status`.
 
+## Done — email verification
+
+`POST /email-verification/verify`, `/email-verification/resend` and
+`POST /users/{id}/change-email` are integrated, plus `/verification-code/request` as a wrapper
+with no call site yet. Three new panes in `AuthModal` (`verify`, `code`, `change-email`)
+mirroring the mobile app, and `app/(main)/verify-email` is a real page instead of a
+DeepLinkFallback stub.
+
+**The shape of it:** an unverified account gets no session. `/login-check` returns a working
+token either way, so the token goes into a one-hour `pendingtoken` cookie read by nothing but
+the three verification calls; `authtoken` is written only when a code comes back good. That
+makes the gate hold at the `AuthedUser` boundary — `site-header` and `booking-shell` needed no
+change, because `user` is simply null. See conflict 7 and the header of `utils/auth`.
+
+**Confirmed against staging before building** (the assumptions the design rested on):
+`/my-status` *does* return `emailVerifiedAt` despite §4's field list omitting it; an unverified
+token reads `/my-status` with a 200, so the server imposes nothing; a wrong code is
+`400 {"detail":"Incorrect code"}`; `/verification-code/request` is already live, 200 for an
+unknown address and 422 naming `purpose` for a bad one. The JWT payload is `{iat, exp, roles,
+id}` with no verification claim, which is what makes promote-on-verify safe.
+
+**Verified end to end** against real staging with a scripted browser run, 16/16: signup lands
+on the verify pane showing the typed address; `pendingtoken` is written with a ~3600s life and
+`authtoken` is not; the header still offers "Log in"; the resend countdown continues across
+verify → code rather than restarting (60s → 58s); a wrong code shows the server's own
+"Incorrect code" under the field with no toast and no cookie; Update is dead until the address
+actually differs; both cookies behave correctly across a reload; `/verify-email?token=…` in the
+same browser authenticates itself with no login prompt, and in a fresh context falls back to
+one.
+
+**Not verified by me:** the happy path with a genuine code, which only the inbox has. Every
+other branch above is real.
+
 ## Done — the skills restructure
 
 The codebase predated the three imported skills and followed almost none of them. It does
@@ -175,7 +208,7 @@ own pass.
 
 **Agreed order: the logged-in user flow first, guest checkout after.**
 
-Phase 1, logged-in: ~~login~~ → register onto `apiCall` → email verification → address →
+Phase 1, logged-in: ~~login~~ → ~~email verification~~ → register onto `apiCall` → address →
 slots → save card → create order.
 
 Phase 2, guest checkout: blocked on conflict 1 below.
@@ -201,17 +234,32 @@ contained.
 4. **Slot shape mismatch.** `Availability` is a map of dayKey → `{ label, eco }` and the flow
    carries a label string. `POST /orders` needs the slot IRI, so `Availability` must start
    carrying ids. Contained to `utils/booking/model.ts` and the two fetchers.
-5. **The verification code is probably not six digits.** The brief shows `"code": "abc123…"`.
-   `utils/booking/model.ts` sets `CODE_LENGTH = 6`, both inputs strip non-digits with
-   `replace(/\D/g, "")`, and the copy says "6-digit code" in two places. **Needs confirming
-   with the backend.**
-6. **`/verify-email` and `/reset-password` are native-app handoffs today.** Both are
-   `DeepLinkFallback` stubs. The brief needs them as real pages that read `token` from the URL
-   and POST it. Changing them touches `.well-known/assetlinks.json`,
-   `apple-app-site-association` and the app's intent filters, since the app claims those paths.
-7. **Email verification is gated behind login.** Both verify endpoints need a Bearer token, so
-   the order is register → login → `emailVerifiedAt === null` → verify. `AuthModal` currently
-   treats signup as finished after register + login.
+5. ~~**The verification code is probably not six digits.**~~ **Settled: it is six numeric
+   digits.** Three independent sources — the live email sends `488137`, and the backend's own
+   `VerificationCodeTest` asserts `458444` and `292323`. `CODE_LENGTH` now lives in
+   `utils/auth/model.ts` and governs the regex, the copy and the input's `maxLength` from one
+   place. The URL token is still submitted verbatim rather than digit-stripped, since the
+   server is the authority on its own codes.
+6. **`/reset-password` is still a native-app handoff.** ~~`/verify-email`~~ is a real page now
+   — and doing it touched **none** of the association files, because they only *authorise* the
+   OS to open the app. A phone with the app installed still gets the app; the page renders for
+   desktop, phones without it, and in-app webviews. `/reset-password` is the same shape but is
+   blocked on `requestPasswordReset()` in `AuthModal` still being a mock: nothing sends that
+   email today, so the page would be unreachable. Wire the forgot pane to
+   `/reset-password/request` first.
+7. ~~**Email verification is gated behind login.**~~ **Done, and turned into the gate itself.**
+   Both verify endpoints need a Bearer token, so the order is register → login →
+   `emailVerifiedAt === null` → verify. Rather than sign an unverified account in and gate the
+   checkout afterwards, **an unverified account gets no session at all**: the token goes into a
+   one-hour `pendingtoken` cookie that only the three verification calls read, and `authtoken`
+   is written only on a good code. `apiCall` never learns about `pendingtoken`, so every other
+   request from such an account goes out unauthenticated, and `AuthedUser` is null — which is
+   why `site-header` and `booking-shell` needed no change to honour it.
+
+   Worth knowing: `/login-check` returns a **fully working** token for an unverified account —
+   probed against staging, it reads `/my-status` quite happily, and the JWT payload is only
+   `{iat, exp, roles, id}` with no verification claim. The server imposes nothing. The whole
+   gate is ours, and it is client-side, so it is a product rule and not a security boundary.
 8. ~~**`login()` throws away the `user` object.**~~ **Fixed.** `utils/auth` reads
    `res.data.user` off `/login-check` and carries `emailVerifiedAt` into the session, which is
    what conflict 7's verification gate will read.
@@ -223,6 +271,16 @@ contained.
 ### The shared `utils/` layer — one change made, several open
 
 `utils/` is shared with the other developer's project, so everything here needs telling them.
+
+**Changed while wiring verification:** `utils/api` now **exports** `readViolations`,
+`readMessage` and the `ErrorBody` type, which were module-private. `utils/auth` needs them
+because `apiCall` only surfaces the backend's own wording for 409 and 422 — on a 400 it
+substitutes *"Invalid request. Please check your input."* — and both messages that matter here
+(`"Incorrect code"`, `"Email is already verified."`) are 400s. One behaviour change came with
+it: `readMessage` no longer takes a `status` and returns `undefined` instead of
+`` `Something went wrong (${status}).` `` when the body carries no wording, so callers can fall
+back to something better than a status code. Its only existing call site, `send()`, applies
+that fallback itself now.
 
 **Changed while wiring login:** `apiCall` gained **`showErrorToast`** (optional, defaults to
 `true`, so no existing caller behaves differently). It exists because `apiCall`'s 401 branch

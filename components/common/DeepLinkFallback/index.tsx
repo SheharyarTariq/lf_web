@@ -15,7 +15,9 @@ export const deepLinkMetadata: Metadata = {
 
 /**
  * The one page body behind every app deep-link path — /orders/[orderId],
- * /verify-email, /reset-password, /payment-methods/add and /payment-callback.
+ * /reset-password, /payment-methods/add and /payment-callback. /verify-email
+ * used to be here too and is a real page now; the association files still
+ * claim it, so a phone with the app installed still gets the app.
  * Those paths are declared in public/.well-known/apple-app-site-association and
  * mirrored in lf-app/app.json, but the association files only *authorise* the OS
  * to open the app; they don't redirect anyone. Without a route here, every link

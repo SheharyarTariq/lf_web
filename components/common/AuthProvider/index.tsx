@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import AuthModal from "@/components/auth/auth-modal";
+import AuthModal, { type View as AuthView } from "@/components/auth/auth-modal";
 import { loadSession, logout as clearSession } from "@/utils/auth";
 
 /**
@@ -11,6 +11,10 @@ import { loadSession, logout as clearSession } from "@/utils/auth";
  * The checkout reads all of these.
  */
 export interface AuthedUser {
+  /** Needed by the /users/{userId}/* endpoints — change-email and
+   *  update-address both take it in the path. login() carries it through and
+   *  it used to be dropped here. */
+  id?: string | number;
   email: string;
   /** From the sign-up form and from /login-check's JWT. */
   fullName?: string;
@@ -32,7 +36,10 @@ export interface AuthedUser {
  * reason: two modals that can both be open is a bug waiting to be found.
  */
 
-export type AuthView = "login" | "signup";
+/* Re-exported rather than restated. This was its own two-member union and had
+   already drifted — the modal grew `forgot` and `sent` and this never heard
+   about it, so openAuth could not reach half the panes that existed. */
+export type { AuthView };
 
 interface AuthContextValue {
   user: AuthedUser | null;
@@ -43,6 +50,10 @@ interface AuthContextValue {
   openAuth: (view?: AuthView) => void;
   closeAuth: () => void;
   signOut: () => void;
+  /** Re-read /my-status. For anything that changes the session from outside
+   *  this provider — the verify-email page promotes a token itself, and the
+   *  header would otherwise keep saying signed-out until a full reload. */
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -67,12 +78,34 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
      cookie is not readable until this runs. That is deliberate: rendering a
      signed-in header on the server would need the token sent with the
      document request, and the `loading` flag above covers the gap. */
+  const refreshSession = useCallback(async () => {
+    const who = await loadSession();
+    setUser(
+      who
+        ? {
+            id: who.id,
+            email: who.email,
+            fullName: who.name,
+            mobile: who.phone,
+            identity: "",
+            /* Always true by the time it gets here: loadSession only answers
+               for a session cookie, and one of those only exists for a proved
+               address. Kept as the server's own answer rather than a hardcoded
+               true, so it stays right if that ever changes. */
+            verified: Boolean(who.emailVerifiedAt),
+            signedIn: true,
+          }
+        : null,
+    );
+  }, []);
+
   useEffect(() => {
     let live = true;
     loadSession()
       .then((who) => {
         if (!live || !who) return;
         setUser({
+          id: who.id,
           email: who.email,
           fullName: who.name,
           mobile: who.phone,
@@ -99,8 +132,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, loading, openAuth, closeAuth, signOut }),
-    [user, loading, openAuth, closeAuth, signOut],
+    () => ({ user, loading, openAuth, closeAuth, signOut, refreshSession }),
+    [user, loading, openAuth, closeAuth, signOut, refreshSession],
   );
 
   return (

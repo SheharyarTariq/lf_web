@@ -39,7 +39,7 @@ export default function AppRedirect({ platform }: { platform: Platform }) {
   const openApp = useCallback(() => {
     // Derive the target from the live URL so one component serves every route
     // without params being threaded through the server:
-    // "/verify-email?token=abc" -> "verify-email?token=abc" -> "laundryfree://verify-email?token=abc".
+    // "/orders/123" -> "orders/123" -> "laundryfree://orders/123".
     // The path+query shapes match lf-app's linking config (app/app.tsx).
     const target =
       window.location.pathname.replace(/^\/+/, "") + window.location.search;
