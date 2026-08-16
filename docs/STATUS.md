@@ -46,7 +46,7 @@ are the reason several files look more verbose than they need to.
    order, not authoring order.** Four separate bugs came from this (`hidden` losing to
    `inline-flex`, `border-transparent` beating `border-brand`, `font-semibold` beating
    `font-medium`, `h-[52px]` beating `h-[50px]`). Rule: each property lives in exactly one
-   place. `lib/button.ts` takes `display` as a parameter for this reason.
+   place. `utils/button/index.ts` takes `display` as a parameter for this reason.
 
 `tailwind-merge` is now available via `utils/cn.ts` and resolves conflicts by source order,
 which would have prevented trap 4 — worth using as components are refactored.
@@ -93,12 +93,12 @@ Bearer token — so every endpoint added from here is authenticated for free.
   the cookie expires when the token does.
 - `utils/helper/index.ts` — cookie get/set/delete. `SameSite=Lax`, `path=/`, `Secure` only on
   https so localhost works.
-- `components/AuthProvider.tsx` — rebuilds the session from the cookie on mount, so a refresh
+- `components/common/AuthProvider/index.tsx` — rebuilds the session from the cookie on mount, so a refresh
   no longer looks like a sign-out. Exposes `loading` for screens that need "don't decide yet".
-- `components/SiteHeader.tsx` — signed-in state (address + Log out) on desktop and in the
+- `components/layout/site-header/index.tsx` — signed-in state (address + Log out) on desktop and in the
   drawer. New UI: neither the design nor the prototype has one, so it is modelled on the
-  checkout header's treatment in `components/booking/Chrome.tsx`.
-- `lib/api.ts` — `login()`, `readUser()` and the `sessionStorage` token store removed. It now
+  checkout header's treatment in `components/booking/chrome/index.tsx`.
+- `utils/api/index.ts` — `login()`, `readUser()` and the `sessionStorage` token store removed. It now
   owns only `register()`, which keeps its own client until sign-up moves across, because it
   maps Symfony `violations` to per-field errors and `apiCall` returns the raw body instead.
 
@@ -150,9 +150,9 @@ contained.
    a legend explaining them. Nothing backs it.
 4. **Slot shape mismatch.** `Availability` is a map of dayKey → `{ label, eco }` and the flow
    carries a label string. `POST /orders` needs the slot IRI, so `Availability` must start
-   carrying ids. Contained to `lib/booking/model.ts` and the two fetchers.
+   carrying ids. Contained to `utils/booking/model.ts` and the two fetchers.
 5. **The verification code is probably not six digits.** The brief shows `"code": "abc123…"`.
-   `lib/booking/model.ts:175` sets `CODE_LENGTH = 6`, both inputs strip non-digits with
+   `utils/booking/model.ts` sets `CODE_LENGTH = 6`, both inputs strip non-digits with
    `replace(/\D/g, "")`, and the copy says "6-digit code" in two places. **Needs confirming
    with the backend.**
 6. **`/verify-email` and `/reset-password` are native-app handoffs today.** Both are
@@ -165,10 +165,10 @@ contained.
 8. ~~**`login()` throws away the `user` object.**~~ **Fixed.** `utils/auth` reads
    `res.data.user` off `/login-check` and carries `emailVerifiedAt` into the session, which is
    what conflict 7's verification gate will read.
-9. **Money is in pennies.** Integers throughout. `lib/booking/model.ts` `Discount` and the
+9. **Money is in pennies.** Integers throughout. `utils/booking/model.ts` `Discount` and the
    pricing tables need checking against that.
 10. **`toE164` does not enforce length.** The brief says `+44` followed by **10 digits**.
-    `lib/api.ts` strips non-digits and leading zeros then prefixes `+44`, with no count check.
+    `utils/api/index.ts` strips non-digits and leading zeros then prefixes `+44`, with no count check.
 
 ### The shared `utils/` layer — one change made, several open
 
@@ -199,7 +199,7 @@ reports it.
 4. **`apiCall` surfaces only `violations[0].message`** as a toast. It does return the raw
    error body as `data`, so the full `violations` / `hydra:violations` array is still
    reachable — but the mapping to `{ field: message }` has to be redone at each call site.
-   This is the only reason `register()` has not moved off `lib/api.ts` yet.
+   This is the only reason `register()` has not moved off `utils/api/index.ts` yet.
 
 ### One prerequisite before `apiRequest` can be used at all
 
@@ -240,12 +240,12 @@ a 401 page should be designed at the same time. `apiCall` (client) is unaffected
 
 | Item | Where |
 |---|---|
-| Fabricated `RATING = { score: 4.9, count: 63 }` | `lib/content.ts:28` |
-| Ten invented `PRICING` categories | `lib/content.ts:142` |
-| Hardcoded 25% `DISCOUNT`, shown to returning customers too | `lib/booking/model.ts:116` |
-| Stripe **test** publishable key | `components/booking/StripePayment.tsx` |
+| Fabricated `RATING = { score: 4.9, count: 63 }` | `utils/content/index.ts` |
+| Ten invented `PRICING` categories | `utils/content/index.ts` |
+| Hardcoded 25% `DISCOUNT`, shown to returning customers too | `utils/booking/model.ts` |
+| Stripe **test** publishable key | `components/booking/stripe-payment/index.tsx` |
 | JWT in a script-readable `authtoken` cookie — only the server can set httpOnly, so the backend needs to set it instead of returning the token in the body | `utils/auth/index.ts` |
-| `SERVED` omits Fetcham, which the landing page advertises | `lib/booking/model.ts:89` |
+| `SERVED` omits Fetcham, which the landing page advertises | `utils/booking/model.ts` |
 | `assetlinks.json` uses `handle_all_urls`, letting the Android app intercept `/book/*` | `public/.well-known/assetlinks.json` |
 
 ---

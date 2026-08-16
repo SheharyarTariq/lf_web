@@ -4,6 +4,8 @@
    3 · Details
    ══════════════════════════════════════════════════════════════════ */
 
+import { validateFormSync } from "@/utils/validation";
+import { contactSchema } from "./schema";
 import { cn } from "@/utils/cn";
 import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
@@ -90,13 +92,14 @@ export default function ContactScreen() {
   const mobileTaken = UK_MOBILE_RE.test(data.mobile.trim()) && mobileHasAccount(data.mobile);
   const emailValid = EMAIL_RE.test(data.email.trim());
 
+  /* One schema drives both the message and the rule. Still gated on `touched`,
+     so nothing is flagged before it has been filled in and left — the field
+     order of the form is not the order people fill it in. */
+  const failed = validateFormSync(contactSchema, data);
   const errors = {
-    fullName: touched.fullName && !data.fullName.trim() ? "Tell us your name." : "",
-    mobile:
-      touched.mobile && !UK_MOBILE_RE.test(data.mobile.trim())
-        ? "Enter a UK mobile, for example 07700 900123."
-        : "",
-    email: touched.email && !emailValid ? "Enter a valid email address." : "",
+    fullName: touched.fullName ? failed.fullName || "" : "",
+    mobile: touched.mobile ? failed.mobile || "" : "",
+    email: touched.email ? failed.email || "" : "",
   };
 
   const restValid = Boolean(data.fullName.trim() && UK_MOBILE_RE.test(data.mobile.trim()));

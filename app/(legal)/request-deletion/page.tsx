@@ -1,11 +1,11 @@
 "use client";
 
+import { validateFormSync } from "@/utils/validation";
+import { requestDeletionSchema } from "./schema";
 import Button from "@/components/common/Button";
 import { useState } from "react";
 import apiCall from "@/utils/api-call";
 import { routes } from "@/utils/routes";
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RequestDeletion() {
   const [email, setEmail] = useState("");
@@ -16,8 +16,9 @@ export default function RequestDeletion() {
     e.preventDefault();
     setValidationError("");
 
-    if (!EMAIL_REGEX.test(email.trim())) {
-      setValidationError("Please enter a valid email address.");
+    const bad = validateFormSync(requestDeletionSchema, { email }).email;
+    if (bad) {
+      setValidationError(bad);
       return;
     }
 

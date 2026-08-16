@@ -14,6 +14,8 @@
    one — it belongs to the product, not the marketing page.
    ══════════════════════════════════════════════════════════════════ */
 
+import { validateAndSetErrors } from "@/utils/validation";
+import { EMAIL_RE, PASSWORD_RE, PASSWORD_RULE, signupSchema } from "./schema";
 import { cn } from "@/utils/cn";
 import { AUTH_INPUT_BASE } from "@/utils/auth/styles";
 import Input from "@/components/common/Input";
@@ -48,10 +50,6 @@ function signInWith(provider: "apple" | "google") {
 
 /* ── Rules ────────────────────────────────────────────────────── */
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const PASSWORD_RE = /^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$/;
-const PASSWORD_RULE = "At least 8 characters, one capital letter and one symbol";
-const UK_MOBILE_RE = /^(?:0|\+?44)?7\d{9}$/;
 
 const SOCIAL: [id: "google" | "apple", label: string][] = [
   ["google", "Google"],
@@ -376,24 +374,12 @@ export default function AuthModal({
   };
 
   /* ── Sign up ── */
-  const signupErrors = () => {
-    const e: Record<string, string> = {};
-    if (!form.name.trim()) e.name = "Tell us your name.";
-    if (form.phone.trim() && !UK_MOBILE_RE.test(form.phone.replace(/\s/g, "")))
-      e.phone = "Enter a UK mobile, for example 7700 900123.";
-    if (!EMAIL_RE.test(form.email.trim())) e.email = "Enter a valid email address.";
-    if (!PASSWORD_RE.test(form.password)) e.password = `${PASSWORD_RULE}.`;
-    return e;
-  };
   const signupReady = Boolean(
     form.name.trim() && EMAIL_RE.test(form.email.trim()) && PASSWORD_RE.test(form.password),
   );
   const submitSignup = async () => {
-    const e = signupErrors();
-    if (Object.keys(e).length) {
-      setErrors(e);
-      return;
-    }
+    /* The schema is the only place the rules and the copy live now. */
+    if (!(await validateAndSetErrors(signupSchema, form, setErrors))) return;
     if (busy) return;
     setBusy(true);
     setAlert("");

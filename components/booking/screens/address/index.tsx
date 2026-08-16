@@ -1,5 +1,7 @@
 "use client";
 
+import { validateFormSync } from "@/utils/validation";
+import { addressSchema, postcodeSchema } from "./schema";
 import { cn } from "@/utils/cn";
 import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
@@ -12,7 +14,6 @@ import { useBooking } from "@/utils/booking/context";
 import { lookupAddresses } from "@/utils/booking/mocks";
 import {
   ADDRESS_FIELDS,
-  POSTCODE_RE,
   SERVED,
   districtOf,
   normalisePostcode,
@@ -73,8 +74,9 @@ export default function AddressScreen() {
   const search = () => {
     const pc = normalisePostcode(postcode);
     setPostcode(pc);
-    if (!POSTCODE_RE.test(pc)) {
-      setError("Enter a valid UK postcode, for example KT227HH.");
+    const bad = validateFormSync(postcodeSchema, { postcode: pc }).postcode;
+    if (bad) {
+      setError(bad);
       setResults(null);
       return;
     }
@@ -127,9 +129,10 @@ export default function AddressScreen() {
     patch({ line1: "", line2: "", line3: "", town: "", county: "" });
   };
 
+  const failed = validateFormSync(addressSchema, data);
   const errors: Partial<Record<AddressKey, string>> = {
-    line1: touched.line1 && !data.line1.trim() ? "We need at least the first line." : "",
-    town: touched.town && !data.town.trim() ? "We need the town." : "",
+    line1: touched.line1 ? failed.line1 || "" : "",
+    town: touched.town ? failed.town || "" : "",
   };
   const ready = Boolean(data.postcode && data.line1.trim() && data.town.trim());
 
