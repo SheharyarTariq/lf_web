@@ -6,6 +6,7 @@
    Exit confirmation · FAQs · How billing works · Log in
    ══════════════════════════════════════════════════════════════════ */
 
+import Button from "@/components/common/Button";
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import { Icon, P, ProviderMark } from "@/components/booking/icons";
@@ -20,7 +21,7 @@ import {
   SOCIAL,
   type ProviderId,
 } from "@/utils/booking/model";
-import { bkBtn, BTN_LINK, CODE_INPUT, INPUT, SEC_H, SEC_P } from "@/utils/booking/styles";
+import { BTN_LINK, CODE_INPUT, INPUT, SEC_H, SEC_P } from "@/utils/booking/styles";
 import { routes } from "@/utils/routes";
 import { BRAND, FAQ, FAQ_PREVIEW_COUNT } from "@/utils/content";
 
@@ -41,20 +42,18 @@ export function ExitConfirm({ onStay, onLeave }: { onStay: () => void; onLeave: 
       </h2>
       <p className={SEC_P}>Nothing has been saved yet, so what you have filled in will be lost.</p>
       <div className={MODAL_NAV}>
-        <button
-          type="button"
-          className={bkBtn({ variant: "ghost", size: "lg", className: MODAL_NAV_BTN })}
+        <Button
+          surface="booking" variant="ghost" size="lg" className={MODAL_NAV_BTN}
           onClick={onLeave}
         >
           Leave
-        </button>
-        <button
-          type="button"
-          className={bkBtn({ variant: "lime", size: "lg", className: MODAL_NAV_BTN })}
+        </Button>
+        <Button
+          surface="booking" variant="lime" size="lg" className={MODAL_NAV_BTN}
           onClick={onStay}
         >
           Keep booking
-        </button>
+        </Button>
       </div>
     </Modal>
   );
@@ -85,8 +84,7 @@ export function FaqModal({ onClose }: { onClose: () => void }) {
               key={q}
             >
               <h3>
-                <button
-                  type="button"
+                <Button variant="bare"
                   className="group flex w-full cursor-pointer items-center justify-between gap-[14px] border-none bg-transparent px-4 py-[14px] text-left text-[15.5px] font-semibold text-bk-ink"
                   aria-expanded={isOpen}
                   aria-controls={`lfb-fp-${i}`}
@@ -103,7 +101,7 @@ export function FaqModal({ onClose }: { onClose: () => void }) {
                   >
                     +
                   </span>
-                </button>
+                </Button>
               </h3>
               {isOpen && (
                 <div
@@ -117,8 +115,7 @@ export function FaqModal({ onClose }: { onClose: () => void }) {
           );
         })}
         {!showAll && hidden > 0 && (
-          <button
-            type="button"
+          <Button variant="bare"
             className="flex w-full cursor-pointer items-center gap-2.5 rounded-card-md border border-bk-line bg-white px-4 py-[14px] text-left text-[15.5px] font-bold text-bk-ink-2 transition-[border-color] duration-150 ease-[ease] hover:border-bk-line-2 hover:text-bk-ink"
             onClick={() => setShowAll(true)}
           >
@@ -132,7 +129,7 @@ export function FaqModal({ onClose }: { onClose: () => void }) {
             >
               <Icon d={P.chevron} size={15} />
             </span>
-          </button>
+          </Button>
         )}
       </div>
       <p className={MODAL_FOOT}>
@@ -239,10 +236,9 @@ export function LoginSheet({
         <>
           <div className="mb-4 grid gap-2.5" style={{ gridTemplateColumns: "1fr" }}>
             {SOCIAL.map(([id, label]) => (
-              <button
+              <Button
                 key={id}
-                type="button"
-                className={bkBtn({ variant: id as ProviderId, size: "oauth" })}
+                surface="booking" variant={id as ProviderId} size="oauth"
                 onClick={() => {
                   const who = signInWith(id);
                   onLoggedIn({ identity: id, email: who.email, fullName: who.name });
@@ -252,20 +248,19 @@ export function LoginSheet({
                 {/* Both companies specify the wording. "Sign in with" and
                     "Continue with" are approved; anything else is not. */}
                 Sign in with {label}
-              </button>
+              </Button>
             ))}
           </div>
           <p className="mb-4 flex items-center gap-[14px] text-[13px] text-bk-ink-3 before:h-px before:flex-auto before:bg-bk-line before:content-[''] after:h-px after:flex-auto after:bg-bk-line after:content-['']">
             <span>or</span>
           </p>
-          <button
-            type="button"
-            className={bkBtn({ variant: "email", size: "oauth" })}
+          <Button
+            surface="booking" variant="email" size="oauth"
             onClick={() => setView("email")}
           >
             <Icon d={P.mail} size={18} />
             Continue with email
-          </button>
+          </Button>
           <p className={MODAL_FOOT}>
             By continuing you agree to our{" "}
             <Link className={LINK} href={routes.ui.terms}>
@@ -292,9 +287,8 @@ export function LoginSheet({
               autoComplete="email"
             />
           </Field>
-          <button
-            type="button"
-            className={bkBtn({ variant: "lime", size: "lg", block: true })}
+          <Button
+            surface="booking" variant="lime" size="lg" block
             disabled={!EMAIL_RE.test(addr)}
             onClick={() => {
               setView("waiting");
@@ -302,7 +296,7 @@ export function LoginSheet({
             }}
           >
             Send me a code
-          </button>
+          </Button>
         </>
       )}
 
@@ -332,9 +326,8 @@ export function LoginSheet({
               }}
             />
           </Field>
-          <button
-            type="button"
-            className={bkBtn({ variant: "lime", size: "lg", block: true })}
+          <Button
+            surface="booking" variant="lime" size="lg" block
             disabled={code.length !== CODE_LENGTH}
             onClick={() => {
               if (!verifyCode(addr, code)) return setError("That code is not right.");
@@ -342,10 +335,9 @@ export function LoginSheet({
             }}
           >
             Log in
-          </button>
+          </Button>
           <p className="mt-[14px] text-center">
-            <button
-              type="button"
+            <Button variant="bare"
               className={`${BTN_LINK} disabled:cursor-default disabled:opacity-50`}
               disabled={cooldown > 0}
               onClick={() => {
@@ -355,7 +347,7 @@ export function LoginSheet({
               }}
             >
               {cooldown > 0 ? `Send a new code in ${cooldown}s` : "Send a new code"}
-            </button>
+            </Button>
           </p>
         </div>
       )}

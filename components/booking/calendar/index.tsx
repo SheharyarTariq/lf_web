@@ -1,5 +1,6 @@
 "use client";
 
+import Button from "@/components/common/Button";
 import { useMemo, useRef } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import Notice from "@/components/booking/common/Notice";
@@ -160,9 +161,8 @@ export default function Calendar({
           const on = value === k;
           const isToday = dayKey(today) === k;
           return (
-            <button
+            <Button variant="bare"
               key={k}
-              type="button"
               data-k={k}
               className={`${CELL} ${on ? CELL_ON : CELL_OFF} ${
                 on ? "" : isToday ? "border-bk-line-2" : "border-transparent"
@@ -190,7 +190,7 @@ export default function Calendar({
                 {open ? ` — ${available[k].length} windows` : " — we do not run this day"}
                 {hasEco ? ", includes a greener window" : ""}
               </span>
-            </button>
+            </Button>
           );
         })}
       </div>

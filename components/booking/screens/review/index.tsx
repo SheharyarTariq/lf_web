@@ -7,6 +7,7 @@
    beside the form the whole way through — see SummaryPanel.
    ══════════════════════════════════════════════════════════════════ */
 
+import Button from "@/components/common/Button";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
@@ -20,8 +21,7 @@ import {
   NAV_BACK,
   NAV_FORWARD,
   SEC_H,
-  bkBtn,
-} from "@/utils/booking/styles";
+  } from "@/utils/booking/styles";
 
 /* ── Selected summary rows ────────────────────────────────────────
    The rule is `.lfb-sum + .lfb-sum` in the source, so the first row has
@@ -69,9 +69,9 @@ function SummaryRow({
       <span className={SUM_K}>{label}</span>
       <span className={SUM_V}>{children}</span>
       {onEdit && (
-        <button type="button" className={SUM_EDIT} onClick={onEdit}>
+        <Button variant="bare" className={SUM_EDIT} onClick={onEdit}>
           Edit<span className="visually-hidden"> {editLabel}</span>
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -90,9 +90,9 @@ export default function ReviewScreen() {
       </h1>
       <p className={LEDE}>
         You are charged after we count and clean your items.{" "}
-        <button type="button" className={BTN_LINK} onClick={openBilling}>
+        <Button variant="bare" className={BTN_LINK} onClick={openBilling}>
           Learn more
-        </button>
+        </Button>
       </p>
 
       {discount && (
@@ -146,20 +146,18 @@ export default function ReviewScreen() {
       </div>
 
       <ActionBar more={moreBelow} nav>
-        <button
-          type="button"
-          className={bkBtn({ variant: "ghost", size: "lg", className: NAV_BACK })}
+        <Button
+          surface="booking" variant="ghost" size="lg" className={NAV_BACK}
           onClick={back}
         >
           Back
-        </button>
-        <button
-          type="button"
-          className={bkBtn({ size: "lg", className: NAV_FORWARD })}
+        </Button>
+        <Button
+          surface="booking" size="lg" className={NAV_FORWARD}
           onClick={() => go("payment")}
         >
           Next
-        </button>
+        </Button>
       </ActionBar>
     </>
   );

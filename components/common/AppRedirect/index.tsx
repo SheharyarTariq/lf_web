@@ -1,5 +1,6 @@
 "use client";
 
+import Button from "@/components/common/Button";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -108,13 +109,12 @@ export default function AppRedirect({ platform }: { platform: Platform }) {
             showManual ? "opacity-100" : "pointer-events-none opacity-0"
           }`}
         >
-          <button
-            type="button"
+          <Button variant="bare"
             onClick={openApp}
             className="w-full rounded-full bg-lime px-6 py-3.5 text-[15px] font-semibold text-dark"
           >
             Open the app
-          </button>
+          </Button>
           <a
             href={storeUrl}
             onClick={() => reportAppDownloadConversion()}

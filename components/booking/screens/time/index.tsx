@@ -4,6 +4,7 @@
    2 · Time
    ══════════════════════════════════════════════════════════════════ */
 
+import Button from "@/components/common/Button";
 import { useEffect, useId, useMemo, useState } from "react";
 import Calendar, { SlotPicker } from "@/components/booking/calendar";
 import { Icon, P } from "@/components/booking/icons";
@@ -37,8 +38,7 @@ import {
   TOGGLE_SUB,
   TOGGLE_TEXT,
   TOGGLE_TITLE,
-  bkBtn,
-} from "@/utils/booking/styles";
+  } from "@/utils/booking/styles";
 
 /* ── Leg tabs ─────────────────────────────────────────────────────
    One calendar serving both legs rather than two stacked pickers. Two
@@ -202,9 +202,8 @@ export default function TimeScreen() {
 
       <div className={LEGS} role="tablist" aria-label="Collection and delivery">
         {tabs.map(([id, title, sub, enabled, done]) => (
-          <button
+          <Button variant="bare"
             key={id}
-            type="button"
             role="tab"
             id={`${ids}-tab-${id}`}
             aria-selected={leg === id}
@@ -224,7 +223,7 @@ export default function TimeScreen() {
             >
               {sub}
             </span>
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -364,21 +363,19 @@ export default function TimeScreen() {
       )}
 
       <ActionBar more={moreBelow} nav>
-        <button
-          type="button"
-          className={bkBtn({ variant: "ghost", size: "lg", className: NAV_BACK })}
+        <Button
+          surface="booking" variant="ghost" size="lg" className={NAV_BACK}
           onClick={back}
         >
           Back
-        </button>
-        <button
-          type="button"
-          className={bkBtn({ size: "lg", className: NAV_FORWARD })}
+        </Button>
+        <Button
+          surface="booking" size="lg" className={NAV_FORWARD}
           disabled={!ready}
           onClick={() => go("contact")}
         >
           Continue to your details
-        </button>
+        </Button>
       </ActionBar>
     </>
   );

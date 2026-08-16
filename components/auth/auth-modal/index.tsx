@@ -14,6 +14,7 @@
    one — it belongs to the product, not the marketing page.
    ══════════════════════════════════════════════════════════════════ */
 
+import Button from "@/components/common/Button";
 import { useCallback, useEffect, useId, useRef, useState, type SVGProps } from "react";
 import { register as apiRegister } from "@/utils/api";
 import { login as apiLogin } from "@/utils/auth";
@@ -228,15 +229,14 @@ function Password({
         autoComplete={autoComplete}
         aria-invalid={invalid ? "true" : undefined}
       />
-      <button
-        type="button"
+      <Button variant="bare"
         className="absolute right-1.5 top-1/2 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center py-px px-1.5 rounded-[50%] border-none bg-transparent text-bk-ink-2 hover:text-bk-ink"
         onClick={() => setShow((v) => !v)}
         aria-label={show ? "Hide password" : "Show password"}
         tabIndex={-1}
       >
         <Icon d={show ? EYE_OFF : EYE} size={19} />
-      </button>
+      </Button>
     </span>
   );
 }
@@ -245,16 +245,15 @@ function Social({ onPick, busy }: { onPick: (id: "google" | "apple") => void; bu
   return (
     <div className="grid gap-2.5">
       {SOCIAL.map(([id, label]) => (
-        <button
+        <Button variant="bare"
           key={id}
-          type="button"
           className={id === "apple" ? BTN_APPLE : BTN_GOOGLE}
           disabled={busy}
           onClick={() => onPick(id)}
         >
           <ProviderMark id={id} />
           Continue with {label}
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -470,25 +469,23 @@ export default function AuthModal({
       >
         <div className="-mt-2 mb-[18px] flex min-h-11 items-center justify-between gap-3">
           {view === "forgot" || view === "sent" ? (
-            <button
-              type="button"
+            <Button variant="bare"
               className="flex h-11 w-11 flex-none cursor-pointer items-center justify-center py-px px-1.5 rounded-[50%] border-none bg-transparent text-bk-ink hover:bg-[#E9E9E4]"
               onClick={() => go("login")}
               aria-label="Back to log in"
             >
               <Icon d={BACK} size={22} sw="2" />
-            </button>
+            </Button>
           ) : (
             <span />
           )}
-          <button
-            type="button"
+          <Button variant="bare"
             className="flex h-11 w-11 flex-none cursor-pointer items-center justify-center py-px px-1.5 rounded-[50%] border-none bg-transparent text-bk-ink hover:bg-[#E9E9E4]"
             onClick={onClose}
             aria-label="Close"
           >
             <Icon d={CLOSE} size={20} sw="2.2" />
-          </button>
+          </Button>
         </div>
 
         {alert && (
@@ -537,32 +534,30 @@ export default function AuthModal({
               />
             </Field>
 
-            <button
-              type="button"
+            <Button variant="bare"
               className="-mt-2 mb-3 ml-auto flex min-h-11 cursor-pointer items-center border-none bg-transparent p-0 text-[13.5px] leading-[1.6] font-semibold text-bk-ink underline underline-offset-[3px] hover:text-brand-ink"
               onClick={() => go("forgot")}
             >
               Forgot password?
-            </button>
+            </Button>
 
-            <button
-              type="button"
+            <Button variant="bare"
               className={BTN_LIME}
               disabled={!loginReady || busy}
               onClick={submitLogin}
             >
               {busy ? <Spinner /> : null}
               {busy ? "Logging in" : "Log in"}
-            </button>
+            </Button>
 
             <Divider />
             <Social onPick={social} busy={busy} />
 
             <p className="text-center text-[14px] text-bk-ink-2">
               Don&rsquo;t have an account?{" "}
-              <button type="button" className={LINK_BTN} onClick={() => go("signup")}>
+              <Button variant="bare" className={LINK_BTN} onClick={() => go("signup")}>
                 Sign up
-              </button>
+              </Button>
             </p>
           </>
         )}
@@ -642,15 +637,14 @@ export default function AuthModal({
               />
             </Field>
 
-            <button
-              type="button"
+            <Button variant="bare"
               className={`${BTN_LIME} mt-1.5`}
               disabled={!signupReady || busy}
               onClick={submitSignup}
             >
               {busy ? <Spinner /> : null}
               {busy ? "Creating your account" : "Sign up"}
-            </button>
+            </Button>
 
             <Divider />
             <Social onPick={social} busy={busy} />
@@ -682,9 +676,9 @@ export default function AuthModal({
 
             <p className="text-center text-[14px] text-bk-ink-2">
               Already have an account?{" "}
-              <button type="button" className={LINK_BTN} onClick={() => go("login")}>
+              <Button variant="bare" className={LINK_BTN} onClick={() => go("login")}>
                 Log in
-              </button>
+              </Button>
             </p>
           </>
         )}
@@ -716,21 +710,20 @@ export default function AuthModal({
               />
             </Field>
 
-            <button
-              type="button"
+            <Button variant="bare"
               className={`${BTN_LIME} mt-1.5`}
               disabled={!EMAIL_RE.test(form.email.trim()) || busy}
               onClick={submitForgot}
             >
               {busy ? <Spinner /> : null}
               {busy ? "Sending" : "Send reset link"}
-            </button>
+            </Button>
 
             <p className="text-center text-[14px] text-bk-ink-2">
               Remembered it?{" "}
-              <button type="button" className={LINK_BTN} onClick={() => go("login")}>
+              <Button variant="bare" className={LINK_BTN} onClick={() => go("login")}>
                 Log in
-              </button>
+              </Button>
             </p>
           </>
         )}
@@ -758,10 +751,10 @@ export default function AuthModal({
               <b className="block break-words text-[15.5px]">{form.email.trim()}</b>, a link to set
               a new password is on its way.
             </p>
-            <button type="button" className={BTN_LIME} onClick={onClose}>
+            <Button variant="bare" className={BTN_LIME} onClick={onClose}>
               <Icon d={TICK} size={18} sw="2.2" />
               Done
-            </button>
+            </Button>
           </div>
         )}
       </div>

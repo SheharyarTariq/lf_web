@@ -22,6 +22,7 @@
    scrollbar rides the inside edge and the rules still span full width.
    ══════════════════════════════════════════════════════════════════ */
 
+import Button from "@/components/common/Button";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import { useBooking } from "@/utils/booking/context";
@@ -81,9 +82,9 @@ function AsideRow({
       <span className={ROW_K}>
         {label}
         {onEdit && (
-          <button type="button" className={ROW_EDIT} onClick={onEdit}>
+          <Button variant="bare" className={ROW_EDIT} onClick={onEdit}>
             Edit<span className="visually-hidden"> {editLabel}</span>
-          </button>
+          </Button>
         )}
       </span>
       <span className="block min-w-0">

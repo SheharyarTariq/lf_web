@@ -9,6 +9,7 @@
    sits outside that route group so the two never both render.
    ══════════════════════════════════════════════════════════════════ */
 
+import Button from "@/components/common/Button";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
@@ -76,14 +77,13 @@ export function Header({
           it was floating in the middle of the screen. */}
       <div className="mx-auto flex min-h-16 max-w-wrap flex-wrap items-center gap-x-[14px] gap-y-0 px-6 to-720:min-h-14 to-400:px-4">
         {canGoBack && (
-          <button
-            type="button"
+          <Button variant="bare"
             className="-ml-2.5 flex h-11 w-11 flex-none cursor-pointer items-center justify-center py-px px-1.5 rounded-ctl-lg border-none bg-transparent text-bk-ink transition-[background-color] duration-150 ease-[ease] hover:bg-bk-paper-2"
             onClick={onBack}
             aria-label="Go back"
           >
             <Icon d={P.back} size={22} />
-          </button>
+          </Button>
         )}
         <Wordmark />
         {/* Answers open in place rather than sending people to an inbox
@@ -105,20 +105,20 @@ export function Header({
           onLogin && (
             /* order 3 so it sits before FAQs, and the same weight as it:
                this is a way back in, not a competing call to action. */
-            <button type="button" className={`${HELP_BASE} order-3 text-bk-ink`} onClick={onLogin}>
+            <Button variant="bare" className={`${HELP_BASE} order-3 text-bk-ink`} onClick={onLogin}>
               Log in
-            </button>
+            </Button>
           )
         )}
-        <button type="button" className={`${HELP_BASE} order-4 text-bk-ink-2`} onClick={onFaq}>
+        <Button variant="bare" className={`${HELP_BASE} order-4 text-bk-ink-2`} onClick={onFaq}>
           FAQs
-        </button>
+        </Button>
         {/* Back walks the flow one step at a time; this leaves it. On a
             phone the flow fills the screen with no visible way out, which
             is the situation that makes people close the tab instead. */}
-        <button type="button" className={CLOSE_BTN} onClick={onClose} aria-label="Close booking">
+        <Button variant="bare" className={CLOSE_BTN} onClick={onClose} aria-label="Close booking">
           <Icon d={P.close} size={20} strokeWidth="2.2" />
-        </button>
+        </Button>
       </div>
     </header>
   );
@@ -192,8 +192,7 @@ export function Steps({
                   gets the labelled desktop row and is still a touch device.
                   Only the steps you can actually reach invite a click, so
                   the hover treatment is withheld rather than overridden. */}
-              <button
-                type="button"
+              <Button variant="bare"
                 className={
                   "group flex min-h-11 min-w-0 cursor-pointer items-center gap-2 rounded-ctl-md " +
                   "border-none bg-transparent px-0.5 py-1 text-[16px] leading-[1.6] text-inherit " +
@@ -235,7 +234,7 @@ export function Steps({
                     state === "now" ? ", current" : open ? "" : ", not available yet"
                   }`}
                 </span>
-              </button>
+              </Button>
               {i < STEPS.length - 1 && (
                 <span className="ml-2 h-px w-[52px] flex-none bg-bk-line" aria-hidden="true" />
               )}

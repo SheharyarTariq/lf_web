@@ -4,6 +4,7 @@
    4b · Payment
    ══════════════════════════════════════════════════════════════════ */
 
+import Button from "@/components/common/Button";
 import { Icon, P } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
 import StripePayment from "@/components/booking/stripe-payment";
@@ -15,8 +16,7 @@ import {
   LEDE,
   NAV_BACK,
   NAV_FORWARD,
-  bkBtn,
-} from "@/utils/booking/styles";
+  } from "@/utils/booking/styles";
 
 /* ── Checkbox ─────────────────────────────────────────────────────
    The tick is always in the box and always the same size; only its
@@ -43,9 +43,9 @@ export default function PaymentScreen() {
           it, which is where it was always going to be read properly. */}
       <p className={LEDE}>
         Nothing is charged today — we count your items first.{" "}
-        <button type="button" className={BTN_LINK} onClick={openBilling}>
+        <Button variant="bare" className={BTN_LINK} onClick={openBilling}>
           How billing works
-        </button>
+        </Button>
       </p>
 
       <StripePayment onCompleteChange={(ok) => patch({ cardReady: ok })} />
@@ -77,21 +77,19 @@ export default function PaymentScreen() {
       </label>
 
       <ActionBar more={moreBelow} nav>
-        <button
-          type="button"
-          className={bkBtn({ variant: "ghost", size: "lg", className: NAV_BACK })}
+        <Button
+          surface="booking" variant="ghost" size="lg" className={NAV_BACK}
           onClick={back}
         >
           Back
-        </button>
-        <button
-          type="button"
-          className={bkBtn({ size: "lg", className: NAV_FORWARD })}
+        </Button>
+        <Button
+          surface="booking" size="lg" className={NAV_FORWARD}
           disabled={!ready}
           onClick={confirmOrder}
         >
           Confirm order
-        </button>
+        </Button>
       </ActionBar>
     </>
   );

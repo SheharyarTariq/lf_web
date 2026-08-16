@@ -41,6 +41,10 @@ interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>
   /** Defaults to "button". A submit has to ask for it, because a stray submit
    *  inside a form is a page reload nobody intended. */
   type?: "button" | "submit" | "reset";
+  /** The header's burger and the drawer's close both need one, to move focus
+   *  in and back out again. React 19 passes ref as an ordinary prop, so no
+   *  forwardRef — it only has to be declared. */
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
 export default function Button({

@@ -1,5 +1,6 @@
 "use client";
 
+import Button from "@/components/common/Button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -93,8 +94,7 @@ export default function SiteHeader() {
               the left-hand control, and tab order should agree with what the
               eye sees. Hidden above 900px, where the nav is back and this
               does nothing. */}
-          <button
-            type="button"
+          <Button variant="bare"
             ref={burgerRef}
             className="hidden h-11 w-11 items-center justify-center border-none bg-transparent p-0 -ml-2.5 cursor-pointer text-ink to-900:flex to-900:mr-auto"
             aria-expanded={open}
@@ -114,7 +114,7 @@ export default function SiteHeader() {
             >
               {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
             </svg>
-          </button>
+          </Button>
 
           {/* Below 900px the logo is taken out of flow and centred. Two equal
               side columns would have been tidier, but the sides are not
@@ -167,18 +167,18 @@ export default function SiteHeader() {
                 <span className={AUTH_EMAIL} title={user.email}>
                   {user.email}
                 </span>
-                <button type="button" onClick={signOut} className={AUTH_BTN}>
+                <Button variant="bare" onClick={signOut} className={AUTH_BTN}>
                   Log out
-                </button>
+                </Button>
               </>
             ) : (
               /* A button, not a link: it opens a dialog rather than going
                  anywhere, and a link that does not navigate breaks
                  middle-click, right-click and every assistive technology's
                  idea of what it is. */
-              <button type="button" onClick={() => openAuth("login")} className={AUTH_BTN}>
+              <Button variant="bare" onClick={() => openAuth("login")} className={AUTH_BTN}>
                 Log in
-              </button>
+              </Button>
             )}
             {/* Three things, not four, below 580px. "Get the app" leaves the
                 bar on phones: with a burger and a centred logo already there
@@ -221,8 +221,7 @@ export default function SiteHeader() {
                 moves to the foot of the drawer, where it is the last thing
                 read rather than something competing with the close control. */}
             <div className="-ml-2.5 flex h-[72px] flex-none items-center gap-3.5">
-              <button
-                type="button"
+              <Button variant="bare"
                 ref={closeRef}
                 className="flex h-11 w-11 flex-none cursor-pointer items-center justify-center py-px px-1.5 rounded-ctl-lg border-none bg-transparent text-ink transition-colors duration-150 ease-[ease] hover:bg-paper-2"
                 onClick={close}
@@ -240,7 +239,7 @@ export default function SiteHeader() {
                 >
                   <path d="M6 6l12 12M18 6L6 18" />
                 </svg>
-              </button>
+              </Button>
             </div>
 
             {/* A notch smaller than the full-screen version was: the drawer is
@@ -265,8 +264,7 @@ export default function SiteHeader() {
                   >
                     {user.email}
                   </span>
-                  <button
-                    type="button"
+                  <Button variant="bare"
                     onClick={() => {
                       close();
                       signOut();
@@ -274,11 +272,10 @@ export default function SiteHeader() {
                     className={`${DRAWER_ITEM} cursor-pointer border-l-0 border-r-0 border-t-0 bg-transparent text-left text-ink`}
                   >
                     Log out
-                  </button>
+                  </Button>
                 </>
               ) : (
-                <button
-                  type="button"
+                <Button variant="bare"
                   onClick={() => {
                     close();
                     openAuth("login");
@@ -286,12 +283,11 @@ export default function SiteHeader() {
                   className={`${DRAWER_ITEM} cursor-pointer border-l-0 border-r-0 border-t-0 bg-transparent text-left text-ink`}
                 >
                   Log in
-                </button>
+                </Button>
               )}
             </nav>
 
-            <button
-              type="button"
+            <Button variant="bare"
               className={btn({ block: true, className: "flex-none mt-[18px]" })}
               onClick={() => {
                 close();
@@ -299,7 +295,7 @@ export default function SiteHeader() {
               }}
             >
               Book now
-            </button>
+            </Button>
 
             <div className="flex-none pt-[22px]">
               <p className="mb-3.5 text-[12px] font-bold uppercase tracking-[1.4px] text-ink-3">

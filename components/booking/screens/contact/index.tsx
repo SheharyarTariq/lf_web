@@ -4,6 +4,7 @@
    3 · Details
    ══════════════════════════════════════════════════════════════════ */
 
+import Button from "@/components/common/Button";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import IdentityPanel from "@/components/booking/identity-panel";
 import { Icon, P, ProviderMark } from "@/components/booking/icons";
@@ -24,8 +25,7 @@ import {
   LEDE,
   NAV_BACK,
   NAV_FORWARD,
-  bkBtn,
-} from "@/utils/booking/styles";
+  } from "@/utils/booking/styles";
 
 /* The link must not outweigh the sentence it sits in — at 600 it read as
    a heading and pushed the whole thing onto two lines. */
@@ -304,9 +304,9 @@ export default function ContactScreen() {
       {!data.verified && (
         <p className={LEDE}>
           Returning customer?{" "}
-          <button type="button" className={BTN_LINK} onClick={() => openLogin()}>
+          <Button variant="bare" className={BTN_LINK} onClick={() => openLogin()}>
             Log in
-          </button>
+          </Button>
           .
         </p>
       )}
@@ -328,13 +328,12 @@ export default function ContactScreen() {
           {/* Sibling of the text, not a child of it: in the source a
               descendant rule there would outrank any class on the
               button. */}
-          <button
-            type="button"
+          <Button variant="bare"
             className="-my-1.5 -mr-1.5 flex min-h-11 min-w-11 flex-none cursor-pointer items-center justify-center rounded-card-sm border-0 bg-transparent px-1.5 text-[13.5px] font-semibold leading-[1.6] text-bk-ink underline underline-offset-[3px] hover:text-brand-ink"
             onClick={changeEmail}
           >
             Change
-          </button>
+          </Button>
         </div>
       )}
 
@@ -372,9 +371,9 @@ export default function ContactScreen() {
       {mobileTaken && !data.verified && (
         <p className={NUDGE} aria-live="polite">
           This number already has an account.{" "}
-          <button type="button" className={NUDGE_LINK} onClick={() => openLogin()}>
+          <Button variant="bare" className={NUDGE_LINK} onClick={() => openLogin()}>
             Log in
-          </button>
+          </Button>
         </p>
       )}
 
@@ -425,8 +424,7 @@ export default function ContactScreen() {
                     it the field blurs first, which fires the check for
                     the half-typed address and closes the list before the
                     tap lands on anything. */}
-                <button
-                  type="button"
+                <Button variant="bare"
                   className={`${SUG_BTN} ${i === sugIndex ? "bg-bk-paper-2" : "bg-transparent hover:bg-bk-paper-2"}`}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => chooseSuggestion(s)}
@@ -436,7 +434,7 @@ export default function ContactScreen() {
                   {/* The domain is the part being chosen, so it is the
                       part in ink. */}
                   <b className="font-semibold text-bk-ink">{s.slice(s.indexOf("@"))}</b>
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -454,9 +452,9 @@ export default function ContactScreen() {
               account on an address that already has one is the worse
               outcome, so this stops rather than guesses. */}
           We could not check that address just now.{" "}
-          <button type="button" className={NUDGE_LINK} onClick={() => runCheck(data.email)}>
+          <Button variant="bare" className={NUDGE_LINK} onClick={() => runCheck(data.email)}>
             Try again
-          </button>
+          </Button>
         </p>
       )}
 
@@ -480,16 +478,14 @@ export default function ContactScreen() {
       )}
 
       <ActionBar more={moreBelow} nav>
-        <button
-          type="button"
-          className={bkBtn({ variant: "ghost", size: "lg", className: NAV_BACK })}
+        <Button
+          surface="booking" variant="ghost" size="lg" className={NAV_BACK}
           onClick={back}
         >
           Back
-        </button>
-        <button
-          type="button"
-          className={bkBtn({ size: "lg", className: NAV_FORWARD })}
+        </Button>
+        <Button
+          surface="booking" size="lg" className={NAV_FORWARD}
           disabled={!valid || !data.verified}
           onClick={() => {
             setTouched({ fullName: true, mobile: true, email: true });
@@ -497,7 +493,7 @@ export default function ContactScreen() {
           }}
         >
           Next
-        </button>
+        </Button>
       </ActionBar>
     </>
   );

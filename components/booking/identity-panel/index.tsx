@@ -11,6 +11,7 @@
    option would simply lose people.
    ══════════════════════════════════════════════════════════════════ */
 
+import Button from "@/components/common/Button";
 import { useEffect, useId, useRef, useState } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import { verifyCode } from "@/utils/booking/mocks";
@@ -23,7 +24,7 @@ import {
   type BookingData,
   type BookingPatch,
 } from "@/utils/booking/model";
-import { BTN_LINK, CODE_INPUT, ERR, bkBtn } from "@/utils/booking/styles";
+import { BTN_LINK, CODE_INPUT, ERR } from "@/utils/booking/styles";
 
 const PANEL = "mb-1 rounded-card-lg bg-bk-paper-2 p-4";
 const PANEL_H = "mb-1 text-[16px] font-bold leading-[1.3] tracking-[-.3px]";
@@ -170,16 +171,15 @@ export default function IdentityPanel({
               else setError("That code is not right.");
             }}
           />
-          <button
-            type="button"
-            className={bkBtn({ size: "lg", className: "flex-none" })}
+          <Button
+            surface="booking" size="lg" className="flex-none"
             disabled={code.length !== CODE_LENGTH}
             onClick={() =>
               verifyCode(data.email, code) ? done() : setError("That code is not right.")
             }
           >
             Log in
-          </button>
+          </Button>
         </div>
         {error && (
           <p className={ERR} role="alert">
@@ -188,8 +188,7 @@ export default function IdentityPanel({
           </p>
         )}
         <p className={ALT}>
-          <button
-            type="button"
+          <Button variant="bare"
             className={`${BTN_LINK} disabled:cursor-default disabled:opacity-50`}
             disabled={cooldown > 0}
             onClick={() => {
@@ -199,13 +198,13 @@ export default function IdentityPanel({
             }}
           >
             {cooldown > 0 ? `Send a new code in ${cooldown}s` : "Send a new code"}
-          </button>
+          </Button>
         </p>
 
         <p className={ALT}>
-          <button type="button" className={BTN_LINK} onClick={() => onLogin(data.email)}>
+          <Button variant="bare" className={BTN_LINK} onClick={() => onLogin(data.email)}>
             Use Apple or Google instead
-          </button>
+          </Button>
         </p>
       </div>
     );
@@ -226,15 +225,14 @@ export default function IdentityPanel({
             <Icon d={P.thumb} size={12} fill className="relative -top-[.5px]" />
             Recommended
           </span>
-          <button
-            type="button"
-            className={bkBtn({ size: "lg", block: true })}
+          <Button
+            surface="booking" size="lg" block
             onClick={() => done()}
           >
             {/* "One-click" carries the meaning nothing else does: that
                 this is the entire action, not the start of a sign-up. */}
             One-click registration
-          </button>
+          </Button>
         </span>
 
         <p className={OR}>
@@ -272,22 +270,20 @@ export default function IdentityPanel({
             aria-label={`Set a password to register. ${PASSWORD_RULE}`}
             autoComplete="new-password"
           />
-          <button
-            type="button"
+          <Button variant="bare"
             className="flex h-10 w-10 flex-none cursor-pointer items-center justify-center border-none bg-transparent text-bk-ink-3 hover:text-bk-ink"
             onClick={() => setShowPw((v) => !v)}
             aria-label={showPw ? "Hide password" : "Show password"}
           >
             <Icon d={showPw ? P.eyeOff : P.eye} size={19} />
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button variant="bare"
             className="h-10 flex-none cursor-pointer rounded-ctl-md border-none bg-bk-ink px-4 text-[14px] font-semibold leading-[1.6] text-white disabled:cursor-not-allowed disabled:opacity-35"
             disabled={!PASSWORD_RE.test(password)}
             onClick={() => done()}
           >
             Confirm
-          </button>
+          </Button>
         </div>
       </div>
       {/* Nothing here until the field is touched. The rule is two lines

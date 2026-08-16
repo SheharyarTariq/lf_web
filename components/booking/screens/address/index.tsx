@@ -1,5 +1,6 @@
 "use client";
 
+import Button from "@/components/common/Button";
 import { useId, useState } from "react";
 import ActionBar from "@/components/booking/common/ActionBar";
 import Field from "@/components/booking/common/Field";
@@ -28,8 +29,7 @@ import {
   ROW_CELL,
   SEC_H,
   SEC_P,
-  bkBtn,
-} from "@/utils/booking/styles";
+  } from "@/utils/booking/styles";
 
 function AddressLines({ a, postcode }: { a: AddressResult; postcode: string }) {
   const head = [a.line1, a.line2].filter(Boolean).join(", ");
@@ -179,9 +179,9 @@ export default function AddressScreen() {
               aria-invalid={error ? "true" : undefined}
               aria-describedby={error ? `${ids}-pc-err` : undefined}
             />
-            <button type="button" className={bkBtn({ variant: "ink", className: "flex-none" })} onClick={search}>
+            <Button surface="booking" variant="ink" className="flex-none" onClick={search}>
               Find address
-            </button>
+            </Button>
           </div>
         </Field>
       )}
@@ -206,14 +206,13 @@ export default function AddressScreen() {
               autoComplete="email"
             />
           </Field>
-          <button
-            type="button"
-            className={bkBtn({ block: true })}
+          <Button
+            surface="booking" block
             disabled={!waitEmail.includes("@")}
             onClick={() => setWaitlisted(true)}
           >
             Tell me when you arrive
-          </button>
+          </Button>
         </div>
       )}
 
@@ -234,22 +233,21 @@ export default function AddressScreen() {
           >
             {results.map((a) => (
               <li key={a.id} className="[&:not(:first-child)]:border-t [&:not(:first-child)]:border-t-bk-line">
-                <button
-                  type="button"
+                <Button variant="bare"
                   className={`${INHERIT_FONT} flex w-full cursor-pointer items-center justify-between gap-3.5 border-none bg-transparent px-4 py-[13px] text-left transition-colors duration-[140ms] ease-[ease] hover:bg-bk-paper-2`}
                   onClick={() => choose(a)}
                 >
                   <AddressLines a={a} postcode={searched} />
                   <Icon d={P.chevron} size={17} className="flex-none text-bk-ink-3" />
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
           <p className="mt-3 text-[13px] text-bk-ink-3">
             Not listed?{" "}
-            <button type="button" className={BTN_LINK} onClick={enterManually}>
+            <Button variant="bare" className={BTN_LINK} onClick={enterManually}>
               Enter it manually
-            </button>
+            </Button>
           </p>
         </>
       )}
@@ -268,14 +266,13 @@ export default function AddressScreen() {
                 {data.postcode}
               </b>
             </span>
-            <button
-              type="button"
+            <Button variant="bare"
               className="inline-flex min-h-11 flex-none cursor-pointer items-center gap-1 border-none bg-transparent px-1 py-0 text-[15px] font-bold leading-[1.6] text-bk-ink hover:underline hover:underline-offset-[3px]"
               onClick={changePostcode}
             >
               Change
               <Icon d={P.chevron} size={15} />
-            </button>
+            </Button>
           </div>
 
           {/* The three address lines each get a full row — they hold street
@@ -329,9 +326,8 @@ export default function AddressScreen() {
       )}
 
       <ActionBar more={moreBelow}>
-        <button
-          type="button"
-          className={bkBtn({ size: "lg", block: true })}
+        <Button
+          surface="booking" size="lg" block
           disabled={!ready}
           onClick={() => {
             setTouched({ line1: true, town: true });
@@ -339,7 +335,7 @@ export default function AddressScreen() {
           }}
         >
           Continue to times
-        </button>
+        </Button>
       </ActionBar>
     </>
   );

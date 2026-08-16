@@ -4,6 +4,7 @@
    5 · Confirmed
    ══════════════════════════════════════════════════════════════════ */
 
+import Button from "@/components/common/Button";
 import Link from "next/link";
 import { useId, useState } from "react";
 import { Icon, P } from "@/components/booking/icons";
@@ -135,14 +136,13 @@ export default function ConfirmedScreen() {
                   autoComplete="new-password"
                 />
               </Field>
-              <button
-                type="button"
-                className={bkBtn({ variant: "ink", block: true })}
+              <Button
+                surface="booking" variant="ink" block
                 disabled={password.length < 8}
                 onClick={() => setSaved(true)}
               >
                 Save password
-              </button>
+              </Button>
             </div>
           )}
         </>
