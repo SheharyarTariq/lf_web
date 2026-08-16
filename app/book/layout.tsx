@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import BookingShell from "@/components/booking/BookingShell";
+import BookingShell from "@/components/booking/booking-shell";
 
 /* Checkout steps are a private, half-filled form — there is nothing here for
    a crawler, and /book/review would otherwise invite indexing of a page that

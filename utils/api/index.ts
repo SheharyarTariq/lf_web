@@ -1,0 +1,185 @@
+/* ══════════════════════════════════════════════════════════════════
+   Registration
+   ══════════════════════════════════════════════════════════════════
+
+   What is left of the original hand-rolled client. Login and the session
+   have moved to utils/auth, which goes through `apiCall` per the
+   web-api-patterns skill and keeps the token in the `authtoken` cookie.
+   Sign-up is the next one across; until then this file owns exactly one
+   endpoint, which is why AuthModal imports from both.
+
+   The reason it has not moved with login is the error shape: `register`
+   turns Symfony's `violations` into a per-field map, so a duplicate address
+   marks the email input rather than throwing a banner over the form.
+   `apiCall` returns the raw body, so that translation has to be lifted to
+   the call site — a change to the sign-up pane, not to this request, and
+   not something to do in passing while wiring login.
+
+   NEXT_PUBLIC_API_URL is not validated at build time and can be undefined
+   at runtime; callers must survive that. Every request here funnels through
+   send(), which turns a failed fetch into an ordinary { ok: false } result
+   rather than throwing.
+   ══════════════════════════════════════════════════════════════════ */
+
+import { config } from "@/config";
+
+const API_BASE = config.apiUrl ?? "";
+
+/* ── Errors ───────────────────────────────────────────────────────
+   Every failure comes back the same shape, so callers never have to
+   know whether the server speaks JSON-LD, plain JSON, or nothing at
+   all because the network dropped.
+   ───────────────────────────────────────────────────────────────── */
+
+export interface ApiOk<T = Record<string, unknown>> {
+  ok: true;
+  status: number;
+  data: T;
+}
+
+export interface ApiErr {
+  ok: false;
+  status: number;
+  message: string;
+  fields: Record<string, string>;
+}
+
+export type ApiResult<T = Record<string, unknown>> = ApiOk<T> | ApiErr;
+
+interface Violation {
+  propertyPath?: string;
+  message?: string;
+}
+
+interface ErrorBody {
+  violations?: Violation[];
+  "hydra:violations"?: Violation[];
+  "hydra:description"?: string;
+  detail?: string;
+  message?: string;
+  error?: string;
+}
+
+/* Symfony validation, in the three shapes API Platform emits depending
+   on the format negotiated. propertyPath is the field name; plainPassword
+   is mapped back to the one the form actually shows. */
+const FIELD_ALIASES: Record<string, string> = {
+  plainPassword: "password",
+  password: "password",
+};
+
+function readViolations(body: ErrorBody | null): Record<string, string> {
+  const list = body?.violations || body?.["hydra:violations"] || [];
+  const fields: Record<string, string> = {};
+  for (const v of list) {
+    if (!v.propertyPath) continue;
+    const key = FIELD_ALIASES[v.propertyPath] || v.propertyPath;
+    if (key && !fields[key] && v.message) fields[key] = v.message;
+  }
+  return fields;
+}
+
+function readMessage(body: ErrorBody | null, status: number): string {
+  return (
+    body?.["hydra:description"] ||
+    body?.detail ||
+    body?.message ||
+    body?.error ||
+    `Something went wrong (${status}).`
+  );
+}
+
+async function send<T = Record<string, unknown>>(
+  path: string,
+  payload: unknown,
+): Promise<ApiResult<T>> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    /* No response at all: offline, DNS, CORS preflight refused, or
+       NEXT_PUBLIC_API_URL unset. Say what the person can act on, not what
+       the console says. */
+    return {
+      ok: false,
+      status: 0,
+      message: "We could not reach our servers just now. Check your connection and try again.",
+      fields: {},
+    };
+  }
+
+  let body: (ErrorBody & T) | null = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* 204, or an HTML error page from a proxy. Neither is fatal here. */
+  }
+
+  if (res.ok) return { ok: true, status: res.status, data: (body || {}) as T };
+
+  return {
+    ok: false,
+    status: res.status,
+    message: readMessage(body, res.status),
+    fields: readViolations(body),
+  };
+}
+
+/* ── Endpoints ────────────────────────────────────────────────────
+   POST /register     { name, email, phone?, plainPassword } → 201
+   POST /login-check  { email, password }                    → 200 { token }
+   ───────────────────────────────────────────────────────────────── */
+
+/** +441234567890, as the API expects. The form collects a national number
+ *  behind a +44 prefix, so the leading zero goes and anything the person
+ *  typed for readability goes with it. */
+export function toE164(national: string | undefined): string | undefined {
+  const digits = String(national || "")
+    .replace(/[^\d]/g, "")
+    .replace(/^0+/, "");
+  return digits ? `+44${digits}` : undefined;
+}
+
+export async function register({
+  name,
+  email,
+  phone,
+  password,
+}: {
+  name: string;
+  email: string;
+  phone?: string;
+  password: string;
+}): Promise<ApiResult> {
+  const payload: Record<string, string> = {
+    name: name.trim(),
+    email: email.trim(),
+    plainPassword: password,
+  };
+  const e164 = toE164(phone);
+  /* Omitted rather than sent empty: the field is optional and an empty
+     string is a value, which validators treat differently from absent. */
+  if (e164) payload.phone = e164;
+
+  const r = await send("/register", payload);
+  if (r.ok) return r;
+
+  /* 409 and 422-on-email are the same thing to the person reading it. */
+  if (r.status === 409 && !r.fields.email) {
+    return { ...r, fields: { ...r.fields, email: "That address already has an account." } };
+  }
+  return r;
+}
+
+/* login(), readUser() and logout() used to live here. They are now in
+   utils/auth, which reads the `user` object off the /login-check response
+   instead of decoding the JWT — the body is authoritative and is the only
+   place emailVerifiedAt appears. The sessionStorage token store went with
+   them; the token is a cookie now, because that is what apiCall reads. */

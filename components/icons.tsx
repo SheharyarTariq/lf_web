@@ -11,7 +11,7 @@
  */
 
 import type { SVGProps } from "react";
-import type { StepIconName, TrustIconName } from "@/lib/content";
+import type { StepIconName, TrustIconName } from "@/utils/content";
 
 /* Review-source badges: the App Store and Google Play. */
 export const AppleGlyph = () => (

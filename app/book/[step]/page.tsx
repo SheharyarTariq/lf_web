@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
-import AddressScreen from "@/components/booking/screens/AddressScreen";
-import TimeScreen from "@/components/booking/screens/TimeScreen";
-import ContactScreen from "@/components/booking/screens/ContactScreen";
-import ReviewScreen from "@/components/booking/screens/ReviewScreen";
-import PaymentScreen from "@/components/booking/screens/PaymentScreen";
-import ConfirmedScreen from "@/components/booking/screens/ConfirmedScreen";
-import { ROUTES, isRoute } from "@/lib/booking/flow";
+import AddressScreen from "@/components/booking/screens/address";
+import TimeScreen from "@/components/booking/screens/time";
+import ContactScreen from "@/components/booking/screens/contact";
+import ReviewScreen from "@/components/booking/screens/review";
+import PaymentScreen from "@/components/booking/screens/payment";
+import ConfirmedScreen from "@/components/booking/screens/confirmed";
+import { ROUTES, isRoute } from "@/utils/booking/flow";
 
 /* One file per step in the prototype's URL scheme — /book/address …
    /book/confirmed — so the flow stays linkable and the back button works

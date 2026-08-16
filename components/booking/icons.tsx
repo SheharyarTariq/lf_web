@@ -1,5 +1,5 @@
 import type { SVGProps } from "react";
-import type { ProviderId } from "@/lib/booking/model";
+import type { ProviderId } from "@/utils/booking/model";
 
 /**
  * One 20x20 grid for every icon in the checkout, stroked or filled.

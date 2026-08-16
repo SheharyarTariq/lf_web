@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { PLAY_STORE_URL } from "@/config";
-import { storeUrlForUserAgent } from "@/lib/device";
+import { storeUrlForUserAgent } from "@/utils/device";
 
 // Reached by scanning the QR code on the homepage (which is desktop-only and
 // therefore scanned *from* a phone). We sniff the user-agent and forward to the

@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import Script from "next/script";
+import { Toaster } from "react-hot-toast";
 import "./globals.css";
-import AuthProvider from "@/components/AuthProvider";
+import AuthProvider from "@/components/common/AuthProvider";
 
 const poppins = Poppins({
   weight: ["400", "500", "600", "700", "800"],
@@ -169,6 +170,16 @@ export default function RootLayout({
           drawer and the checkout all drive one login dialog. */}
       <body className="min-h-screen flex flex-col">
         <AuthProvider>{children}</AuthProvider>
+
+        {/* apiCall (utils/api-call) reports every failure as a toast, and with
+            no Toaster mounted those calls are silent — the request fails and
+            nothing appears. Mounted here rather than per-page so there is one
+            of them for the whole site.
+
+            It renders a position:fixed container, which is out of flow, so it
+            is not a flex item and cannot disturb the column above it. When
+            there is nothing to show it renders an empty div. */}
+        <Toaster position="top-center" />
       </body>
 
       {/* Google Ads global site tag (gtag.js) — traffic attribution for Google Ads.
