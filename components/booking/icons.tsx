@@ -1,92 +1,118 @@
-import type { SVGProps } from "react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  CreditCard,
+  Eye,
+  EyeOff,
+  Info,
+  Leaf,
+  List,
+  Lock,
+  Mail,
+  MapPin,
+  Repeat,
+  ShoppingBag,
+  Sparkles,
+  ThumbsUp,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import type { ProviderId } from "@/utils/booking/model";
 
 /**
- * One 20x20 grid for every icon in the checkout, stroked or filled.
+ * The checkout's icon set.
  *
- * `strokeWidth` is declared before the spread so a caller can raise it —
- * the close cross and the confirmation tick both do.
+ * `P` used to hold hand-drawn path strings on a 20×20 grid; it now names the
+ * lucide component that plays each role. Keeping the map means there is still
+ * one place that says "the thing we call `tick` is a Check" — which is what
+ * docs/ICONS.md documents, and what makes putting an original back a
+ * one-line change. Every previous path is archived under public/icons/.
+ *
+ * The wrapper stays because it owns the defaults every call site relies on:
+ * 20px, decorative-by-default, and a `fill` shorthand for the two solid
+ * icons. Lucide draws on a 24×24 grid at stroke 2 where the design used 20×20
+ * at 1.7, so the rendered box is unchanged and only the artwork differs.
  */
+export const P = {
+  back: ChevronLeft,
+  chevron: ChevronRight,
+  tick: Check,
+  /* Solid, like the original — at 13px a stroked thumb fills in and reads as
+     a smudge. Pass `fill`. */
+  thumb: ThumbsUp,
+  info: Info,
+  alert: TriangleAlert,
+  lock: Lock,
+  card: CreditCard,
+  clock: Clock,
+  pin: MapPin,
+  close: X,
+  mail: Mail,
+  eye: Eye,
+  eyeOff: EyeOff,
+  bag: ShoppingBag,
+  list: List,
+  repeat: Repeat,
+  spark: Sparkles,
+  leaf: Leaf,
+  /* Same glyph as `leaf`, drawn filled — the calendar's eco marker. */
+  leafSolid: Leaf,
+} satisfies Record<string, LucideIcon>;
+
 export function Icon({
-  d,
+  icon: Glyph,
   size = 20,
   fill = false,
   ...rest
-}: { d: string; size?: number; fill?: boolean } & Omit<SVGProps<SVGSVGElement>, "fill">) {
+}: { icon: LucideIcon; size?: number; fill?: boolean } & Omit<
+  React.SVGProps<SVGSVGElement>,
+  "fill" | "ref"
+>) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 20 20"
+    <Glyph
+      size={size}
       fill={fill ? "currentColor" : "none"}
       stroke={fill ? "none" : "currentColor"}
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
       aria-hidden="true"
       {...rest}
-    >
-      <path d={d} />
-    </svg>
+    />
   );
 }
 
-export const P = {
-  back: "M12 4 6 10l6 6",
-  chevron: "M7.5 4 13 10l-5.5 6",
-  tick: "m4 10.5 4 4 8-9",
-  /* Two closed subpaths, cuff then hand, so one filled path draws the
-     whole thumb. Solid rather than stroked — at 13px a 1.7 stroke fills
-     the shape in anyway and reads as a smudge. */
-  thumb:
-    "M2.6 9.4h2.8q.8 0 .8.8v5.6q0 .8-.8.8H2.6q-.8 0-.8-.8v-5.6q0-.8.8-.8Z" +
-    "M7.6 9.4 10.8 3.2c.5-1 2-.8 2.2.3l.1.6-.5 3h3.6c1.2 0 2.1 1.1 1.9 2.3" +
-    "l-.9 4.6c-.2 1.1-1.1 1.9-2.2 1.9H7.6Z",
-  info: "M10 9v5M10 6.2v.1M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z",
-  alert: "M10 7v4m0 3v.1M10 2 1.8 17h16.4Z",
-  lock: "M5.5 9V6.5a4.5 4.5 0 0 1 9 0V9M4 9h12v8H4Z",
-  card: "M2 6h16v9H2Zm0 3.5h16",
-  clock: "M10 5.5V10l3 1.8M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z",
-  pin: "M10 18s6-5.2 6-9.4A6 6 0 0 0 4 8.6C4 12.8 10 18 10 18Zm0-7.6a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
-  close: "M5 5l10 10M15 5 5 15",
-  mail: "M2 6h16v9H2Zm0 .5 8 5.5 8-5.5",
-  eye: "M10 4.5c4 0 7 3 8.5 5.5C17 12.5 14 15.5 10 15.5S3 12.5 1.5 10C3 7.5 6 4.5 10 4.5Zm0 3a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z",
-  eyeOff:
-    "M3 3l14 14M8.2 8.3a2.5 2.5 0 0 0 3.5 3.5M6 5.6A9.6 9.6 0 0 1 10 4.5c4 0 7 3 8.5 5.5a13 13 0 0 1-3 3.4M4.4 7A13.6 13.6 0 0 0 1.5 10C3 12.5 6 15.5 10 15.5c1 0 2-.2 2.9-.5",
-  bag: "M6 7V5.5a4 4 0 0 1 8 0V7m-10 0h12l-1 10H5Z",
-  list: "M7 6h9M7 10h9M7 14h6M3.5 6v.1M3.5 10v.1M3.5 14v.1",
-  repeat: "M4 8a4 4 0 0 1 4-4h8m0 0-2.5-2.5M16 4l-2.5 2.5M16 12a4 4 0 0 1-4 4H4m0 0 2.5 2.5M4 16l2.5-2.5",
-  spark: "M10 2.5 11.8 8 17 9.8 11.8 11.7 10 17l-1.8-5.3L3 9.8 8.2 8Z",
-  leaf: "M4 16c0-6 4.5-10 13-10 0 8-4 12-9 12a5 5 0 0 1-4-2Zm2 1c1.5-4 4-6.5 7-8",
-  leafSolid: "M17 3c0 8-4.6 12.4-9.2 12.4A5.2 5.2 0 0 1 3.4 13C4.6 8 9.2 4.4 17 3Z",
-};
-
-/** Each company's own mark, at each company's own dimensions. */
+/** Each company's own mark, at each company's own dimensions. Not lucide —
+ *  it has no equivalent, and both companies constrain how these are drawn. */
 export function ProviderMark({ id }: { id: ProviderId | string }) {
   if (id === "apple") {
     return (
       <svg width="16" height="19" viewBox="0 0 20 24" aria-hidden="true" focusable="false">
         <path
           fill="currentColor"
-          d="M16.6 12.7c0-2.9 2.4-4.3 2.5-4.4-1.4-2-3.5-2.3-4.2-2.3-1.8-.2-3.5 1.1-4.4 1.1-.9 0-2.3-1-3.8-1-1.9 0-3.7 1.1-4.7 2.9-2 3.5-.5 8.7 1.5 11.5 1 1.4 2.1 3 3.6 2.9 1.4-.1 2-.9 3.8-.9s2.2.9 3.8.9 2.5-1.4 3.5-2.8c1.1-1.6 1.5-3.2 1.6-3.2 0 0-3.1-1.2-3.2-4.7M13.8 4.2c.8-1 1.3-2.3 1.2-3.7-1.2 0-2.5.8-3.4 1.7-.7.9-1.4 2.2-1.2 3.5 1.3.1 2.6-.6 3.4-1.5"
+          d="M16.53 12.68c-.03-2.02 1.65-2.99 1.72-3.04-.94-1.37-2.4-1.56-2.92-1.58-1.25-.13-2.44.73-3.08.73-.65 0-1.63-.71-2.68-.69-1.38.02-2.66.8-3.36 2.04-1.44 2.5-.37 6.19 1.02 8.21.68.99 1.49 2.09 2.55 2.05 1.02-.04 1.4-.66 2.63-.66 1.23 0 1.58.66 2.65.64 1.09-.02 1.79-.99 2.46-1.98.77-1.14 1.09-2.25 1.11-2.31-.02-.01-2.09-.8-2.1-3.41zM14.03 6.3c.56-.68.94-1.62.83-2.56-.8.03-1.78.54-2.36 1.21-.51.6-.97 1.57-.85 2.49.9.07 1.82-.46 2.38-1.14z"
+          transform="translate(-2 -2)"
         />
       </svg>
     );
   }
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
       <path
         fill="#4285F4"
-        d="M23.06 12.25c0-.85-.08-1.67-.22-2.45H12v4.64h6.2a5.3 5.3 0 0 1-2.3 3.48v2.9h3.72c2.18-2 3.44-4.96 3.44-8.57Z"
+        d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"
       />
       <path
         fill="#34A853"
-        d="M12 23.5c3.1 0 5.7-1.03 7.62-2.78l-3.72-2.9c-1.03.7-2.35 1.1-3.9 1.1-2.98 0-5.5-2.01-6.4-4.72H1.75v2.99A11.5 11.5 0 0 0 12 23.5Z"
+        d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.02-3.7H.96v2.34A9 9 0 0 0 9 18z"
       />
-      <path fill="#FBBC05" d="M5.6 14.2a6.9 6.9 0 0 1 0-4.4V6.8H1.75a11.5 11.5 0 0 0 0 10.4L5.6 14.2Z" />
+      <path
+        fill="#FBBC05"
+        d="M3.98 10.72a5.41 5.41 0 0 1 0-3.44V4.94H.96a9 9 0 0 0 0 8.12l3.02-2.34z"
+      />
       <path
         fill="#EA4335"
-        d="M12 4.75c1.68 0 3.19.58 4.38 1.72l3.28-3.28C17.7 1.3 15.1.25 12 .25 7.5.25 3.6 2.84 1.75 6.8L5.6 9.8c.9-2.71 3.42-4.72 6.4-4.72Z"
+        d="M9 3.58c1.32 0 2.5.46 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.94l3.02 2.34C4.68 5.16 6.66 3.58 9 3.58z"
       />
     </svg>
   );

@@ -85,7 +85,7 @@ export function Header({
             onClick={onBack}
             aria-label="Go back"
           >
-            <Icon d={P.back} size={22} />
+            <Icon icon={P.back} size={22} />
           </Button>
         )}
         <Wordmark />
@@ -120,7 +120,7 @@ export function Header({
             phone the flow fills the screen with no visible way out, which
             is the situation that makes people close the tab instead. */}
         <Button variant="bare" className={CLOSE_BTN} onClick={onClose} aria-label="Close booking">
-          <Icon d={P.close} size={20} strokeWidth="2.2" />
+          <Icon icon={P.close} size={20} strokeWidth="2.2" />
         </Button>
       </div>
     </header>
@@ -219,7 +219,7 @@ export function Steps({
                   }
                   aria-hidden="true"
                 >
-                  {state === "done" ? <Icon d={P.tick} size={13} /> : i + 1}
+                  {state === "done" ? <Icon icon={P.tick} size={13} /> : i + 1}
                 </span>
                 <span
                   className={

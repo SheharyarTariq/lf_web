@@ -31,7 +31,7 @@ export default function Field({
       {children}
       {error ? (
         <p className={ERR} id={`${id}-err`}>
-          <Icon d={P.alert} size={16} className="mt-0.5 flex-none" />
+          <Icon icon={P.alert} size={16} className="mt-0.5 flex-none" />
           {error}
         </p>
       ) : (

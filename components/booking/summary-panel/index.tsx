@@ -166,7 +166,7 @@ export default function SummaryPanel() {
 
         {discount && (
           <div className={DISC_TAG}>
-            <Icon d={P.spark} size={16} fill className="flex-none" />
+            <Icon icon={P.spark} size={16} fill className="flex-none" />
             <span>
               <b className="block text-[13px] font-bold leading-[1.35]">{discount.label}</b>
               <span className="block text-[11.5px] leading-[1.35]">Applied automatically.</span>

@@ -262,7 +262,7 @@ export default function TimeScreen() {
         </div>
         {!isCollection && ecoChosen && (
           <p className="mt-3 flex items-center gap-[9px] rounded-card-md bg-panel px-[13px] py-2.5 text-[13.5px] leading-[1.45] text-bk-ink-2 to-720:mt-2 to-720:gap-2 to-720:px-[11px] to-720:py-2 to-720:text-[13px]">
-            <Icon d={P.leaf} size={17} className="flex-none text-brand-ink" />
+            <Icon icon={P.leaf} size={17} className="flex-none text-brand-ink" />
             {/* Says nothing about who chose it, because it is shown
                 whether the window was preselected or picked by hand.
                 One line, and no claim we cannot stand behind. */}
@@ -290,7 +290,7 @@ export default function TimeScreen() {
                 aria-expanded={data.repeat}
               />
               <span className={SWITCH} aria-hidden="true" />
-              <Icon d={P.repeat} size={20} className="flex-none text-bk-ink" />
+              <Icon icon={P.repeat} size={20} className="flex-none text-bk-ink" />
               <span className={TOGGLE_TEXT}>
                 <b className={TOGGLE_TITLE}>Repeat this order</b>
                 <span className={TOGGLE_SUB}>
@@ -335,7 +335,7 @@ export default function TimeScreen() {
                     className="mt-3 flex gap-[9px] rounded-card-md bg-bk-paper-2 px-3 py-[11px] text-[13px] leading-[1.5] text-bk-ink-2"
                     aria-live="polite"
                   >
-                    <Icon d={P.repeat} size={16} className="mt-0.5 flex-none text-bk-ink-3" />
+                    <Icon icon={P.repeat} size={16} className="mt-0.5 flex-none text-bk-ink-3" />
                     <span>{sentence}</span>
                   </p>
                 )}

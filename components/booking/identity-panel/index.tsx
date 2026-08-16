@@ -184,7 +184,7 @@ export default function IdentityPanel({
         </div>
         {error && (
           <p className={ERR} role="alert">
-            <Icon d={P.alert} size={16} className="mt-0.5 flex-none" />
+            <Icon icon={P.alert} size={16} className="mt-0.5 flex-none" />
             {error}
           </p>
         )}
@@ -223,7 +223,7 @@ export default function IdentityPanel({
       <div className={CHOOSE}>
         <span className={PRIMARY}>
           <span className={REC}>
-            <Icon d={P.thumb} size={12} fill className="relative -top-[.5px]" />
+            <Icon icon={P.thumb} size={12} fill className="relative -top-[.5px]" />
             Recommended
           </span>
           <Button
@@ -276,7 +276,7 @@ export default function IdentityPanel({
             onClick={() => setShowPw((v) => !v)}
             aria-label={showPw ? "Hide password" : "Show password"}
           >
-            <Icon d={showPw ? P.eyeOff : P.eye} size={19} />
+            <Icon icon={showPw ? P.eyeOff : P.eye} size={19} />
           </Button>
           <Button variant="bare"
             className="h-10 flex-none cursor-pointer rounded-ctl-md border-none bg-bk-ink px-4 text-[14px] font-semibold leading-[1.6] text-white disabled:cursor-not-allowed disabled:opacity-35"

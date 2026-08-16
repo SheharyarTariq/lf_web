@@ -178,7 +178,7 @@ export default function Calendar({
                   because the legend underneath says so. */}
               {hasEco && (
                 <Icon
-                  d={P.leafSolid}
+                  icon={P.leafSolid}
                   size={9}
                   fill
                   className="absolute right-0.5 top-0.5 text-brand-ink"
@@ -196,7 +196,7 @@ export default function Calendar({
       {note && (
         <p className="flex items-start gap-1.5 px-0.5 pb-0.5 pt-2 text-[12px] leading-[1.45] text-bk-ink-3 to-720:pb-0 to-720:pt-1.5">
           {showLeafKey && (
-            <Icon d={P.leafSolid} size={11} fill aria-hidden="true" className="mt-0.5 flex-none text-brand-ink" />
+            <Icon icon={P.leafSolid} size={11} fill aria-hidden="true" className="mt-0.5 flex-none text-brand-ink" />
           )}
           <span>{note}</span>
         </p>

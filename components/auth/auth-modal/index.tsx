@@ -14,13 +14,14 @@
    one — it belongs to the product, not the marketing page.
    ══════════════════════════════════════════════════════════════════ */
 
+import { Check, ChevronLeft, Eye, EyeOff, Mail, TriangleAlert, X } from "lucide-react";
 import { validateAndSetErrors } from "@/utils/validation";
 import { EMAIL_RE, PASSWORD_RE, PASSWORD_RULE, signupSchema } from "./schema";
 import { cn } from "@/utils/cn";
 import { AUTH_INPUT_BASE } from "@/utils/auth/styles";
 import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
-import { useCallback, useEffect, useId, useRef, useState, type SVGProps } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { register as apiRegister } from "@/utils/api";
 import { login as apiLogin } from "@/utils/auth";
 import type { AuthedUser } from "@/components/common/AuthProvider";
@@ -58,39 +59,6 @@ const SOCIAL: [id: "google" | "apple", label: string][] = [
 
 /* ── Icons ────────────────────────────────────────────────────── */
 
-const EYE =
-  "M1.7 10S4.6 4.8 10 4.8 18.3 10 18.3 10 15.4 15.2 10 15.2 1.7 10 1.7 10Zm8.3 2.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z";
-const EYE_OFF =
-  "M3 3l14 14M8.1 8.2a2.4 2.4 0 0 0 3.4 3.4M6.3 6.4C3.6 7.9 1.7 10 1.7 10s2.9 5.2 8.3 5.2c1.6 0 3-.5 4.1-1.1M16 12.4c1.5-1.2 2.3-2.4 2.3-2.4S15.4 4.8 10 4.8c-.7 0-1.3.1-1.9.2";
-const CLOSE = "M5 5l10 10M15 5L5 15";
-const BACK = "M12 4 6 10l6 6";
-const TICK = "m4 10.5 4 4 8-9";
-const MAIL = "M2 5h16v10H2Zm0 .5 8 5.5 8-5.5";
-const WARN = "M10 7v4m0 3v.1M10 2 1.8 17h16.4Z";
-
-function Icon({
-  d,
-  size = 20,
-  sw = 1.7,
-  ...rest
-}: { d: string; size?: number; sw?: number | string } & SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={sw}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...rest}
-    >
-      <path d={d} />
-    </svg>
-  );
-}
 
 function ProviderMark({ id }: { id: "google" | "apple" }) {
   if (id === "apple") {
@@ -177,7 +145,7 @@ function Field({
           className="flex items-start gap-[7px] text-[13px] leading-[1.45] text-danger"
           id={`${id}-err`}
         >
-          <Icon d={WARN} size={15} />
+          <TriangleAlert size={15} aria-hidden="true" />
           {error}
         </p>
       ) : hint ? (
@@ -226,7 +194,7 @@ function Password({
         aria-label={show ? "Hide password" : "Show password"}
         tabIndex={-1}
       >
-        <Icon d={show ? EYE_OFF : EYE} size={19} />
+        {show ? <EyeOff size={19} aria-hidden="true" /> : <Eye size={19} aria-hidden="true" />}
       </Button>
     </span>
   );
@@ -453,7 +421,7 @@ export default function AuthModal({
               onClick={() => go("login")}
               aria-label="Back to log in"
             >
-              <Icon d={BACK} size={22} sw="2" />
+              <ChevronLeft size={22} strokeWidth={2} aria-hidden="true" />
             </Button>
           ) : (
             <span />
@@ -463,7 +431,7 @@ export default function AuthModal({
             onClick={onClose}
             aria-label="Close"
           >
-            <Icon d={CLOSE} size={20} sw="2.2" />
+            <X size={20} strokeWidth={2.2} aria-hidden="true" />
           </Button>
         </div>
 
@@ -472,7 +440,7 @@ export default function AuthModal({
             className="flex items-start gap-[9px] rounded-card-sm bg-danger-bg px-[13px] py-[11px] text-[13.5px] leading-[1.45] text-danger"
             role="alert"
           >
-            <Icon d={WARN} size={16} />
+            <TriangleAlert size={16} aria-hidden="true" />
             {alert}
           </p>
         )}
@@ -710,7 +678,7 @@ export default function AuthModal({
               className="mx-auto mb-[18px] flex h-16 w-16 items-center justify-center rounded-[50%] bg-brand text-bk-ink"
               aria-hidden="true"
             >
-              <Icon d={MAIL} size={28} />
+              <Mail size={28} aria-hidden="true" />
             </span>
             <h2
               className="text-[26px] font-extrabold leading-[1.12] tracking-[-1px]"
@@ -727,7 +695,7 @@ export default function AuthModal({
               a new password is on its way.
             </p>
             <Button variant="bare" className={BTN_LIME} onClick={onClose}>
-              <Icon d={TICK} size={18} sw="2.2" />
+              <Check size={18} strokeWidth={2.2} aria-hidden="true" />
               Done
             </Button>
           </div>

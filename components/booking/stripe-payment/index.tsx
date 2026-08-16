@@ -194,7 +194,7 @@ export default function StripePayment({
       {status === "loading" && <p className={cn(STATE, "text-bk-ink-3")}>Loading secure payment…</p>}
       {status === "failed" && (
         <p className={cn(STATE, "text-danger")}>
-          <Icon d={P.alert} size={17} className="mt-0.5 flex-none" />
+          <Icon icon={P.alert} size={17} className="mt-0.5 flex-none" />
           <span>
             Secure payment could not load{message ? `: ${message}` : ""}. Check your connection or
             any ad blocker, then try again.

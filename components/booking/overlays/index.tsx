@@ -11,6 +11,7 @@ import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import { Icon, P, ProviderMark } from "@/components/booking/icons";
 import Field from "@/components/booking/common/Field";
 import Modal from "@/components/booking/common/Modal";
@@ -129,7 +130,7 @@ export function FaqModal({ onClose }: { onClose: () => void }) {
               className="ml-auto flex h-7 w-7 flex-none rotate-90 items-center justify-center rounded-pill bg-brand text-bk-ink"
               aria-hidden="true"
             >
-              <Icon d={P.chevron} size={15} />
+              <Icon icon={P.chevron} size={15} />
             </span>
           </Button>
         )}
@@ -151,7 +152,7 @@ export function FaqModal({ onClose }: { onClose: () => void }) {
    happens: the card is stored and charged after counting, and Price
    Review is opt-in, so nothing promises approval by default. */
 
-const BILLING_POINTS: [icon: string, title: string, body: string][] = [
+const BILLING_POINTS: [icon: LucideIcon, title: string, body: string][] = [
   [
     P.bag,
     "Nothing to itemise",
@@ -187,7 +188,7 @@ export function BillingModal({ onClose }: { onClose: () => void }) {
               className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-card-md bg-panel text-bk-ink"
               aria-hidden="true"
             >
-              <Icon d={icon} size={20} />
+              <Icon icon={icon} size={20} />
             </span>
             <span>
               <b className="mb-[3px] block text-[15.5px] font-bold">{title}</b>
@@ -260,7 +261,7 @@ export function LoginSheet({
             surface="booking" variant="email" size="oauth"
             onClick={() => setView("email")}
           >
-            <Icon d={P.mail} size={18} />
+            <Icon icon={P.mail} size={18} />
             Continue with email
           </Button>
           <p className={MODAL_FOOT}>

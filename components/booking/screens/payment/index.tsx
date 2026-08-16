@@ -58,7 +58,7 @@ export default function PaymentScreen() {
           onChange={(e) => patch({ terms: e.target.checked })}
         />
         <span className={BOX} aria-hidden="true">
-          <Icon d={P.tick} size={14} />
+          <Icon icon={P.tick} size={14} />
         </span>
         {/* New tab, deliberately. People tap anywhere in this sentence to
             tick the box; landing on a link would otherwise navigate away

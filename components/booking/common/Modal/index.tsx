@@ -66,7 +66,7 @@ export default function Modal({
               onClick={onClose}
               aria-label={`Close ${title.toLowerCase()}`}
             >
-              <Icon d={P.close} size={20} strokeWidth="2.2" />
+              <Icon icon={P.close} size={20} strokeWidth="2.2" />
             </button>
           </div>
         )}

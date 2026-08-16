@@ -64,7 +64,7 @@ export default function ConfirmedScreen() {
     <>
       <div className="pt-2 text-center">
         <div className="mx-auto mb-[22px] flex h-[76px] w-[76px] items-center justify-center rounded-[50%] bg-brand">
-          <Icon d={P.tick} size={38} strokeWidth="2.4" />
+          <Icon icon={P.tick} size={38} strokeWidth="2.4" />
         </div>
         <h1 className={H1} tabIndex={-1}>
           You are booked in

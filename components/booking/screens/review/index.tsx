@@ -98,7 +98,7 @@ export default function ReviewScreen() {
 
       {discount && (
         <div className={cn(DISC, "mb-4")}>
-          <Icon d={P.spark} size={22} fill className="flex-none" />
+          <Icon icon={P.spark} size={22} fill className="flex-none" />
           <span>
             <b className="block text-[15px] font-bold">{discount.label}</b>
             <span className="block text-[13.5px]">Applied automatically — no code needed.</span>

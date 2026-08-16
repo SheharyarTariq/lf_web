@@ -321,7 +321,7 @@ export default function ContactScreen() {
             className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-card-sm bg-bk-paper-2"
             aria-hidden="true"
           >
-            {data.identity ? <ProviderMark id={data.identity} /> : <Icon d={P.tick} size={18} />}
+            {data.identity ? <ProviderMark id={data.identity} /> : <Icon icon={P.tick} size={18} />}
           </span>
           <span className="min-w-0 flex-auto">
             <b className="block text-[14.5px] font-bold">Signed in</b>

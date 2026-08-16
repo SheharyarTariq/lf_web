@@ -241,7 +241,7 @@ export default function AddressScreen() {
                   onClick={() => choose(a)}
                 >
                   <AddressLines a={a} postcode={searched} />
-                  <Icon d={P.chevron} size={17} className="flex-none text-bk-ink-3" />
+                  <Icon icon={P.chevron} size={17} className="flex-none text-bk-ink-3" />
                 </Button>
               </li>
             ))}
@@ -274,7 +274,7 @@ export default function AddressScreen() {
               onClick={changePostcode}
             >
               Change
-              <Icon d={P.chevron} size={15} />
+              <Icon icon={P.chevron} size={15} />
             </Button>
           </div>
 
