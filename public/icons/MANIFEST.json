@@ -148,5 +148,40 @@
   "brand",
   "facebook",
   "public/icons/brand/facebook.svg"
+ ],
+ [
+  "auth",
+  "eye",
+  "public/icons/auth/eye.svg"
+ ],
+ [
+  "auth",
+  "eye-off",
+  "public/icons/auth/eye-off.svg"
+ ],
+ [
+  "auth",
+  "close",
+  "public/icons/auth/close.svg"
+ ],
+ [
+  "auth",
+  "back",
+  "public/icons/auth/back.svg"
+ ],
+ [
+  "auth",
+  "tick",
+  "public/icons/auth/tick.svg"
+ ],
+ [
+  "auth",
+  "mail",
+  "public/icons/auth/mail.svg"
+ ],
+ [
+  "auth",
+  "warn",
+  "public/icons/auth/warn.svg"
  ]
 ]
