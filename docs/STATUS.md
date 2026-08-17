@@ -154,6 +154,38 @@ one.
 **Not verified by me:** the happy path with a genuine code, which only the inbox has. Every
 other branch above is real.
 
+## Done — password reset
+
+`POST /reset-password/request` and `/reset-password/confirm` are integrated, and
+`app/(main)/reset-password` is a real page instead of a DeepLinkFallback stub. That completes
+auth: the only mock left in the modal is social sign-in, which has no endpoint to call.
+
+Both endpoints are **public** — probed — which is what makes this simpler than email
+verification: no Bearer token, so no pending cookie, no login-then-resume. The link carries
+`email` and `token`, which is everything `confirm` needs, so it finishes on any device.
+
+**On success the page logs them straight in.** We just set the password, so we know it. That
+works because **a reset also verifies the address** — the backend's own `VerificationCodeTest`
+proves it, by asking for an `email_verification` code straight afterwards and asserting no email
+is sent. So `login()` writes a real session rather than routing to the verify pane. If the
+auto-login fails, it falls back to a Log in button rather than stranding anyone.
+
+`EMAIL_RE`, `PASSWORD_RE` and `PASSWORD_RULE` moved from the auth modal's schema to
+`utils/auth/model.ts`, so the reset page enforces the same password rule from the same constant
+instead of restating it. Still re-exported from the schema, so no call site changed.
+`forgotSchema`, declared during the schema pass and unused ever since, is finally wired.
+
+**Verified**, 12/12 against real staging: the forgot pane reaches `/reset-password/request` and
+gets a 200; the "Check your email" pane stays non-committal, as it must for an endpoint that
+answers the same way whether or not the account exists; a complete link asks only for the new
+password; a wrong code returns the server's own "Incorrect code" under the field **and reveals
+the code box prefilled** so it can be corrected; a weak password is refused before the network;
+and a bare `/reset-password` with no query string asks for everything.
+
+**Not verified by me:** the happy path, which needs a code from the inbox. A real reset email
+was sent to `+m200@gmail.com` during testing, so it can be completed by hand — note that doing
+so changes that account's password **and** verifies its address.
+
 ## Done — logout confirmation
 
 "Log out" in the header (desktop bar and mobile drawer) now raises a confirmation instead of
@@ -216,7 +248,8 @@ to `utils/booking/styles`; `booking/context.tsx` moved to `utils/`, being state 
 **Components.** `components/common/{Button,Input,Textarea,Loader,Card}`. 76 of 77 raw
 `<button>` and every recipe-carrying form control routed through them. `Select` and
 `FormDialog` were deliberately not built — the skill says "create on first need", there is no
-`<select>` anywhere, and `booking/common/Modal` already covers the dialog.
+`<select>` anywhere, and the dialog was already covered. (That dialog has since moved to
+`components/common/Modal`, where this section implies it should have been.)
 
 **`cn()`.** 69 composed class strings. Module-level recipe constants keep their `+`, which
 wraps lines rather than composing conditionally.
@@ -248,6 +281,33 @@ own pass.
 
 **Agreed order: the logged-in user flow first, guest checkout after.**
 
+### Staging data, probed — read before starting the address step
+
+`POST /find-addresses` works and is public, but the staging data behind it is inconsistent in
+two ways that will bite whoever wires it:
+
+- **Only two postcodes are active**: `KT21 1PG` and `KT18 5AA` return `isActive: true` with 14
+  addresses. `KT22 7HH`, `KT21 2AA`, `KT19 8AB`, `KT17 1DS` and everything else return
+  `isActive: false` with an empty list — including towns the site advertises.
+- **The addresses returned do not match the postcode asked for.** Querying `KT21 1PG` returns 14
+  rows all carrying `postcodeString: "KT22 7HH"` — and `KT22 7HH` is itself reported inactive.
+  So saving one of those via `PATCH /users/{id}/update-address` would store a postcode this same
+  API says is not served, which is likely to break `/slots/*` downstream through `AreaResolver`.
+
+Enough to build the lookup against; not enough to trust an end-to-end run. Worth resolving with
+the backend before the address step is called done.
+
+### Slots are blocked, and 500 where they should 401
+
+- `GET /slots/pickup` with **no token** returns **500** — `Expected an instance of
+  App\Entity\User. Got: NULL` — with a full vendor stack trace in the response body. A missing
+  auth guard, and an information leak on an anonymous endpoint.
+- With a valid token but no address on the account it still 500s, from `AreaResolver.php:38`:
+  `Expected an instance of App\Entity\Postcode. Got: NULL`. So **slots require a saved address**,
+  which the brief does not mention.
+- `GET /slots/dropoff` validates `pickupSlot` and returns 422 to an anonymous caller — the same
+  bug class, authentication running after validation.
+
 Phase 1, logged-in: ~~login~~ → ~~email verification~~ → register onto `apiCall` → address →
 slots → save card → create order.
 
@@ -258,12 +318,13 @@ Phase 2, guest checkout: blocked on conflict 1 below.
 Numbered so they can be referred to. 1, 2 and 6 change what gets built; the rest are
 contained.
 
-1. **Guest checkout is not possible against this API.** Only `/register`, `/login-check`,
-   `/system-status` and `/reset-password/*` are public. `/find-addresses`, `/slots/*`,
-   `/payment-methods/*` and `/orders` all need a Bearer token. The `/book` flow is guest-first
-   by design — address, time, contact, payment, confirm, with login merely offered. To use
-   this API the user must register or log in **before the address step**. Largest gap; decide
-   before phase 2.
+1. **Guest checkout is still blocked, but less than the brief implies.** Probed, the real public
+   set is **six**, not four: `/register`, `/login-check`, `/system-status`, `/reset-password/*`,
+   `/verification-code/request` (absent from the brief) **and `/find-addresses`** (documented as
+   authenticated, actually answers 200 with no token). So the address step *can* run for a
+   signed-out visitor. `/slots/*`, `/payment-methods/*` and `/orders` genuinely cannot — they
+   401. The `/book` flow is guest-first by design, so the decision is now narrower: login can be
+   demanded at the **time** step rather than before the address step. Still decide before phase 2.
 2. **There is no payment step, there is a save-a-card step.** Brief §8: "payment is taken
    automatically from the default card, there's no pay screen." `PaymentScreen` mounts a
    Stripe Payment Element to take payment. Correct sequence: SetupIntent → `confirmSetup` →
@@ -280,7 +341,11 @@ contained.
    `utils/auth/model.ts` and governs the regex, the copy and the input's `maxLength` from one
    place. The URL token is still submitted verbatim rather than digit-stripped, since the
    server is the authority on its own codes.
-6. **`/reset-password` is still a native-app handoff.** ~~`/verify-email`~~ is a real page now
+6. ~~**`/verify-email` and `/reset-password` are native-app handoffs.**~~ **Both are real pages
+   now**, and neither needed a change to the association files — those only *authorise* the OS
+   to open the app, so a phone with the app installed still gets the app, and the pages render
+   for desktop, phones without it, and in-app webviews. Original note kept below for the
+   reasoning. ~~`/verify-email` is a real page now
    — and doing it touched **none** of the association files, because they only *authorise* the
    OS to open the app. A phone with the app installed still gets the app; the page renders for
    desktop, phones without it, and in-app webviews. `/reset-password` is the same shape but is

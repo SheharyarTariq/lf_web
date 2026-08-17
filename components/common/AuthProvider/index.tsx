@@ -48,7 +48,10 @@ interface AuthContextValue {
    *  signed-out state need it, or every visit flashes "Log in" before the
    *  session comes back — worse for a returning customer than a brief gap. */
   loading: boolean;
-  openAuth: (view?: AuthView) => void;
+  /** `email` prefills the address field. Pass it wherever the caller already
+   *  knows who is signing in — the reset page and the checkout both do — so
+   *  nobody retypes an address they typed a moment ago. */
+  openAuth: (view?: AuthView, email?: string) => void;
   closeAuth: () => void;
   /** Raises the confirmation dialog. It does **not** sign anyone out by
    *  itself — nothing does, outside this provider. */
@@ -73,6 +76,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [user, setUser] = useState<AuthedUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  /* Seeds the modal's email field. The modal is mounted conditionally, so it
+     remounts on every open and picks this up fresh — no stale value to clear
+     on the way in. */
+  const [pendingEmail, setPendingEmail] = useState("");
 
   /* The token outlives the page, so the session has to be rebuilt from it on
      every load — without this, a refresh looks exactly like a sign-out even
@@ -128,8 +135,17 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     };
   }, []);
 
-  const openAuth = useCallback((next: AuthView = "login") => setView(next), []);
-  const closeAuth = useCallback(() => setView(null), []);
+  const openAuth = useCallback((next: AuthView = "login", email = "") => {
+    setView(next);
+    setPendingEmail(email);
+  }, []);
+
+  const closeAuth = useCallback(() => {
+    setView(null);
+    /* Cleared on the way out, so an address from one flow cannot turn up
+       prefilled in an unrelated open of the modal later. */
+    setPendingEmail("");
+  }, []);
 
   /* `signOut` asks first — that is what the name means on this context now.
      The immediate version is private on purpose: if the public function were
@@ -154,6 +170,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       {view && (
         <AuthModal
           view={view}
+          email={pendingEmail}
           onClose={closeAuth}
           onAuthed={(who) => {
             setUser(who);

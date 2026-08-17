@@ -1,5 +1,5 @@
 import * as yup from "yup";
-import { CODE_LENGTH } from "@/utils/auth/model";
+import { CODE_LENGTH, EMAIL_RE, PASSWORD_RE, PASSWORD_RULE } from "@/utils/auth/model";
 
 /* ══════════════════════════════════════════════════════════════════
    Auth modal validation
@@ -10,8 +10,11 @@ import { CODE_LENGTH } from "@/utils/auth/model";
    pane below.
    ══════════════════════════════════════════════════════════════════ */
 
-export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-export const PASSWORD_RE = /^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$/;
+/* EMAIL_RE, PASSWORD_RE and PASSWORD_RULE live in utils/auth/model now, so the
+   reset-password page can enforce the same rules without restating them. Still
+   re-exported here, because this is where the modal has always read them from
+   and the indirection is not worth churning every call site over. */
+export { EMAIL_RE, PASSWORD_RE, PASSWORD_RULE } from "@/utils/auth/model";
 
 /* Deliberately not the UK_MOBILE_RE in utils/booking/model. This form shows a
    fixed "+44" prefix and strips spaces before testing, so it sees a bare
@@ -19,8 +22,6 @@ export const PASSWORD_RE = /^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$/;
    spaces, parentheses and leading zero included. Two inputs, two shapes —
    which is also why the example in the message differs by a leading zero. */
 export const UK_MOBILE_RE = /^(?:0|\+?44)?7\d{9}$/;
-
-export const PASSWORD_RULE = "At least 8 characters, one capital letter and one symbol";
 
 export const signupSchema = yup.object({
   name: yup.string().trim().required("Tell us your name."),

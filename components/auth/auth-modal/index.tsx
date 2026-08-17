@@ -36,6 +36,7 @@ import {
   changeEmailSchema,
   codeSchema,
   EMAIL_RE,
+  forgotSchema,
   PASSWORD_RE,
   PASSWORD_RULE,
   signupSchema,
@@ -45,10 +46,13 @@ import { AUTH_CODE_INPUT, AUTH_INPUT_BASE } from "@/utils/auth/styles";
 import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
+import { routes } from "@/utils/routes";
 import { register as apiRegister } from "@/utils/api";
 import {
   changeEmailAddress,
   login as apiLogin,
+  requestPasswordReset,
   resendVerification,
   verifyEmail,
   type AuthUser,
@@ -57,19 +61,6 @@ import { CODE_LENGTH, RESEND_SECONDS } from "@/utils/auth/model";
 import type { AuthedUser } from "@/components/common/AuthProvider";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-/* STILL A MOCK. There is no reset endpoint yet.
-     POST /password/reset { email } → 202, whatever the address
-   202 regardless is the point: any other answer tells whoever asks whether
-   an address belongs to a customer.
-
-   Note for the integration phase: the link this would email points at
-   /reset-password, which today is a deep-link fallback that hands off to the
-   native app. Web password reset needs that path resolved first. */
-async function requestPasswordReset(): Promise<{ ok: true }> {
-  await wait(700);
-  return { ok: true };
-}
 
 /* STILL A MOCK. No OAuth endpoints yet — this returns a plausible account so
    the signed-in states can be seen and reviewed. */
@@ -613,10 +604,19 @@ export default function AuthModal({
 
   /* ── Forgot ── */
   const submitForgot = async () => {
-    if (!EMAIL_RE.test(form.email.trim()) || busy) return;
+    if (busy) return;
+    if (!(await validateAndSetErrors(forgotSchema, form, setErrors))) return;
     setBusy(true);
-    await requestPasswordReset();
+    setAlert("");
+    const r = await requestPasswordReset(form.email);
     setBusy(false);
+    /* Only a transport failure can land here — the endpoint answers 200 even
+       for an address with no account, on purpose. Anything else and we would
+       be telling whoever asked whether somebody is a customer. */
+    if (!r.ok) {
+      if (r.status !== null) setAlert(r.message);
+      return;
+    }
     go("sent");
   };
 
@@ -886,7 +886,7 @@ export default function AuthModal({
               Enter the address on your account and we will send you a link to set a new password.
             </p>
 
-            <Field label="Email" id={`${ids}-fe`}>
+            <Field label="Email" id={`${ids}-fe`} error={errors.email}>
               <Input surface="auth"
                 id={`${ids}-fe`}
                 ref={firstField}
@@ -896,6 +896,7 @@ export default function AuthModal({
                 onKeyDown={onEnter(submitForgot)}
                 placeholder="Enter your email address"
                 autoComplete="email"
+                aria-invalid={errors.email ? "true" : undefined}
               />
             </Field>
 
@@ -944,6 +945,18 @@ export default function AuthModal({
               <Check size={18} strokeWidth={2.2} aria-hidden="true" />
               Done
             </Button>
+            {/* The email carries a code as well as a link, and the code is the
+                path that works when the link opens somewhere awkward — a
+                webmail preview, or a browser that is not this one. */}
+            <p className="mt-[18px]">
+              <Link
+                className={LINK_BTN}
+                href={`${routes.ui.resetPassword}?email=${encodeURIComponent(form.email.trim())}`}
+                onClick={onClose}
+              >
+                Enter code manually
+              </Link>
+            </p>
           </div>
         )}
 

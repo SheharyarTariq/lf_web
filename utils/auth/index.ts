@@ -455,3 +455,54 @@ export async function requestVerificationCode(
 
   return res.success ? { ok: true } : failure(res);
 }
+
+/* ── Resetting a forgotten password ───────────────────────────────
+   Both public — probed, they answer without a token — which is what lets the
+   link in the email finish the job on any device, with no session and no
+   login first. That is the whole difference between this and email
+   verification, which needs a Bearer token and so needs one of ours.
+   ───────────────────────────────────────────────────────────────── */
+
+/** POST /reset-password/request { email } — sends the code.
+ *
+ *  **Always answers 200**, including for an address with no account. That is
+ *  deliberate on the server's side and the UI has to honour it: never confirm
+ *  that a message was sent, or this becomes a way of asking who is a customer. */
+export async function requestPasswordReset(email: string): Promise<{ ok: true } | AuthFailure> {
+  const res = await apiCall({
+    endpoint: routes.api.resetPasswordRequest,
+    method: "POST",
+    data: { email: email.trim() },
+    headers: JSON_HEADERS,
+    showErrorToast: false,
+  });
+
+  return res.success ? { ok: true } : failure(res);
+}
+
+/** POST /reset-password/confirm { email, token, newPassword }
+ *
+ *  `token` is the same six digits the verification emails use, and a wrong or
+ *  expired one comes back as 400 "Incorrect code" — the identical shape, so
+ *  readMessage already handles it.
+ *
+ *  Side effect worth knowing: a successful reset also **verifies the address**.
+ *  The backend's own VerificationCodeTest proves it — asking for an
+ *  email_verification code straight afterwards sends nothing. So whoever calls
+ *  this can log the person straight in and get a real session, rather than
+ *  landing them back on the verify screen. */
+export async function confirmPasswordReset(
+  email: string,
+  token: string,
+  newPassword: string,
+): Promise<{ ok: true } | AuthFailure> {
+  const res = await apiCall({
+    endpoint: routes.api.resetPasswordConfirm,
+    method: "POST",
+    data: { email: email.trim(), token: token.trim(), newPassword },
+    headers: JSON_HEADERS,
+    showErrorToast: false,
+  });
+
+  return res.success ? { ok: true } : failure(res);
+}

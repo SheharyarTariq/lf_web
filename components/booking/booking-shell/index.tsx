@@ -195,7 +195,11 @@ export default function BookingShell({ children }: { children: React.ReactNode }
           onFaq={() => setFaqOpen(true)}
           /* Nothing to log in for once the order exists — the screen
              underneath is already the account's. */
-          onLogin={user || step === "confirmed" ? null : () => openAuth("login")}
+          onLogin={
+            /* Prefilled from the checkout's own state, the same way openLogin
+               above seeds the booking flow's own LoginSheet. */
+            user || step === "confirmed" ? null : () => openAuth("login", data.email)
+          }
           user={user ? { email: user.email } : null}
           scrolled={scrolled}
         >

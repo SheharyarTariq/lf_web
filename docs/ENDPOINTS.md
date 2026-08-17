@@ -28,8 +28,8 @@ address, slots, card, order — is still mocked.
 | `POST /login-check` | [`utils/auth`](../utils/auth/index.ts) `login()` → [`AuthModal.tsx`](../components/auth/auth-modal/index.tsx) `submitLogin` | **live and integrated** — goes through `apiCall`, reads the response's `user` object (the only source of `emailVerifiedAt`), stores the JWT in the `authtoken` cookie |
 | `GET /my-status` | [`utils/auth`](../utils/auth/index.ts) `loadSession()` → [`AuthProvider.tsx`](../components/common/AuthProvider/index.tsx) on mount | **live and integrated** — restores the session on load; a 401 clears the dead token |
 | `POST /verification-code/request` | [`utils/auth`](../utils/auth/index.ts) `requestVerificationCode()` | **wrapper written, no call site yet** — `{ email, purpose }`, purpose ∈ `email_verification` \| `login` \| `password_reset`. Live on staging: 200 for an unknown address, 422 naming `purpose` for a bad one. Everywhere we hold a token, `emailVerificationResend` is preferred — it follows the account rather than an address in our state, and it can actually report a failure |
-| `POST /reset-password/request` | [`AuthModal.tsx`](../components/auth/auth-modal/index.tsx) `forgot` view | mocked — [line 23](../components/auth/auth-modal/index.tsx) says no endpoint exists. It does now |
-| `POST /reset-password/confirm` | `/reset-password` page — **does not exist as a real page yet** | currently a `DeepLinkFallback` stub |
+| `POST /reset-password/request` | [`utils/auth`](../utils/auth/index.ts) `requestPasswordReset()` → [`AuthModal.tsx`](../components/auth/auth-modal/index.tsx) `forgot` pane | **live** — always answers 200, even for an address with no account, so the UI must never confirm that a message was sent |
+| `POST /reset-password/confirm` | [`utils/auth`](../utils/auth/index.ts) `confirmPasswordReset()` → [`components/reset-password`](../components/reset-password/index.tsx) | **live** — public, so the emailed link finishes on any device with no session. A successful reset also verifies the address, so the page logs them straight in |
 
 `/system-status` also returns fields nothing reads yet: `serviceAreas`, `supportEmail`,
 `supportWhatsAppNumber`, `supportDaysLabel`, `supportHoursLabel`,
@@ -63,7 +63,7 @@ has nothing to authenticate with, so it asks for a login once and resumes by its
 
 | Endpoint | Call site | Replaces |
 |---|---|---|
-| `POST /find-addresses` | [`AddressScreen.tsx`](../components/booking/screens/address/index.tsx) `search()` | `lookupAddresses` mock **and** the `SERVED` district table in [`utils/booking/model.ts`](../utils/booking/model.ts) — `isActive` in the response is now what decides whether we serve a postcode |
+| `POST /find-addresses` | [`AddressScreen.tsx`](../components/booking/screens/address/index.tsx) `search()` | `lookupAddresses` mock **and** the `SERVED` district table in [`utils/booking/model.ts`](../utils/booking/model.ts) — `isActive` in the response is now what decides whether we serve a postcode. **This endpoint is public** — 200 with no token, contradicting the brief's "only four are public". It is the one checkout call a signed-out visitor can make |
 | `PATCH /users/{id}/update-address` | `AddressScreen.tsx` `choose()` / `enterManually()` | nothing — a new step. `line1`, `town`, `postcodeString` required |
 | `POST /postcode-activation-notifications` | `AddressScreen.tsx` out-of-area waitlist | the local `setWaitlisted` state, which currently just flips a boolean |
 

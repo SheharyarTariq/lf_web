@@ -24,3 +24,18 @@ export const RESEND_SECONDS = 60;
 /** POST /verification-code/request rejects anything else with a 422 naming
  *  `purpose` — the enum is CodePurpose on the backend. */
 export type VerificationPurpose = "email_verification" | "login" | "password_reset";
+
+/* ── Field rules ──────────────────────────────────────────────────
+   Here rather than in the auth modal's schema, because the reset-password
+   page enforces the same password rule and must not restate it — two copies
+   of "8 characters, one capital, one symbol" is how the two screens end up
+   disagreeing about what the server will accept.
+   ───────────────────────────────────────────────────────────────── */
+
+export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** The registration rule, per §1 of the brief: min 8, lowercase + uppercase +
+ *  a special character. /reset-password/confirm applies the same one. */
+export const PASSWORD_RE = /^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$/;
+
+export const PASSWORD_RULE = "At least 8 characters, one capital letter and one symbol";
