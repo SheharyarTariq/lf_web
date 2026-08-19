@@ -58,12 +58,18 @@ export function stepOf(route: Route, wide: boolean): string {
 
 /* Each screen may only be reached once the one before it has what it
    needs. Without this, a bookmarked /book/review renders a summary of
-   empty strings. */
-export function furthestAllowed(d: BookingData): Route {
+   empty strings.
+
+   `signedIn` exists for one line of this, and it is the line that pulls the
+   `accountExists` mock into the flow. Somebody with a session has already
+   proved who they are; asking a real customer to satisfy a stand-in that
+   compares their address against a hardcoded list is the wrong answer whether
+   the list says yes or no. */
+export function furthestAllowed(d: BookingData, signedIn = false): Route {
   if (!(d.postcode && d.line1 && d.town)) return "address";
   if (!(d.collectionDay && d.collectionSlot && d.deliveryDay && d.deliverySlot)) return "time";
-  /* Existing account, not yet logged in — the flow cannot continue. */
   if (!(d.fullName && d.mobile && d.email)) return "contact";
-  if (accountExists(d.email) && !d.verified) return "contact";
+  /* Existing account, not yet logged in — the flow cannot continue. */
+  if (!signedIn && accountExists(d.email) && !d.verified) return "contact";
   return "payment";
 }

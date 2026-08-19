@@ -14,6 +14,7 @@ import {
   longDate,
   parseDay,
   type Availability,
+  type Slot,
 } from "@/utils/booking/model";
 import { CONTROL_PEER, ECO_TAG } from "@/utils/booking/styles";
 
@@ -215,8 +216,8 @@ export function SlotPicker({
 }: {
   name: string;
   value: string;
-  onChange: (label: string) => void;
-  slots: { label: string; eco: boolean }[];
+  onChange: (slot: Slot) => void;
+  slots: Slot[];
 }) {
   return (
     <div
@@ -224,7 +225,8 @@ export function SlotPicker({
       role="radiogroup"
       aria-label={name}
     >
-      {slots.map(({ label, eco }) => {
+      {slots.map((slot) => {
+        const { label, eco } = slot;
         const on = value === label;
         return (
           <label
@@ -254,7 +256,7 @@ export function SlotPicker({
               name={name}
               value={label}
               checked={on}
-              onChange={() => onChange(label)}
+              onChange={() => onChange(slot)}
             />
             {label}
             {eco && (

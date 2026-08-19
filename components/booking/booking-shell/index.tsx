@@ -8,9 +8,12 @@ import { Footer, Header, Steps } from "@/components/booking/chrome";
 import { BillingModal, ExitConfirm, FaqModal, LoginSheet } from "@/components/booking/overlays";
 import { BookingContext, type BookingContextValue } from "@/utils/booking/context";
 import SummaryPanel from "@/components/booking/summary-panel";
+import Loader from "@/components/common/Loader";
 import { furthestAllowed, isRoute, routesFor, stepOf, type Route } from "@/utils/booking/flow";
-import { accountExists, makeReference } from "@/utils/booking/mocks";
-import { DISCOUNT, EMPTY, type BookingData, type BookingPatch } from "@/utils/booking/model";
+import { accountExists } from "@/utils/booking/mocks";
+import { createOrder } from "@/utils/booking/api";
+import { DISCOUNT, EMPTY, type BookingData, type BookingPatch, type Leg } from "@/utils/booking/model";
+import type { MyStatus } from "@/utils/auth";
 import { INHERIT_FONT } from "@/utils/booking/styles";
 import { useWide } from "@/utils/hooks";
 
@@ -24,11 +27,45 @@ import { useWide } from "@/utils/hooks";
  * render, so the narrow route set is the one the markup is built from and
  * hydration cannot mismatch.
  */
+/**
+ * What a signed-in account already tells us about the booking.
+ *
+ * The address is only taken when nothing has been chosen yet — somebody who
+ * has picked one this session must not have it swapped underneath them — and
+ * never when the server says `isActive: false`, which would walk them into a
+ * collection we cannot make.
+ *
+ * The contact fields are taken unconditionally, because the account is the
+ * authority on who the order is for.
+ */
+function seedFromStatus(status: MyStatus, current: BookingData): BookingPatch {
+  const who = status.user;
+  const next: BookingPatch = {
+    fullName: who?.name || current.fullName,
+    mobile: who?.phone || current.mobile,
+    email: who?.email || current.email,
+    /* No code to enter: this session exists because the address was proved. */
+    verified: true,
+  };
+
+  const address = status.address;
+  if (address?.line1 && address.isActive !== false && !current.line1) {
+    next.postcode = address.postcodeString ?? "";
+    next.line1 = address.line1 ?? "";
+    next.line2 = address.line2 ?? "";
+    next.line3 = address.line3 ?? "";
+    next.town = address.town ?? "";
+    next.county = address.county ?? "";
+  }
+  return next;
+}
+
 export default function BookingShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const wide = useWide();
-  const { user, openAuth } = useAuth();
+  const { user, status, loading, openAuth, refreshSession } = useAuth();
+  const signedIn = Boolean(user);
 
   const [data, setData] = useState<BookingData>(EMPTY);
   const [exiting, setExiting] = useState(false);
@@ -36,6 +73,10 @@ export default function BookingShell({ children }: { children: React.ReactNode }
   const [billingOpen, setBillingOpen] = useState(false);
   const [loginFor, setLoginFor] = useState<string | null>(null);
   const [reference, setReference] = useState("");
+  /* Which leg the time step shows. Up here because the summary panel and the
+     Review screen both name a leg in their Edit links — see the note on
+     `timeLeg` in the context. */
+  const [timeLeg, setTimeLeg] = useState<Leg>("collection");
 
   const segment = pathname.split("/").filter(Boolean)[1] ?? "address";
   const step: Route = isRoute(segment) ? segment : "address";
@@ -44,11 +85,41 @@ export default function BookingShell({ children }: { children: React.ReactNode }
     setData((d) => ({ ...d, ...next }));
   }, []);
 
+  /* ── Seeding from /my-status ──────────────────────────────────────
+     During render, not in an effect, and the difference is the whole reason
+     this is written the way it is.
+
+     The screens below read their opening state from `data` as they mount —
+     AddressScreen's postcode field and its `confirmed` flag are both
+     `useState(data.…)`. An effect runs *after* children have rendered, so the
+     address would arrive one frame too late to be seen and those two would
+     stay stuck on the empty values they captured. Setting state during render
+     makes React discard this pass and retry before anything commits, so the
+     screens' first render is already the seeded one.
+
+     `seed` is the identity it was done for, so it re-runs if somebody signs in
+     from the header mid-checkout, and does not re-run on every re-render. The
+     empty string is the settled answer for a signed-out visitor — distinct
+     from null, which means we do not know yet. */
+  const [seed, setSeed] = useState<string | null>(null);
+  const seedFor = loading ? null : (status?.user?.email ?? "");
+  if (seedFor !== null && seedFor !== seed) {
+    setSeed(seedFor);
+    if (status?.user) setData((d) => ({ ...d, ...seedFromStatus(status, d) }));
+  }
+
   const go = useCallback(
     (next: Route) => {
+      /* Going where you already are is not a navigation. The summary's Edit
+         links are the reason this matters: pressed from the step they point
+         at — which the pinned panel makes easy, since it is on screen the
+         whole way through — a push would stack a history entry that Back then
+         has to be pressed twice to get past. The screens still react, because
+         what those links change is state, not the route. */
+      if (next === step) return;
       router.push(`/book/${next}`);
     },
-    [router],
+    [router, step],
   );
 
   /* A bookmarked /book/review renders a summary of empty strings, so the
@@ -57,7 +128,12 @@ export default function BookingShell({ children }: { children: React.ReactNode }
      longer what gates the screen. */
   useEffect(() => {
     if (step === "confirmed") return;
-    const allowed = furthestAllowed(data);
+    /* Nothing decided until the seed has run. A signed-in customer reloading
+       on /book/time has an address on their account and no address in `data`
+       yet, and this guard would bounce them to /book/address for the frame it
+       takes to arrive. */
+    if (seed === null) return;
+    const allowed = furthestAllowed(data, signedIn);
     const routes = routesFor(wide);
     const here = routes.indexOf(step);
     const limit = routes.indexOf(allowed);
@@ -66,7 +142,7 @@ export default function BookingShell({ children }: { children: React.ReactNode }
     } else if (limit >= 0 && here > limit) {
       router.replace(`/book/${allowed}`);
     }
-  }, [step, data, wide, router]);
+  }, [step, data, wide, router, seed, signedIn]);
 
   /* Widening the window while on Review has nowhere to land — that screen
      does not exist in the wide flow — so slide forward to Payment, which is
@@ -129,10 +205,31 @@ export default function BookingShell({ children }: { children: React.ReactNode }
     router.push(`/book/${routes[here - 1]}`);
   }, [wide, step, dirty, router]);
 
-  const confirmOrder = useCallback(() => {
-    setReference(makeReference());
+  const confirmOrder = useCallback(async () => {
+    /* One recurring subscription per account: a second `frequency` is refused,
+       and refused as a 500 rather than as something we could show anybody. The
+       time step hides the toggle when /my-status reports one, so this only
+       catches the way round it — a visitor who switches Repeat on and *then*
+       signs in, arriving here with a flag set before we knew who they were. */
+    const r = await createOrder(status?.recurring ? { ...data, repeat: false } : data);
+    if (!r.ok) return { ok: false, message: r.message };
+
+    /* The server mints the number; ours was a mock that invented one. It comes
+       back as an integer (`3488`), so it is stringified rather than trusted to
+       be text. Falling back to an empty string means the confirmation shows its
+       own visibly-fake "LF-000000" filler rather than a plausible number nobody
+       can quote back to us. */
+    setReference(r.order.number == null ? "" : String(r.order.number));
+
+    /* Not awaited. The order exists and the confirmation is what they are
+       waiting for; the only thing this refresh feeds is `recentActiveOrder`
+       for the header on the way back. Awaiting it would hold the screen on a
+       spinner for a request nothing on the next screen reads. */
+    void refreshSession();
+
     router.push("/book/confirmed");
-  }, [router]);
+    return { ok: true };
+  }, [data, router, refreshSession, status]);
 
   const value = useMemo<BookingContextValue>(
     () => ({
@@ -142,6 +239,8 @@ export default function BookingShell({ children }: { children: React.ReactNode }
       go,
       back,
       wide,
+      timeLeg,
+      setTimeLeg,
       moreBelow,
       discount: DISCOUNT,
       reference,
@@ -156,7 +255,7 @@ export default function BookingShell({ children }: { children: React.ReactNode }
       openLogin: (prefill?: string) => setLoginFor(prefill ?? data.email ?? ""),
       openBilling: () => setBillingOpen(true),
     }),
-    [data, patch, step, go, back, wide, moreBelow, reference, user, confirmOrder, dirty, router],
+    [data, patch, step, go, back, wide, timeLeg, moreBelow, reference, user, confirmOrder, dirty, router],
   );
 
   const showChrome = step !== "confirmed";
@@ -206,7 +305,7 @@ export default function BookingShell({ children }: { children: React.ReactNode }
           {showChrome && (
             <Steps
               current={stepOf(step, wide)}
-              allowed={furthestAllowed(data)}
+              allowed={furthestAllowed(data, signedIn)}
               onGo={go}
               wide={wide}
             />
@@ -253,7 +352,29 @@ export default function BookingShell({ children }: { children: React.ReactNode }
               )
             }
           >
-            {children}
+            {/* Not mounted until the seed above has run, and this is the half
+                of that mechanism that actually makes it work.
+
+                The screens read their opening state from `data` as they mount
+                — AddressScreen's postcode field and its `confirmed` flag are
+                both `useState(data.…)`, and a `useState` initialiser runs once
+                and never again. `loading` is true on the first render, so the
+                seed cannot have happened yet; letting the screens mount into
+                that frame means they capture the empty booking and keep it,
+                and a signed-in customer with an address on their account is
+                shown an empty postcode box. The context updates underneath
+                them and nothing on screen changes.
+
+                Signed out this costs a frame — `loadSession` answers without a
+                request when there is no cookie. Signed in it is the length of
+                one /my-status, which is the wait it looks like. */}
+            {seed === null ? (
+              <div className="flex flex-auto items-center justify-center py-16">
+                <Loader className="h-6 w-6" />
+              </div>
+            ) : (
+              children
+            )}
           </div>
           {split && <SummaryPanel />}
         </main>

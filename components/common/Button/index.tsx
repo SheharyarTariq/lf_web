@@ -36,7 +36,9 @@ interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>
   /** Only meaningful on the site recipe, where two buttons swap at a
    *  breakpoint — see the note in utils/button. */
   display?: string;
-  /** Swaps the label for a spinner and disables the control. */
+  /** Disables the control and sets `aria-busy`. It does **not** render a
+   *  spinner — callers that want one pass `<Loader/>` alongside their label,
+   *  which keeps the label in place and avoids the width jump a swap causes. */
   isLoading?: boolean;
   /** Defaults to "button". A submit has to ask for it, because a stray submit
    *  inside a form is a page reload nobody intended. */

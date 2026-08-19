@@ -11,6 +11,7 @@ import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import IdentityPanel from "@/components/booking/identity-panel";
+import { useAuth } from "@/components/common/AuthProvider";
 import { Icon, P, ProviderMark } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
 import Field from "@/components/booking/common/Field";
@@ -79,6 +80,12 @@ const PAUSE_MS = 1200;
 
 export default function ContactScreen() {
   const { data, patch, go, back, wide, moreBelow, openLogin } = useBooking();
+  /* A session settles the address. The account-check and the code below both
+     exist to establish who somebody is, and there is nothing left to
+     establish — so for a signed-in customer the address is shown, not asked
+     for, and neither the check nor the code is reachable. */
+  const { user } = useAuth();
+  const signedIn = Boolean(user);
   const ids = useId();
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [editingEmail, setEditingEmail] = useState(false);
@@ -89,7 +96,8 @@ export default function ContactScreen() {
   const mobileRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
-  const mobileTaken = UK_MOBILE_RE.test(data.mobile.trim()) && mobileHasAccount(data.mobile);
+  const mobileTaken =
+    !signedIn && UK_MOBILE_RE.test(data.mobile.trim()) && mobileHasAccount(data.mobile);
   const emailValid = EMAIL_RE.test(data.email.trim());
 
   /* One schema drives both the message and the rule. Still gated on `touched`,
@@ -114,7 +122,7 @@ export default function ContactScreen() {
      own value so the panel below is guarded by the thing it reads from
      rather than by a boolean that only implies it. */
   const account = check && check !== "failed" ? check : null;
-  const showPanel = Boolean(account) && emailValid && !data.verified;
+  const showPanel = Boolean(account) && emailValid && !data.verified && !signedIn;
 
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -331,13 +339,21 @@ export default function ContactScreen() {
           </span>
           {/* Sibling of the text, not a child of it: in the source a
               descendant rule there would outrank any class on the
-              button. */}
-          <Button variant="bare"
-            className="-my-1.5 -mr-1.5 flex min-h-11 min-w-11 flex-none cursor-pointer items-center justify-center rounded-card-sm border-0 bg-transparent px-1.5 text-[13.5px] font-semibold leading-[1.6] text-bk-ink underline underline-offset-[3px] hover:text-brand-ink"
-            onClick={changeEmail}
-          >
-            Change
-          </Button>
+              button.
+
+              Absent for a signed-in customer. The address on the card is the
+              one their account is keyed on — changing it here would only
+              un-verify the checkout's copy and hand them back to the code
+              step, and /users/{id}/change-email refuses a verified address
+              anyway. Signing out is the way to book as somebody else. */}
+          {!signedIn && (
+            <Button variant="bare"
+              className="-my-1.5 -mr-1.5 flex min-h-11 min-w-11 flex-none cursor-pointer items-center justify-center rounded-card-sm border-0 bg-transparent px-1.5 text-[13.5px] font-semibold leading-[1.6] text-bk-ink underline underline-offset-[3px] hover:text-brand-ink"
+              onClick={changeEmail}
+            >
+              Change
+            </Button>
+          )}
         </div>
       )}
 

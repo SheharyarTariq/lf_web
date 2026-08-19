@@ -7,23 +7,15 @@
    else in the flow has to know where its data came from. The components
    take their data as props precisely so that stays true.
 
-   Nothing here is real except the Stripe Payment Element, which mounts
-   against a live publishable key (see components/booking/StripePayment).
+   What is left is **unreachable for a signed-in customer** and survives only
+   until guest checkout is decided. A session settles who somebody is, so the
+   account check, the code and the provider buttons are all gated off behind
+   it — see `signedIn` in the contact screen and in flow.ts `furthestAllowed`.
+   None of the three has an endpoint to be replaced by; that is the open
+   question, not an outstanding piece of wiring.
    ══════════════════════════════════════════════════════════════════ */
 
-import {
-  addDays,
-  dayKey,
-  parseDay,
-  slotLabel,
-  SERVED,
-  SLOT_TIMES,
-  TURNAROUND_DAYS,
-  districtOf,
-  type AddressResult,
-  type Availability,
-  type ProviderId,
-} from "@/utils/booking/model";
+import { type ProviderId } from "@/utils/booking/model";
 
 /* ── Who already has an account ───────────────────────────────────
    MOCK. Replace with a rate-limited endpoint that answers in constant
@@ -64,18 +56,8 @@ export function checkAccount(email: string): Promise<{ exists: boolean }> {
   });
 }
 
-/* MOCK only: any password of 8+ characters is accepted, except the
-   literal "wrongpass" so the failure state can be seen.
-   POST /login-check { email, password } → 200 { token }  (see lib/api.ts,
-   which already speaks to the real endpoint for the auth modal). */
-export function attemptLogin(
-  email: string,
-  password: string,
-): { ok: boolean; error?: string } {
-  if (password === "wrongpass") return { ok: false, error: "That password is not right." };
-  if (password.length < 8) return { ok: false, error: "That password is not right." };
-  return { ok: true };
-}
+/* `attemptLogin` was here. It is `login()` in utils/auth, against the real
+   POST /login-check, and had no call site left. */
 
 /* MOCK only. The real call returns the provider's verified email. */
 export function signInWith(provider: ProviderId): { name: string; email: string } {
@@ -92,98 +74,21 @@ export function verifyCode(email: string, code: string): boolean {
   return code === MOCK_CODE;
 }
 
-/* ── Addresses ────────────────────────────────────────────────────
-   MOCK stand-in for the postcode API. Returns addresses already split
-   across the same line1/line2/line3/town/county fields the form uses, so
-   the real lookup can be dropped in without a mapping step.
-   GET /api/address?postcode=… → AddressResult[] */
-export function lookupAddresses(postcode: string): AddressResult[] {
-  const town = SERVED[districtOf(postcode)] || "";
-  const base = { line2: "", line3: "", town, county: "Surrey" };
-  return [
-    { id: "a1", ...base, line1: "12 Upper Fairfield Road" },
-    { id: "a2", ...base, line1: "14 Upper Fairfield Road" },
-    {
-      id: "a3",
-      ...base,
-      line1: "Flat 2",
-      line2: "Fairfield House",
-      line3: "42–44 Upper Fairfield Road",
-    },
-    { id: "a4", ...base, line1: "16 Upper Fairfield Road" },
-    { id: "a5", ...base, line1: "18A Upper Fairfield Road" },
-  ];
-}
+/* `lookupAddresses` was here. It is `findAddresses` in utils/booking/api.ts
+   now, against the real POST /find-addresses — and the district table it used
+   to derive the town from is gone with it, because the response carries both
+   the town and whether we cover the postcode at all. */
 
-/* ── Availability ─────────────────────────────────────────────────
-   The two functions below stand in for the backend. Both return the
-   same shape — a map of dayKey to the windows offered on that day —
-   and nothing else in the flow knows where that map came from, so
-   replacing them with fetches is contained to these two bodies.
+/* `fetchCollectionAvailability` and `fetchDeliveryAvailability` were here.
+   They are `fetchPickupSlots` / `fetchDropoffSlots` in utils/booking/api.ts
+   now, against GET /slots/pickup and GET /slots/dropoff.
 
-   Delivery deliberately takes the collection day *and* window, because
-   what can be returned depends on when it was collected. That is also
-   why delivery cannot be chosen until collection is settled.
+   The eco rule went with them but survived: the mock's "same weekday and the
+   same window as the collection" is the real round schedule, not a
+   placeholder, and it lives in `markEcoWindows` in model.ts. The endpoints
+   send no eco flag, so it stays ours to derive. */
 
-   When these become async, the components already handle an empty map
-   as "nothing offered", so a loading state is the only thing to add.
-
-   GET /api/availability/collection            → Availability
-   GET /api/availability/delivery?day=&slot=   → Availability
-   ───────────────────────────────────────────────────────────────── */
-
-/* MOCK only: vans run Wed, Fri, Sat and Sun, with a varying number of
-   windows per day. Delete this with the two functions below. */
-const MOCK_RUN_DAYS = [0, 3, 5, 6];
-
-function mockSlotsFor(d: Date): string[] | null {
-  if (!MOCK_RUN_DAYS.includes(d.getDay())) return null;
-  const count = [4, 5, 6][d.getDate() % 3];
-  return SLOT_TIMES.slice(0, count).map(slotLabel);
-}
-
-export function fetchCollectionAvailability(today: Date): Availability {
-  const out: Availability = {};
-  for (let i = 1; i <= 21; i += 1) {
-    const d = addDays(today, i);
-    const slots = mockSlotsFor(d);
-    if (slots) out[dayKey(d)] = slots.map((label) => ({ label, eco: false }));
-  }
-  return out;
-}
-
-/* Eco marks the windows where a van is already due on that round, so the
-   return trip costs no extra mileage. The mock approximates it as the
-   same weekday and the same window as the collection — replace with
-   whatever the routing data actually says. The flag is per slot because
-   only some windows on a given day will be on an existing round. */
-export function fetchDeliveryAvailability(
-  collectionDay: string,
-  collectionSlot: string,
-): Availability {
-  if (!collectionDay || !collectionSlot) return {};
-  const collected = parseDay(collectionDay);
-  if (!collected) return {};
-  const from = addDays(collected, TURNAROUND_DAYS);
-  const out: Availability = {};
-  for (let i = 0; i <= 21; i += 1) {
-    const d = addDays(from, i);
-    const slots = mockSlotsFor(d);
-    if (!slots) continue;
-    const sameRound = d.getDay() === collected.getDay();
-    out[dayKey(d)] = slots.map((label) => ({
-      label,
-      eco: sameRound && label === collectionSlot,
-    }));
-  }
-  return out;
-}
-
-/* ── The order ────────────────────────────────────────────────────
-   MOCK. The reference is the server's to mint — it is printed on the
-   confirmation and quoted in every email about the order.
-   POST /api/orders { … } → { reference } */
-export function makeReference(): string {
-  const n = Math.floor(100000 + Math.random() * 900000);
-  return `LF-${n}`;
-}
+/* `makeReference` was here. The order number is `createOrder` in
+   utils/booking/api.ts now, against the real POST /orders — and it always
+   should have been the server's to mint, since it is printed on the
+   confirmation and quoted in every email about the order. */

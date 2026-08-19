@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AuthModal, { type View as AuthView } from "@/components/auth/auth-modal";
 import LogoutConfirm from "@/components/auth/logout-confirm";
-import { loadSession, logout as clearSession } from "@/utils/auth";
+import { loadSession, logout as clearSession, type MyStatus } from "@/utils/auth";
 
 /**
  * What the modal hands back. Deliberately wider than the JWT's payload: a
@@ -44,6 +44,22 @@ export type { AuthView };
 
 interface AuthContextValue {
   user: AuthedUser | null;
+  /**
+   * The whole /my-status payload, read once on load and kept for the life of
+   * the page — the address, the saved cards, the in-flight order, the
+   * completed count and the next-order discount.
+   *
+   * It lives here rather than in a provider of its own precisely so there is
+   * only ever one reader: two providers both fetching /my-status is the
+   * duplication this is meant to end. `apiCall`'s GET cache is not a
+   * substitute — every mutation clears it, so the call would come back after
+   * each save.
+   *
+   * null when signed out, and also for the instant before the first fetch
+   * lands; gate on `loading` where the difference matters. Anything that
+   * changes it server-side must call `refreshSession()` afterwards.
+   */
+  status: MyStatus | null;
   /** True until the stored token has been checked. Consumers that render a
    *  signed-out state need it, or every visit flashes "Log in" before the
    *  session comes back — worse for a returning customer than a brief gap. */
@@ -64,6 +80,26 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** The header's view of a /my-status payload. Both places that read one need
+ *  the same mapping, and they had drifted apart once already. */
+function toAuthedUser(status: MyStatus | null): AuthedUser | null {
+  const who = status?.user;
+  if (!who) return null;
+  return {
+    id: who.id,
+    email: who.email,
+    fullName: who.name,
+    mobile: who.phone,
+    identity: "",
+    /* Always true by the time it gets here: loadSession only answers for a
+       session cookie, and one of those only exists for a proved address. Kept
+       as the server's own answer rather than a hardcoded true, so it stays
+       right if that ever changes. */
+    verified: Boolean(who.emailVerifiedAt),
+    signedIn: true,
+  };
+}
+
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
@@ -74,6 +110,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   /* null when shut, otherwise the pane to open on. */
   const [view, setView] = useState<AuthView | null>(null);
   const [user, setUser] = useState<AuthedUser | null>(null);
+  const [status, setStatus] = useState<MyStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   /* Seeds the modal's email field. The modal is mounted conditionally, so it
@@ -90,40 +127,18 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
      signed-in header on the server would need the token sent with the
      document request, and the `loading` flag above covers the gap. */
   const refreshSession = useCallback(async () => {
-    const who = await loadSession();
-    setUser(
-      who
-        ? {
-            id: who.id,
-            email: who.email,
-            fullName: who.name,
-            mobile: who.phone,
-            identity: "",
-            /* Always true by the time it gets here: loadSession only answers
-               for a session cookie, and one of those only exists for a proved
-               address. Kept as the server's own answer rather than a hardcoded
-               true, so it stays right if that ever changes. */
-            verified: Boolean(who.emailVerifiedAt),
-            signedIn: true,
-          }
-        : null,
-    );
+    const next = await loadSession();
+    setStatus(next);
+    setUser(toAuthedUser(next));
   }, []);
 
   useEffect(() => {
     let live = true;
     loadSession()
-      .then((who) => {
-        if (!live || !who) return;
-        setUser({
-          id: who.id,
-          email: who.email,
-          fullName: who.name,
-          mobile: who.phone,
-          identity: "",
-          verified: Boolean(who.emailVerifiedAt),
-          signedIn: true,
-        });
+      .then((next) => {
+        if (!live || !next) return;
+        setStatus(next);
+        setUser(toAuthedUser(next));
       })
       .finally(() => {
         if (live) setLoading(false);
@@ -156,12 +171,16 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const performSignOut = useCallback(() => {
     clearSession();
     setUser(null);
+    /* Cleared with the user, not left behind. It holds an address, saved cards
+       and an order number — whoever signs in next in this tab must not find
+       the previous account's still in the provider. */
+    setStatus(null);
     setConfirmingSignOut(false);
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, loading, openAuth, closeAuth, signOut, refreshSession }),
-    [user, loading, openAuth, closeAuth, signOut, refreshSession],
+    () => ({ user, status, loading, openAuth, closeAuth, signOut, refreshSession }),
+    [user, status, loading, openAuth, closeAuth, signOut, refreshSession],
   );
 
   return (
@@ -175,6 +194,15 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
           onAuthed={(who) => {
             setUser(who);
             setView(null);
+            /* The modal knows who signed in; it does not know their address,
+               their cards or their orders. Fill those in behind the closing
+               dialog so the checkout has them without a second wait.
+
+               Gated on `signedIn`, which the modal sets only on the paths that
+               wrote a cookie. The social buttons are still the `signInWith`
+               mock and write nothing, so refreshing there would read no token,
+               resolve null and sign them straight back out. */
+            if (who.signedIn) void refreshSession();
           }}
         />
       )}

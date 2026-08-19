@@ -154,6 +154,334 @@ one.
 **Not verified by me:** the happy path with a genuine code, which only the inbox has. Every
 other branch above is real.
 
+## Done — the card and the order
+
+`POST /payment-methods/setup-intent`, `GET /payment-methods/check-status` and `POST /orders`
+are integrated. **The signed-in checkout now runs end to end against real staging** — proven
+by placing real orders (#3488, #3489, #3490, since cancelled) with a real saved card.
+
+**There is no payment step; there is a save-a-card step** (conflict 2, now settled). The
+sequence is fixed and the last step is the one that looks optional:
+
+1. `elements.submit()` — deferred mode validates before an intent exists
+2. `POST /payment-methods/setup-intent` → `setupIntentClientSecret`
+3. `stripe.confirmSetup(…)` with `redirect: "if_required"`
+4. `GET /payment-methods/check-status` until it answers `true`
+5. `POST /orders`
+
+Step 4 is not ceremony: Stripe answering "succeeded" means Stripe has the card, not that we
+do. The endpoint answers `true` only once it is attached to the account and made default.
+
+**`redirect: "if_required"`, not a full redirect.** The Element sits inside a checkout step
+and the whole booking lives in React state above it, so a redirect would leave
+`/book/payment`, lose the booking, and land back on a flow guard that sends them to
+`/book/address` with nothing filled in. A `return_url` is passed anyway for the
+redirect-based methods this Element does not offer — pointing at `/book/payment`, *not*
+`/payment-callback`, which `assetlinks.json` lets a verified Android install intercept.
+The mobile app is not precedent here: `laundry-app-master` targets an entirely different,
+older API (`/api/auth/login`, `/api/my-profile`, `/api/slots/pick`, and a
+`POST /api/payment-methods` taking a raw card token plus a server-returned `redirection_url`).
+There is no SetupIntent anywhere in it.
+
+### Four things staging does that the brief does not say
+
+- **`check-status` answers `false` for an intent that is merely unconfirmed**, not `null`.
+  So `false` immediately after `confirmSetup` cannot be told apart from a refusal. Only
+  `true` is treated as an answer; anything else is polled through and then reported as "still
+  confirming", never as a bad card. Reading it the other way sends somebody off to find
+  another card while the one they gave us is landing.
+- **`POST /orders` succeeds with no card on the account.** The brief says a default payment
+  method is required. Requiring one is our rule, and the right one — but the server does not
+  enforce it.
+- **The order `number` is an integer** (`3488`), not the design's `LF-000000` string.
+- **One recurring subscription per account, and a second one is a 500.** Sending `frequency`
+  when the account already holds a `Recurring` fails at `OrderCreateProcessor.php:40` with
+  *"Expected null. Got: `App\Entity\Recurring`"* and a full vendor stack trace. Handled by
+  hiding the Repeat card when `/my-status` reports one — see "Done — Repeat is hidden" below —
+  but the status code and the trace leak are the backend's to fix.
+- **`DELETE /payment-methods/{id}` answers 409 while an order is active.** Cancel first.
+- **`/my-status` carries the confirmation screen's three preferences** — `priceReviewRequired`,
+  `shirtHandling` (`"hang"`), `stainTreatmentEnabled` — plus `laundryBagClaimedAt`,
+  `laundryBagDeliveredAt` and `registeredAt`, none of which §4 mentions. The toggles on the
+  confirmed screen are still local state; there is no documented endpoint to write them back.
+
+### Two bugs found by running it, both pre-existing
+
+- **The Payment Element never mounted in development.** The StrictMode guard
+  (`if (mounted.current) return`) skipped the second effect run, but the *first* run's cleanup
+  had already set its own `cancelled` flag — and since Stripe.js loads asynchronously, the
+  run that was allowed to resolve was the one that had been cancelled. The Element sat on
+  "Loading secure payment…" for ever. There is no guard now: each run creates and destroys its
+  own Element, and `loadStripeJs` is memoised so the script is still fetched once.
+- **`confirmSetup` threw `IntegrationError` and never settled.** The Element is created with
+  `fields.billingDetails` set to `never` for name, email and phone — the details step already
+  collected them — but nothing passed them to `confirmSetup`. Opting out of collecting a field
+  is a promise to supply it. `StripePayment` now takes a `billing` prop, and only claims
+  `never` for a phone it actually has.
+
+### Verified
+
+**23/23 signed-in with a saved card, 21/21 first-time card, 21/21 decline-and-recover, 5/5
+signed out**, in a scripted browser against real staging. The address and contact details
+seed from `/my-status`; `/my-status` is fetched **once** per load; a first-time card runs
+setup-intent → check-status → orders and the confirmation shows the server's number; a second
+booking on the same account skips the Element entirely and calls neither setup-intent nor
+check-status; `4000 0000 0000 0002` shows Stripe's own "Your card has been declined.", stays
+on `/book/payment`, creates **no** order, and re-entering a good card recovers in place. Signed
+out, the address step still loads in ~0.6s, `KT21 1PG` returns 18 addresses, `KT19 8AB` routes
+to the waitlist, and the header still server-renders "Log in" exactly once.
+
+**Not verified by me:** 3DS. `4000 0027 6000 3184` was not exercised, so the claim that the
+challenge resolves in Stripe's modal with the booking intact behind it is reasoned from
+`redirect: "if_required"`, not observed.
+
+**The probe account** `sheharyartariqbutt+lfprobe1@gmail.com` was registered on staging for
+this and is unverified — the client gate was stubbed at `/my-status` to get a session. Its
+orders and card were cancelled and deleted afterwards; its address (`1 Probe Cottage`,
+Ashtead, `KT211PG`) remains.
+
+## Done — the saved cards
+
+`POST /payment-methods/{id}/mark-as-default` and `DELETE /payment-methods/{id}` are integrated,
+completing §7. The payment step now lists the account's cards, adds another, switches which one
+is charged, and removes one — all inline, no new routes.
+
+**Choosing a card is a write, not local state.** `POST /orders` charges the default and carries
+no card field of its own, so "use this one" and "make it default" are the same act. Every
+mutation ends in `refreshSession()`, so the list always shows the server's answer rather than
+our guess at it — which matters, because the list **re-orders on each read**, default first.
+
+Three states, and the two card-capture paths are deliberately different:
+
+- **No cards** — the Element is the step and Confirm order captures it. One tap, which is the
+  whole first-time path, and unchanged from before.
+- **Cards, not adding** — the list. One card renders as a statement (a radio group of one is a
+  control with no choice in it); two or more get radios.
+- **Cards, adding** — the Element appears below the list with its own **Save card**, so the new
+  card lands in the list and can be seen before anything is ordered. **Confirm order is disabled
+  while that panel is open**: otherwise somebody types a new card and the order is charged to
+  the old one.
+
+`captureCard()` is shared by both paths, so they cannot drift on the part that matters — never
+treating a card as saved before `check-status` says `true`.
+
+### An accessibility bug the aria snapshot caught
+
+Remove was nested inside the row's `<label>`, which makes the label's text the button's
+accessible name: a screen reader announced the delete control as *"Mastercard ending 4444
+Expires 12/30"*. Identical on screen, and invisible to every check except an aria snapshot —
+`getByRole("button", { name: /Remove/ })` matched **zero elements** while the button was plainly
+in the DOM. It is now a sibling of the label, which also removed the `preventDefault()` that had
+been stopping Remove from selecting the card it deletes.
+
+**Worth keeping as a rule:** a control nested in a `<label>` inherits that label's accessible
+name. Put anything that is not the labelled input outside it.
+
+### Verified
+
+**22/22** against real staging: first card via Confirm order; the list appearing on the next
+booking with no radio for a single card; **Save card** firing `setup-intent` + `check-status`
+and *not* `POST /orders`; two cards listed with the new one default; brands capitalised
+(`"visa"` on the wire); `mark-as-default` moving the selection (4444 → 4242); the confirm dialog
+opening, **Escape cancelling**, and confirming firing `DELETE`. All test cards and orders were
+cleaned up afterwards.
+
+**The 409 on DELETE is real and its wording is good** — *"You have pending orders that require a
+payment method. Add another card before removing this one, or cancel the outstanding orders
+first."* Rendered on the row, unmodified. This is what a precondition failure should look like,
+and worth showing the backend dev next to the recurring 500, which is the same class of thing
+answered as a 5xx with a stack trace.
+
+## Done — Repeat is hidden for an account that already has one
+
+`POST /orders` 500s when `frequency` is sent and the account already holds a `Recurring`:
+`Assert::null(…)` at `OrderCreateProcessor.php:40`, "Expected null. Got:
+`App\Entity\Recurring`", with a vendor stack trace in the body. Our payload was correct —
+`biweekly` is a valid enum value and every other field checked out.
+
+**`recurring` was the field we already had and never read.** `/my-status` returns it, the
+brief defines it as the active subscription or null, `AuthProvider` holds it — and nothing
+looked. `TimeScreen` now swaps the Repeat card for a plain `Notice` when it is non-null:
+
+> **You already have a repeating collection** — This one is booked as a one-off.
+
+Deliberately no "manage it in the app": there is no endpoint for editing or cancelling a
+recurring order and no screen to send anyone to, so that would be a second dead end rather
+than a way out of the first.
+
+`confirmOrder` strips `repeat` as a second guard, for the one path around the hidden control —
+a visitor who switches Repeat on and *then* signs in, arriving with a flag set from before we
+knew who they were.
+
+**Verified**, 6/6 stubbed and 4/4 control, in a browser against real staging. With `recurring`
+stubbed non-null the card is gone, the notice reads correctly, no frequency chips exist, and a
+real order is placed whose payload carries **no `frequency` key**. With it null the card still
+renders, still toggles, and still offers all three cadences. `recurring` is stubbed rather than
+created because there is no documented way to remove one — which is also why the control run
+stops short of Confirm.
+
+**Still open, and it decides how urgent the backend fix is:** whether that assert blocks only
+recurring orders or *every* order once a `Recurring` exists. The check is ten seconds on an
+affected account — toggle Repeat off and Confirm. Succeeds → recurring-specific and this
+handles it; same 500 → all ordering is blocked for that account.
+
+## Done — one /my-status for the whole app
+
+`AuthProvider` holds the entire `/my-status` payload as `status`, not just the user, and
+`useAuth()` exposes it. It went there rather than into a provider of its own because two
+providers both fetching `/my-status` is the duplication this was meant to end, and `apiCall`'s
+GET cache cannot do the job — every mutation clears it, so the call would come back after each
+save.
+
+**The checkout seeds itself from it.** Address, name, mobile and email are filled in for a
+signed-in customer, and `verified` is set, which is what makes the account-check and the
+`"123456"` code unreachable for them. The address is only taken when nothing has been chosen
+this session and never when `isActive` is false; the contact fields always win, because the
+account is the authority on who the order is for.
+
+**Two ordering traps, both load-bearing, both in `booking-shell`:**
+
+1. The seed runs **during render**, not in an effect. The screens read their opening state
+   from `data` as they mount — AddressScreen's postcode field and its `confirmed` flag are
+   both `useState(data.…)` — and an effect runs after children have rendered, so the address
+   would arrive one frame too late to be seen.
+2. That is not enough on its own, and this is the half that was missing first time. `loading`
+   is true on the first render, so the seed *cannot* have happened yet; the screens must not
+   mount into that frame or they capture the empty booking and keep it. `children` is gated on
+   `seed !== null`. Signed out this costs a frame — `loadSession` answers without a request
+   when there is no cookie, measured at 577ms to a usable address field. Signed in it is the
+   length of one `/my-status`.
+
+Symptom if either is undone: a signed-in customer with an address on their account is shown an
+empty postcode box, the context updates underneath the screen, and nothing on screen changes.
+
+## Done — collection and delivery windows
+
+`GET /slots/pickup` and `GET /slots/dropoff` are integrated via `fetchPickupSlots` /
+`fetchDropoffSlots` in [`utils/booking/api.ts`](../utils/booking/api.ts). Both mocks are gone.
+
+**Four mismatches, three of which would have failed silently:**
+
+- **Day keys.** `dayKey` produced `2026-8-18`; the endpoints send `2026-08-18`. It is zero-padded
+  now, so the two match exactly. Unpadded, every `available[dayKey(d)]` lookup in the calendar
+  misses and the whole grid renders disabled with no error anywhere — nothing would have pointed
+  at the cause.
+- **Empty days.** The endpoint returns today with `slots: []`. The calendar treats the presence
+  of a key as "this day is open", so those are dropped on ingest rather than rendering a
+  clickable date offering nothing.
+- **Slot ids.** Slot identity was the label string end to end. `POST /orders` needs the IRI, so
+  `Slot` gained an `id` and `BookingData` gained `collectionSlotId` / `deliverySlotId` — carried
+  *beside* the labels, not replacing them, so the summary, review and confirmed screens keep
+  printing what they always did.
+- **No `eco` field.** See below.
+
+**The eco rule is ours, and it is not a guess.** The van runs a round on a fixed weekday, so a
+delivery landing on the same weekday and in the same window as the collection is a stop already
+being made. `markEcoWindows` in model.ts derives it; the endpoints send nothing. Verified: a
+collection on Tue 18 Aug at 08:00–10:00 preselects Tue 25 Aug at 08:00–10:00, and the leaf, the
+pill, the banner and the summary tag all follow. If the schedule ever stops working this way the
+rule moves to the backend and that function becomes a passthrough.
+
+Both legs are async now, with their own stale-request counters — changing the collection refetches
+delivery, so two answers can easily be in the air. Loading and failure are distinct from "nothing
+offered", because the calendar's own empty state says we have no windows, which would be a lie
+while a request is still going. State resets live in the handlers that cause them rather than in
+the fetch, which is both what `react-hooks/set-state-in-effect` requires and the more honest
+place: changing the collection is what invalidates the delivery windows.
+
+**Verified**, 11/11 against real staging: 21 open pickup days; `days=21` sent; keys padded ISO;
+windows labelled `HH:MM–HH:MM`; dropoff fired with `pickupSlot=/slots/{uuid}` as an IRI and a
+padded `pickupDate`; the eco preselect landing on the next same-weekday round; Continue enabling
+only with both legs set.
+
+**Worth knowing:** the server's turnaround is shorter than ours was. A Tue 18 collection offers
+delivery from Wed 19; `TURNAROUND_DAYS = 2` and the landing page's "48h" both assumed two clear
+days. The server decides now, so the constant is unused — but the marketing copy may want
+checking against what is actually offered.
+
+## Done — saving the address
+
+`PATCH /users/{id}/update-address` is wired into "Continue to times" in
+[`utils/booking/api.ts`](../utils/booking/api.ts) `updateAddress()`. Saved on Continue rather
+than on pick, because the five lines stay editable after choosing — saving earlier would store
+the pre-edit values.
+
+**This is what unblocks slots.** Proven end to end against staging: PATCH → 200, `/my-status`
+returns the address with `isActive: true`, and `/slots/pickup` then answers **200 with real
+windows** instead of the `Expected an instance of App\Entity\Postcode. Got: NULL` 500. Nothing in
+the brief says slots depend on a saved address. (A test address is now set on the `+m200`
+staging account as a result.)
+
+Two things the server does that we do not assume away: it **normalises the postcode** (send
+`KT21 1PG`, get back `KT211PG`), so its copy is authoritative; and empty optional lines are sent
+as `null` rather than `""`, matching what it returns.
+
+**We save the postcode that was searched, not the row's own `postcodeString`** — reversed after
+it broke in the browser. `isActive` is decided for the searched postcode and it is the one the
+server can resolve to a `Postcode` entity: sending `KT22 7HH` (what staging's rows claim) 500s
+with `Expected an instance of App\Entity\Postcode. Got: NULL`, while `KT21 1PG` (what was
+searched) returns 200. They agree in real data, so this only matters where they do not — and
+there, the coverage-checked one is the only one known to be servable. The rows display it too;
+showing one postcode and saving another would be worse than either.
+
+**5xx messages are never shown to users.** `readHumanMessage` in `utils/api` returns the
+server's wording only for 4xx, where it is written for a person — "Incorrect code", validation
+violations. A 500's `detail` is a stack-trace fragment, and *"Expected an instance of
+App\Entity\Postcode. Got: NULL"* rendered under the Town field before this existed. Both
+`utils/auth` and `utils/booking/api` go through it now. Also: a failed save is cleared when the
+postcode is edited or Change is pressed, so a dead complaint cannot follow somebody to a screen
+it no longer describes.
+
+A rejected save **does not advance the step** — 422 violations naming `line1`/`town` land under
+those inputs and clear on the next keystroke; anything unattributable gets a banner instead, so
+one complaint never appears twice.
+
+Signed-out visitors are skipped, not blocked: the endpoint needs a token and guest checkout is
+still undecided. That single `if (user?.id)` in the address screen is the line that changes when
+it is. Agreed order stands — logged-in flow first.
+
+Worth knowing for future test harnesses: an **invalid** JWT in the `authtoken` cookie makes even
+the public `/find-addresses` fail, because the firewall rejects it before the controller. Real
+users self-heal — `loadSession` clears a dead token on the 401 from `/my-status` at page load —
+but a stubbed session with a fake token will not.
+
+## Done — address lookup
+
+`POST /find-addresses` is integrated via a new `utils/booking/api.ts` — the same thin-wrapper
+shape as `utils/auth`, and where the slots and orders calls should go next.
+
+**The point of this was not removing a mock.** The `SERVED` district table is **deleted**:
+coverage now comes from `isActive` on the response, so adding a town is a backend change rather
+than a frontend deploy. `districtOf` stays, because the out-of-area card still names the
+district it cannot serve.
+
+Two shape mismatches the mock hid, both now handled:
+- **No `id`** on the rows — the list was keyed on `a.id`, and is keyed by position now.
+- **Each row carries its own `postcodeString`**, which the mock did not. The UI used to echo the
+  searched postcode against every result; it shows and saves the row's own, falling back to the
+  search. `line2`/`line3`/`county` arrive `null` and are coerced to `""` in the wrapper, so
+  nullability does not leak into `BookingData`.
+
+Three states a synchronous mock never needed: **searching** (spinner beside the label, not
+replacing it — the button is `flex-none` and would resize), **failed**, and **active but zero
+results**. Failed is deliberately distinct from out-of-area: telling somebody we do not cover
+their area when the truth is our request fell over would lose the booking on a lie. Stale
+responses are guarded with the monotonic-ref pattern the contact screen already uses.
+
+**"Enter it manually" moved out of the results block.** It rendered only when there was a list,
+so the one state where somebody most needs to type an address by hand — no results — was the one
+state that never offered it.
+
+**Verified**, 13/13 against real staging: `KT21 1PG` signed out returns 14 real addresses each
+showing its own postcode; choosing one fills the form and enables Continue; **`KT19 8AB` now
+routes to the waitlist** — it was in the old `SERVED` table, so this is the proof coverage is
+server-driven; a malformed postcode is refused with **no network call**; offline gives the failed
+state and *not* an out-of-area claim; editing the postcode clears stale results.
+
+Also fixed in passing: `Button`'s `isLoading` doc claimed it swaps the label for a spinner. It
+does not — it only sets `disabled` and `aria-busy`. Comment corrected rather than the behaviour,
+since keeping the label avoids a width jump.
+
 ## Done — password reset
 
 `POST /reset-password/request` and `/reset-password/confirm` are integrated, and
@@ -308,8 +636,9 @@ the backend before the address step is called done.
 - `GET /slots/dropoff` validates `pickupSlot` and returns 422 to an anonymous caller — the same
   bug class, authentication running after validation.
 
-Phase 1, logged-in: ~~login~~ → ~~email verification~~ → register onto `apiCall` → address →
-slots → save card → create order.
+Phase 1, logged-in: ~~login~~ → ~~email verification~~ → ~~address~~ → ~~slots~~ →
+~~save card~~ → ~~create order~~. **Complete.** Only `register()` moving onto `apiCall`
+remains, and it is unrelated to the checkout — see open item 4 below.
 
 Phase 2, guest checkout: blocked on conflict 1 below.
 
@@ -325,10 +654,10 @@ contained.
    signed-out visitor. `/slots/*`, `/payment-methods/*` and `/orders` genuinely cannot — they
    401. The `/book` flow is guest-first by design, so the decision is now narrower: login can be
    demanded at the **time** step rather than before the address step. Still decide before phase 2.
-2. **There is no payment step, there is a save-a-card step.** Brief §8: "payment is taken
-   automatically from the default card, there's no pay screen." `PaymentScreen` mounts a
-   Stripe Payment Element to take payment. Correct sequence: SetupIntent → `confirmSetup` →
-   `check-status` → `POST /orders`.
+2. ~~**There is no payment step, there is a save-a-card step.**~~ **Done.** The sequence is
+   SetupIntent → `confirmSetup` → `check-status` → `POST /orders`, and `PaymentScreen` skips
+   the Element entirely when `/my-status` already reports a default card. See "Done — the card
+   and the order" above, including the three places staging disagrees with the brief.
 3. **Slots carry no `eco` flag.** The API returns `{ id, startTime, endTime }`. The design has
    an Eco pill on slot tiles (`Calendar.tsx` `SlotPicker`), leaf markers on calendar cells and
    a legend explaining them. Nothing backs it.
@@ -369,7 +698,9 @@ contained.
    `res.data.user` off `/login-check` and carries `emailVerifiedAt` into the session, which is
    what conflict 7's verification gate will read.
 9. **Money is in pennies.** Integers throughout. `utils/booking/model.ts` `Discount` and the
-   pricing tables need checking against that.
+   pricing tables need checking against that. Nothing on the checkout renders a money figure
+   yet, so this is still open rather than wrong — `POST /orders` returns `subtotal`,
+   `discountAmount` and `total`, all `0` until the items are counted.
 10. **`toE164` does not enforce length.** The brief says `+44` followed by **10 digits**.
     `utils/api/index.ts` strips non-digits and leading zeros then prefixes `+44`, with no count check.
 
@@ -466,7 +797,7 @@ a 401 page should be designed at the same time. `apiCall` (client) is unaffected
 | Fabricated `RATING = { score: 4.9, count: 63 }` | `utils/content/index.ts` |
 | Ten invented `PRICING` categories | `utils/content/index.ts` |
 | Hardcoded 25% `DISCOUNT`, shown to returning customers too | `utils/booking/model.ts` |
-| Stripe **test** publishable key | `components/booking/stripe-payment/index.tsx` |
+| Stripe key now read from `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — **the live key must be set in the deploy environment**; unset, the payment step says so instead of failing at confirm time | `config.ts` |
 | JWT in a script-readable `authtoken` cookie — only the server can set httpOnly, so the backend needs to set it instead of returning the token in the body | `utils/auth/index.ts` |
 | `SERVED` omits Fetcham, which the landing page advertises | `utils/booking/model.ts` |
 | `assetlinks.json` uses `handle_all_urls`, letting the Android app intercept `/book/*` | `public/.well-known/assetlinks.json` |

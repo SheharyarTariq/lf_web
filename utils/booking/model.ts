@@ -39,9 +39,15 @@ export interface BookingData {
   county: string;
   access: string;
   collectionDay: string;
+  /** The window as shown, e.g. "08:00–10:00". Five screens print this. */
   collectionSlot: string;
+  /** The same window's server id. Carried beside the label rather than
+   *  replacing it, so the summary, review and confirmed screens keep working
+   *  unchanged while POST /orders gets the IRI it needs. */
+  collectionSlotId: string;
   deliveryDay: string;
   deliverySlot: string;
+  deliverySlotId: string;
   deliveryEco: boolean;
   repeat: boolean;
   repeatEvery: string;
@@ -65,8 +71,10 @@ export const EMPTY: BookingData = {
   access: "",
   collectionDay: "",
   collectionSlot: "",
+  collectionSlotId: "",
   deliveryDay: "",
   deliverySlot: "",
+  deliverySlotId: "",
   deliveryEco: false,
   repeat: false,
   repeatEvery: "week",
@@ -84,15 +92,13 @@ export const EMPTY: BookingData = {
 export type BookingPatch = Partial<BookingData>;
 
 /* ── Coverage ─────────────────────────────────────────────────────
-   Districts we actually collect from. Anything else routes to the
-   waitlist instead of a dead end. */
-export const SERVED: Record<string, string> = {
-  KT17: "Ewell",
-  KT18: "Epsom",
-  KT19: "Epsom",
-  KT21: "Ashtead",
-  KT22: "Leatherhead",
-};
+   The SERVED district table that used to live here is gone. Coverage comes
+   from `isActive` on the /find-addresses response now, so adding a town is a
+   backend change rather than a frontend deploy. `districtOf` stays, because
+   the out-of-area card still names the district it cannot serve.
+
+   Anything out of area routes to the waitlist rather than a dead end — that
+   part is unchanged, only who decides it. */
 
 /* ── Discount ─────────────────────────────────────────────────────
    null = returning customer, so no discount row is rendered at all. A
@@ -243,13 +249,21 @@ export const ADDRESS_FIELDS: [
   ["county", "County", false, "address-level1", "Surrey"],
 ];
 
+/** One row from /find-addresses.
+ *
+ *  No `id` — the server does not send one, so the list is keyed by index
+ *  within a single response rather than by a field that does not exist.
+ *
+ *  `postcodeString` is the row's *own* postcode, which is not necessarily the
+ *  one that was searched for. Use it rather than echoing the search: it is the
+ *  address's actual postcode, and it is what gets saved. */
 export interface AddressResult {
-  id: string;
   line1: string;
   line2: string;
   line3: string;
   town: string;
   county: string;
+  postcodeString: string;
 }
 
 /* ── Windows ──────────────────────────────────────────────────────
@@ -269,13 +283,31 @@ export const SLOT_TIMES: [from: string, to: string][] = [
    quoted on the landing page. Keep the two in step. */
 export const TURNAROUND_DAYS = 2;
 
+/* The backend's cap on `note` in POST /orders. Held here rather than in the
+   request wrapper so the textarea and the payload enforce one number: the
+   field stops accepting characters at exactly the point the server would
+   start refusing them. */
+export const NOTE_MAX = 400;
+
 export interface Slot {
+  /** The server's slot id. POST /orders wants it as an IRI (`/slots/{id}`),
+   *  so it has to travel with the choice — the label alone cannot be turned
+   *  back into one. */
+  id: string;
   label: string;
   eco: boolean;
 }
 
 /** dayKey → the windows offered that day. */
 export type Availability = Record<string, Slot[]>;
+
+/** Which half of the time step is on screen.
+ *
+ *  It lives with the booking rather than inside the time screen because the
+ *  summary's "Edit" links have to be able to name a leg — "Edit collection
+ *  time" that opens the delivery tab is worse than no link at all. See
+ *  `timeLeg` on the booking context. */
+export type Leg = "collection" | "delivery";
 
 /* Revealed only once Repeat is switched on, the same as the app. Showing
    three frequency buttons to everyone would add a decision that most
@@ -317,8 +349,14 @@ export function addDays(base: Date, n: number): Date {
   return d;
 }
 
+/* Zero-padded, because these keys are now compared against the dates the
+   slots endpoints send — `2026-08-04`, not `2026-8-4`. Unpadded, every
+   `available[dayKey(d)]` lookup in the calendar misses and the whole grid
+   renders disabled with no error anywhere. parseDay reads both. */
 export function dayKey(d: Date): string {
-  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
 }
 
 export function parseDay(k: string): Date | null {
@@ -336,15 +374,44 @@ export function slotLabel(slot: [string, string]): string {
 }
 
 /** The first eco window on offer, or null. Used to preselect it. */
+/* ── Greener windows ──────────────────────────────────────────────
+   The van runs a round on a fixed weekday. A delivery that lands on the
+   same weekday and in the same window as the collection is a stop the van
+   is already making, so it costs no extra mileage — that is the whole
+   claim, and it is the reason this is computed here rather than asked for.
+
+   The slots endpoints send no eco flag, so this is ours to derive. It is
+   arithmetic over the collection the person already chose, not a guess: if
+   the round schedule ever stops working this way, the rule moves to the
+   backend and this becomes a passthrough. */
+export function markEcoWindows(
+  availability: Availability,
+  collectionDay: string,
+  collectionSlot: string,
+): Availability {
+  const collected = parseDay(collectionDay);
+  if (!collected || !collectionSlot) return availability;
+
+  const out: Availability = {};
+  for (const [day, slots] of Object.entries(availability)) {
+    const d = parseDay(day);
+    const sameRound = Boolean(d && d.getDay() === collected.getDay());
+    out[day] = slots.map((s) => ({ ...s, eco: sameRound && s.label === collectionSlot }));
+  }
+  return out;
+}
+
 export function firstEcoSlot(
   availability: Availability,
-): { day: string; slot: string } | null {
+): { day: string; slot: string; id: string } | null {
   const days = Object.keys(availability).sort(
     (a, b) => Number(parseDay(a)) - Number(parseDay(b)),
   );
   for (const day of days) {
     const slot = availability[day].find((s) => s.eco);
-    if (slot) return { day, slot: slot.label };
+    /* The id travels with it, because this preselects a real choice and
+       POST /orders will need the IRI for whatever was picked. */
+    if (slot) return { day, slot: slot.label, id: slot.id };
   }
   return null;
 }

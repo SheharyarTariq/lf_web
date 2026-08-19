@@ -1,5 +1,11 @@
 export const config = {
   apiUrl: process.env.NEXT_PUBLIC_API_URL,
+  /* Publishable, so it is safe in the browser — it can only create tokens,
+     never read or move money. It is read from the environment all the same,
+     because it is the one line that decides whether the checkout takes real
+     cards or test ones, and that must not be a code change. Unset, the
+     Payment Element does not mount and the payment step says so. */
+  stripePublishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
 };
 
 // App store links — IDs sourced from the lf-app mobile project

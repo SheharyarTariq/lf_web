@@ -27,7 +27,7 @@ import Button from "@/components/common/Button";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import { useBooking } from "@/utils/booking/context";
-import { REPEAT_EVERY, longDate, parseDay } from "@/utils/booking/model";
+import { REPEAT_EVERY, longDate, parseDay, type Leg } from "@/utils/booking/model";
 import { ECO_TAG } from "@/utils/booking/styles";
 import type { Route } from "@/utils/booking/flow";
 
@@ -107,12 +107,22 @@ const oneLine = (day: Date | null, slot: string) =>
   [day ? longDate(day) : "", slot].filter(Boolean).join(" · ");
 
 export default function SummaryPanel() {
-  const { data, discount, go } = useBooking();
+  const { data, discount, go, setTimeLeg } = useBooking();
   const collection = parseDay(data.collectionDay);
   const delivery = parseDay(data.deliveryDay);
   const every = REPEAT_EVERY.find(([id]) => id === data.repeatEvery);
   const repeat = data.repeat && every ? `Repeats every ${every[1].toLowerCase()}` : "";
-  const onEdit = (route: Route) => () => go(route);
+  /* Both time rows point at the same route, so the route alone cannot say
+     which of them was pressed. `leg` is what makes "Edit collection time" open
+     the collection tab rather than whichever one the time step happened to be
+     showing — and it is set before navigating, so it is already right when the
+     screen reads it. This panel is on screen *beside* the time step in the wide
+     layout, where there is no navigation at all and the leg is the only thing
+     that changes. */
+  const onEdit = (route: Route, leg?: Leg) => () => {
+    if (leg) setTimeLeg(leg);
+    go(route);
+  };
 
   return (
     <aside className={ASIDE} aria-label="Your order so far">
@@ -140,13 +150,13 @@ export default function SummaryPanel() {
           <AsideRow
             label="Collection"
             editLabel="collection time"
-            onEdit={onEdit("time")}
+            onEdit={onEdit("time", "collection")}
             lines={[oneLine(collection, data.collectionSlot)]}
           />
           <AsideRow
             label="Delivery"
             editLabel="delivery time"
-            onEdit={onEdit("time")}
+            onEdit={onEdit("time", "delivery")}
             lines={[oneLine(delivery, data.deliverySlot), repeat]}
             tag={
               data.deliveryEco ? (

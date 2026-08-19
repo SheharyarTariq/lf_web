@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "react";
 import type { Route } from "@/utils/booking/flow";
-import type { BookingData, BookingPatch, Discount } from "@/utils/booking/model";
+import type { BookingData, BookingPatch, Discount, Leg } from "@/utils/booking/model";
 
 /**
  * Everything the six screens need from the shell.
@@ -23,12 +23,40 @@ export interface BookingContextValue {
   back: () => void;
   /** ≥1024px: the split layout with the pinned summary and no Review. */
   wide: boolean;
+  /**
+   * Which leg the time step has open.
+   *
+   * Held here rather than inside `TimeScreen` because two other screens write
+   * it: the summary panel and the Review screen each carry an "Edit" link per
+   * leg, and a link named "Edit collection time" has to be able to open the
+   * collection tab. Kept out of `BookingData` — it is which tab is showing,
+   * not part of the order.
+   *
+   * Living above the screen also means it survives navigation, so returning to
+   * the time step lands on the tab it was left on rather than one re-guessed
+   * from the data on every mount.
+   */
+  timeLeg: Leg;
+  setTimeLeg: (leg: Leg) => void;
   /** Something is still hidden below the action bar, so it earns a shadow. */
   moreBelow: boolean;
   discount: Discount | null;
+  /** The order number, once the server has minted one. Empty until then. */
   reference: string;
   isNewAccount: boolean;
-  confirmOrder: () => void;
+  /**
+   * POST /orders, then move to the confirmation.
+   *
+   * It does **not** take the card — the payment step owns that, because it
+   * owns the Element and the decision about whether one is needed at all.
+   * By the time this is called there must already be a default card on the
+   * account, which is what the endpoint charges.
+   *
+   * Rejection is reported back rather than thrown, and it deliberately does
+   * not navigate on failure: a confirmation screen for an order that was
+   * never created is the one outcome worth any amount of code to avoid.
+   */
+  confirmOrder: () => Promise<{ ok: boolean; message?: string }>;
   requestExit: () => void;
   openLogin: (prefill?: string) => void;
   openBilling: () => void;

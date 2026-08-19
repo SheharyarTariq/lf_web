@@ -7,8 +7,10 @@ code. Path constants live in [`utils/routes/index.tsx`](../utils/routes/index.ts
 **Nothing below is wired yet** except the rows marked *live*. Integration order is
 recorded in [`STATUS.md`](./STATUS.md): logged-in flow first, guest checkout after.
 
-Registration, login and email verification are done. The rest of the logged-in flow —
-address, slots, card, order — is still mocked.
+**The signed-in flow is complete end to end.** Registration, login, email verification,
+address, slots, card capture and order creation are all wired and proven against staging.
+What is left is the guest flow, and the account surface (card management, order tracking,
+cancellation) which has no design yet.
 
 ## Ground rules from the brief
 
@@ -30,6 +32,9 @@ address, slots, card, order — is still mocked.
 | `POST /verification-code/request` | [`utils/auth`](../utils/auth/index.ts) `requestVerificationCode()` | **wrapper written, no call site yet** — `{ email, purpose }`, purpose ∈ `email_verification` \| `login` \| `password_reset`. Live on staging: 200 for an unknown address, 422 naming `purpose` for a bad one. Everywhere we hold a token, `emailVerificationResend` is preferred — it follows the account rather than an address in our state, and it can actually report a failure |
 | `POST /reset-password/request` | [`utils/auth`](../utils/auth/index.ts) `requestPasswordReset()` → [`AuthModal.tsx`](../components/auth/auth-modal/index.tsx) `forgot` pane | **live** — always answers 200, even for an address with no account, so the UI must never confirm that a message was sent |
 | `POST /reset-password/confirm` | [`utils/auth`](../utils/auth/index.ts) `confirmPasswordReset()` → [`components/reset-password`](../components/reset-password/index.tsx) | **live** — public, so the emailed link finishes on any device with no session. A successful reset also verifies the address, so the page logs them straight in |
+
+`/my-status`'s `recurring` is read by `TimeScreen` (to hide Repeat) and by `confirmOrder`.
+`completedOrderCount`, `recentActiveOrder` and `nextOrderDiscount` are fetched and still unread.
 
 `/system-status` also returns fields nothing reads yet: `serviceAreas`, `supportEmail`,
 `supportWhatsAppNumber`, `supportDaysLabel`, `supportHoursLabel`,
@@ -63,8 +68,8 @@ has nothing to authenticate with, so it asks for a login once and resumes by its
 
 | Endpoint | Call site | Replaces |
 |---|---|---|
-| `POST /find-addresses` | [`AddressScreen.tsx`](../components/booking/screens/address/index.tsx) `search()` | `lookupAddresses` mock **and** the `SERVED` district table in [`utils/booking/model.ts`](../utils/booking/model.ts) — `isActive` in the response is now what decides whether we serve a postcode. **This endpoint is public** — 200 with no token, contradicting the brief's "only four are public". It is the one checkout call a signed-out visitor can make |
-| `PATCH /users/{id}/update-address` | `AddressScreen.tsx` `choose()` / `enterManually()` | nothing — a new step. `line1`, `town`, `postcodeString` required |
+| `POST /find-addresses` | [`utils/booking/api.ts`](../utils/booking/api.ts) `findAddresses()` → [`AddressScreen.tsx`](../components/booking/screens/address/index.tsx) `search()` | **live** — replaced both the `lookupAddresses` mock and the hardcoded `SERVED` district table, so coverage is server-driven and adding a town no longer needs a frontend deploy. **Public** — 200 with no token, contradicting the brief's "only four are public", and the one checkout call a signed-out visitor can make. Note the rows carry no `id` (list is keyed by position) and each carries its own `postcodeString`, which is not always the one searched |
+| `PATCH /users/{id}/update-address` | [`utils/booking/api.ts`](../utils/booking/api.ts) `updateAddress()` → `AddressScreen.tsx` "Continue to times" | **live** — `line1`, `town`, `postcodeString` required, `merge-patch+json`, empty optionals sent as `null`. Saved on Continue, not on pick, since the lines stay editable after choosing. **Slots 500 until this has run** — undocumented, and the reason it comes first. Skipped for signed-out visitors until guest checkout is decided |
 | `POST /postcode-activation-notifications` | `AddressScreen.tsx` out-of-area waitlist | the local `setWaitlisted` state, which currently just flips a boolean |
 
 Response field is `postcodeString`, not `postcode`. The address fields (`line1`, `line2`,
@@ -74,8 +79,8 @@ Response field is `postcodeString`, not `postcode`. The address fields (`line1`,
 
 | Endpoint | Call site | Replaces |
 |---|---|---|
-| `GET /slots/pickup?days=` | [`TimeScreen.tsx`](../components/booking/screens/time/index.tsx) | `fetchCollectionAvailability` mock |
-| `GET /slots/dropoff?pickupSlot=&pickupDate=` | `TimeScreen.tsx` | `fetchDeliveryAvailability` mock |
+| `GET /slots/pickup?days=` | [`utils/booking/api.ts`](../utils/booking/api.ts) `fetchPickupSlots()` → [`TimeScreen.tsx`](../components/booking/screens/time/index.tsx) | **live** — 21 days requested, 28 is the documented max. **Needs a saved address** or it 500s from `AreaResolver` |
+| `GET /slots/dropoff?pickupSlot=&pickupDate=` | [`utils/booking/api.ts`](../utils/booking/api.ts) `fetchDropoffSlots()` → `TimeScreen.tsx` | **live** — `pickupSlot` goes as an IRI (`/slots/{id}`), which is why slot ids are carried through the booking |
 
 `pickupSlot` is passed as an IRI (`/slots/{id}`), not a bare id — use `routes.api.slotIri`.
 The response is day groups of `{ id, startTime, endTime }`; our `Availability` type is a map
@@ -86,24 +91,76 @@ start being carried because `POST /orders` needs the IRI.
 
 | Endpoint | Call site | Replaces |
 |---|---|---|
-| `POST /payment-methods/setup-intent` | [`StripePayment.tsx`](../components/booking/stripe-payment/index.tsx) | the hardcoded test key |
-| `GET /payment-methods/check-status?setupIntentId=` | [`PaymentScreen.tsx`](../components/booking/screens/payment/index.tsx) | nothing |
-| `POST /payment-methods/{id}/mark-as-default` | no UI | — |
-| `DELETE /payment-methods/{id}` | no UI | — |
+| `POST /payment-methods/setup-intent` | [`utils/booking/api.ts`](../utils/booking/api.ts) `createSetupIntent()` → [`StripePayment`](../components/booking/stripe-payment/index.tsx) `confirm()` | **live** — response field is `setupIntentClientSecret`. Called at confirm time, not on mount: the Element runs in deferred mode, so a mistyped card never costs an intent |
+| `GET /payment-methods/check-status?setupIntentId=` | [`utils/booking/api.ts`](../utils/booking/api.ts) `checkSetupIntent()` / `awaitSetupIntent()` → [`PaymentScreen`](../components/booking/screens/payment/index.tsx) | **live** — polled. See the warning below about `false` |
+| `POST /payment-methods/{id}/mark-as-default` | [`utils/booking/api.ts`](../utils/booking/api.ts) `markCardDefault()` → [`payment-methods`](../components/booking/payment-methods/index.tsx) | **live** — this *is* how a card is chosen. `POST /orders` charges the default and has no card field, so selecting a radio in the list is a `mark-as-default` write |
+| `DELETE /payment-methods/{id}` | [`utils/booking/api.ts`](../utils/booking/api.ts) `deleteCard()` → the same list, behind a confirm dialog | **live** — see the 409 below |
 
-This is card capture, not payment. `check-status` returns `true` (saved and made default),
-`false` (retry) or `null` (poll again). The saved-cards list comes from `/my-status`.
+This is card capture, not payment. Nothing is charged at booking; the card is stored and
+charged after the items are counted. The saved-cards list comes from `/my-status`, and
+`PaymentScreen` skips the Element entirely when one is already `isDefault`.
+
+**`check-status` does not mean what the brief says.** The brief describes `false` as "card
+entry failed" and `null` as "still pending". Probed, a SetupIntent that has merely not been
+confirmed yet answers `{"success": false}` — so immediately after `confirmSetup` there is a
+window where `false` means "not attached yet", indistinguishable from a refusal. Only `true`
+is treated as an answer; everything else is polled through and then reported as "not
+confirmed yet". A genuinely bad card has already failed earlier, at `confirmSetup`, with
+Stripe's own wording.
+
+**The polling clears `apiCall`'s GET cache on every attempt.** The cache key is method +
+endpoint + params, none of which change between polls, so without `clearApiCache()` every
+attempt after the first is served the first answer out of memory.
 
 ### Orders
 
 | Endpoint | Call site | Replaces |
 |---|---|---|
-| `POST /orders` | [`BookingShell.tsx`](../components/booking/booking-shell/index.tsx) `confirmOrder` | `makeReference` mock — the server mints the order `number` |
-| `POST /orders/{id}/mark-as-cancelled` | no UI | — |
+| `POST /orders` | [`utils/booking/api.ts`](../utils/booking/api.ts) `createOrder()` → [`BookingShell`](../components/booking/booking-shell/index.tsx) `confirmOrder` | **live** — replaced the `makeReference` mock. The server mints the `number` |
+| `POST /orders/{id}/mark-as-cancelled` | no UI | — probed and works (`200`) |
 
 Body: `pickupDate`, `pickupSlot` (IRI), `dropoffDate`, `dropoffSlot` (IRI), optional `note`
-(max 400 chars), optional `frequency` (`weekly` / `biweekly` / `every_four_weeks`) to make it
-recurring. Requires an address **and** a default payment method already on the account.
+(max 400 chars — `NOTE_MAX` in model.ts, enforced on the textarea too), optional `frequency`
+(`weekly` / `biweekly` / `every_four_weeks`) to make it recurring. The checkout's own ids are
+`week` / `2weeks` / `4weeks`, so `createOrder` translates them.
+
+Two things the brief gets wrong, both probed:
+
+- **`number` is an integer**, not a string — `3488`, not `"LF-3488"`. The design's
+  `LF-000000` is a placeholder, not the format. `confirmOrder` stringifies it.
+- **A default payment method is not enforced.** The brief says the user needs one first; the
+  server accepts an order without any card at all. Requiring one is our product rule, not a
+  server constraint — but it is the right rule, since nothing could then be charged.
+
+An invalid `frequency` is refused with `frequency: This value should be of type
+Frequency|null`, which confirms both the enum and that omitting it is valid.
+
+**One recurring subscription per account, enforced as a 500.** Sending `frequency` when the
+account already holds one fails at `OrderCreateProcessor.php:40` —
+`Assert::null(…)`, *"Expected null. Got: `App\Entity\Recurring`"* — with a full vendor stack
+trace in the body. It should be a 409 or 422 with wording written for a person; as a 5xx we
+refuse to show its `detail` (correctly — it is a stack-trace fragment), so the customer gets
+the generic "Something went wrong. Please try again later." and retries forever.
+
+The frontend does not let them get there: `TimeScreen` hides the Repeat card when
+`/my-status` reports a non-null `recurring`, and `confirmOrder` strips `repeat` as a second
+guard. **Still worth fixing on the backend** — the status code and the trace leak are both
+wrong regardless of what we send. Open question: whether the assert blocks only recurring
+orders or every order once a `Recurring` exists.
+
+`DELETE /payment-methods/{id}` answers **409 while an order is pending**, with wording written
+for a person and worth quoting because it names the way out:
+
+> *"You have pending orders that require a payment method. Add another card before removing
+> this one, or cancel the outstanding orders first."*
+
+Undocumented, and reachable from the checkout — somebody can be booking a second collection
+while the first is in flight. It is a 4xx, so `readHumanMessage` surfaces it and the list shows
+it on the row. Note the rule is about leaving a pending order *with no card*, not about
+deleting cards generally: with two cards saved, removing the non-default one succeeds.
+
+**The card list re-orders on every read** — the default sorts first — so anything holding a
+position across a refresh is holding the wrong card.
 
 Statuses: `created`, `awaiting_review`, `payment_pending`, `payment_failed`, `processing`,
 `delivered`, `cancelled`. Track via `recentActiveOrder` in `/my-status`.
@@ -129,11 +186,11 @@ Each of these is one function body in [`utils/booking/mocks.ts`](../utils/bookin
 
 | Mock | Status |
 |---|---|
-| `lookupAddresses` | → `POST /find-addresses` |
-| `fetchCollectionAvailability` | → `GET /slots/pickup` |
-| `fetchDeliveryAvailability` | → `GET /slots/dropoff` |
-| `verifyCode` | still mocked **in the checkout only**. `utils/auth` `verifyEmail()` is the real one; `IdentityPanel` and `LoginSheet` still compare against `"123456"` and are part of the checkout pass |
-| `makeReference` | → `POST /orders` (server mints `number`) |
-| `attemptLogin` | → `POST /login-check` — delete it, `utils/auth` `login()` already does this |
-| `checkAccount`, `accountExists`, `mobileHasAccount` | **unbacked** |
+| ~~`makeReference`~~ | **gone** — `createOrder` in `utils/booking/api.ts`; the server mints the number |
+| ~~`attemptLogin`~~ | **gone** — it had no call site left; `utils/auth` `login()` is the real one |
+| ~~`lookupAddresses`~~ | **gone** — `findAddresses` in `utils/booking/api.ts` calls the real endpoint. `SERVED` went with it |
+| ~~`fetchCollectionAvailability`~~ | **gone** — `fetchPickupSlots` in `utils/booking/api.ts` |
+| ~~`fetchDeliveryAvailability`~~ | **gone** — `fetchDropoffSlots`. The eco rule survived the move into `markEcoWindows` in model.ts: the endpoints send no eco flag, and the same-weekday-same-window round schedule is real, not a placeholder |
+| `verifyCode` | still mocked **in the checkout only**, and unreachable while signed in: the seed sets `verified: true`, so `IdentityPanel` never mounts. `utils/auth` `verifyEmail()` is the real one; `LoginSheet` still compares against `"123456"` for guests |
+| `checkAccount`, `accountExists`, `mobileHasAccount` | **unbacked**, and now unreachable for a signed-in user — `furthestAllowed` takes a `signedIn` flag and `ContactScreen` gates on it |
 | `signInWith` | **unbacked** |

@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
 import { useBooking } from "@/utils/booking/context";
-import { REPEAT_EVERY, longDate, parseDay } from "@/utils/booking/model";
+import { REPEAT_EVERY, longDate, parseDay, type Leg } from "@/utils/booking/model";
 import {
   BTN_LINK,
   DISC,
@@ -79,10 +79,18 @@ function SummaryRow({
 }
 
 export default function ReviewScreen() {
-  const { data, discount, go, back, moreBelow, openBilling } = useBooking();
+  const { data, discount, go, back, moreBelow, openBilling, setTimeLeg } = useBooking();
   const collection = parseDay(data.collectionDay);
   const delivery = parseDay(data.deliveryDay);
   const every = REPEAT_EVERY.find(([id]) => id === data.repeatEvery);
+
+  /* Both time rows lead to the same step, so the leg has to be named
+     separately or "Edit collection time" opens whichever tab the time step was
+     last on — which, having just come through it, is delivery. */
+  const editTime = (leg: Leg) => () => {
+    setTimeLeg(leg);
+    go("time");
+  };
 
   return (
     <>
@@ -111,11 +119,11 @@ export default function ReviewScreen() {
           rows carry 15px of their own, and 20px on top of that reads as
           a gap before the first label. */}
       <div className="rounded-card-lg border border-bk-line bg-white px-5 py-1 to-720:px-[17px]">
-        <SummaryRow label="Collection" onEdit={() => go("time")} editLabel="collection time">
+        <SummaryRow label="Collection" onEdit={editTime("collection")} editLabel="collection time">
           {collection ? longDate(collection) : ""}
           <span className={SUM_LINE}>{data.collectionSlot}</span>
         </SummaryRow>
-        <SummaryRow label="Delivery" onEdit={() => go("time")} editLabel="delivery time">
+        <SummaryRow label="Delivery" onEdit={editTime("delivery")} editLabel="delivery time">
           {delivery ? longDate(delivery) : ""}
           {data.deliveryEco && (
             <span className={SUM_ECO_TAG} aria-label="Greener window">

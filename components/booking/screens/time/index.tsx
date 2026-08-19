@@ -7,28 +7,34 @@
 import { cn } from "@/utils/cn";
 import Textarea from "@/components/common/Textarea";
 import Button from "@/components/common/Button";
+import Loader from "@/components/common/Loader";
 import { useEffect, useId, useMemo, useState } from "react";
 import Calendar, { SlotPicker } from "@/components/booking/calendar";
 import { Icon, P } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
 import Field from "@/components/booking/common/Field";
+import Notice from "@/components/booking/common/Notice";
+import { useAuth } from "@/components/common/AuthProvider";
 import { useBooking } from "@/utils/booking/context";
-import {
-  fetchCollectionAvailability,
-  fetchDeliveryAvailability,
-} from "@/utils/booking/mocks";
+import { fetchDropoffSlots, fetchPickupSlots } from "@/utils/booking/api";
 import {
   DAY_FULL,
   MONTHS,
+  NOTE_MAX,
   REPEAT_EVERY,
   firstEcoSlot,
+  markEcoWindows,
   parseDay,
   repeatSentence,
+  type Availability,
+  type Leg,
+  type Slot,
 } from "@/utils/booking/model";
 import {
   CARD,
   CONTROL_PEER,
   DIVIDER,
+  ERR,
   H1,
   INHERIT_FONT,
   LEDE_MD,
@@ -81,36 +87,113 @@ const CHIP =
 const CHIP_ON = "border-brand bg-panel shadow-[inset_0_0_0_1px_var(--color-brand)]";
 const CHIP_OFF = "border-bk-line-2 bg-white hover:border-bk-ink-3";
 
-type Leg = "collection" | "delivery";
-
 export default function TimeScreen() {
-  const { data, patch, go, back, moreBelow } = useBooking();
+  /* The open leg lives on the context, not here. The summary panel and the
+     Review screen each carry an Edit link per leg and have to be able to open
+     the one they name — and from the wide layout the panel is on screen while
+     this very step is, so a link that only navigated would do nothing at all.
+
+     It being held above this screen also means it is no longer re-guessed from
+     the data on every mount: returning to this step lands on the tab it was
+     left on. */
+  const { data, patch, go, back, moreBelow, timeLeg: legWanted, setTimeLeg: setLeg } = useBooking();
+  /* Non-null is the whole test — the brief defines `recurring` as the active
+     subscription or null, and documents no fields inside it. */
+  const { status } = useAuth();
+  const hasRecurring = Boolean(status?.recurring);
   const ids = useId();
-  /* Returning from a later step reopens delivery, because collection is
-     already settled — dropping people back on a completed tab makes it
-     look like their choice was lost. */
-  const [legWanted, setLeg] = useState<Leg>(() =>
-    data.collectionDay && data.collectionSlot ? "delivery" : "collection",
-  );
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     return d;
   }, []);
 
-  const collectionAvailability = useMemo(() => fetchCollectionAvailability(today), [today]);
+  /* Both legs come from the server now, so both can be in flight or fail.
+     `null` means "not asked yet or still asking", which is what keeps the
+     calendar from rendering an empty grid as though nothing were offered. */
+  const [collectionAvailability, setCollectionAvailability] = useState<Availability | null>(null);
+  const [deliveryAvailability, setDeliveryAvailability] = useState<Availability | null>(null);
+  const [collectionError, setCollectionError] = useState("");
+  const [deliveryError, setDeliveryError] = useState("");
 
-  /* Keyed on both, because a different window can change which delivery
-     days come back, not just which ones are near enough. */
-  const deliveryAvailability = useMemo(
-    () => fetchDeliveryAvailability(data.collectionDay, data.collectionSlot),
-    [data.collectionDay, data.collectionSlot],
+  /* Bumped by the Try again buttons to re-run the fetch effects below. */
+  const [pickupTick, setPickupTick] = useState(0);
+  const [dropoffTick, setDropoffTick] = useState(0);
+
+  /* Fetched in the effect rather than through a useCallback the effect then
+     calls: react-hooks/set-state-in-effect follows the call through and flags
+     the second shape, and it is right to — a write reachable synchronously
+     from an effect body is a cascading render. Here every write sits in an
+     async continuation behind `live`.
+
+     `live` also replaces a request counter. Cleanup runs before the next
+     effect, so a response for a collection the person has already changed is
+     discarded by construction — the same guard AuthProvider uses on mount. */
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const r = await fetchPickupSlots();
+      if (!live) return;
+      if (!r.ok) {
+        setCollectionError(r.message);
+        return;
+      }
+      setCollectionError("");
+      setCollectionAvailability(r.availability);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [pickupTick]);
+
+  /* Keyed on the chosen slot's id, because the endpoint needs the IRI — and a
+     different window genuinely changes which days come back, not just which
+     ones are near enough. */
+  useEffect(() => {
+    const slotId = data.collectionSlotId;
+    const day = data.collectionDay;
+    const chosen = data.collectionSlot;
+    if (!slotId || !day) return undefined;
+
+    let live = true;
+    void (async () => {
+      const r = await fetchDropoffSlots(slotId, day);
+      if (!live) return;
+      if (!r.ok) {
+        setDeliveryError(r.message);
+        return;
+      }
+      setDeliveryError("");
+      /* Marked here rather than in the wrapper: it is a rule about the round
+         schedule, not a property of the response. */
+      setDeliveryAvailability(markEcoWindows(r.availability, day, chosen));
+    })();
+    return () => {
+      live = false;
+    };
+  }, [dropoffTick, data.collectionSlotId, data.collectionDay, data.collectionSlot]);
+
+  /* Retries are event handlers, so they may clear state outright — and a tick
+     is what re-runs the effect above without duplicating the fetch here. */
+  const retryPickup = () => {
+    setCollectionError("");
+    setCollectionAvailability(null);
+    setPickupTick((t) => t + 1);
+  };
+
+  const retryDropoff = () => {
+    setDeliveryError("");
+    setDeliveryAvailability(null);
+    setDropoffTick((t) => t + 1);
+  };
+
+  const collectionSlots = collectionAvailability?.[data.collectionDay] || [];
+  const deliverySlots = deliveryAvailability?.[data.deliveryDay] || [];
+
+  const eco = useMemo(
+    () => (deliveryAvailability ? firstEcoSlot(deliveryAvailability) : null),
+    [deliveryAvailability],
   );
-
-  const collectionSlots = collectionAvailability[data.collectionDay] || [];
-  const deliverySlots = deliveryAvailability[data.deliveryDay] || [];
-
-  const eco = useMemo(() => firstEcoSlot(deliveryAvailability), [deliveryAvailability]);
   const ecoChosen = Boolean(
     eco && data.deliveryDay === eco.day && data.deliverySlot === eco.slot,
   );
@@ -122,7 +205,12 @@ export default function TimeScreen() {
      window stays one tap away. */
   useEffect(() => {
     if (eco && !data.deliveryDay) {
-      patch({ deliveryDay: eco.day, deliverySlot: eco.slot, deliveryEco: true });
+      patch({
+        deliveryDay: eco.day,
+        deliverySlot: eco.slot,
+        deliverySlotId: eco.id,
+        deliveryEco: true,
+      });
     }
   }, [eco, data.deliveryDay, patch]);
 
@@ -140,26 +228,37 @@ export default function TimeScreen() {
   /* Delivery is derived from collection, so any change upstream drops
      it. Carrying a delivery slot the backend may no longer offer would
      fail at submit — long after the person stopped looking at it. */
-  const setCollectionDay = (k: string) =>
+  const setCollectionDay = (k: string) => {
     patch({
       collectionDay: k,
       collectionSlot: "",
+      collectionSlotId: "",
       deliveryDay: "",
       deliverySlot: "",
+      deliverySlotId: "",
       deliveryEco: false,
     });
+    setDeliveryAvailability(null);
+  };
 
-  const setCollectionSlot = (v: string) => {
-    patch({ collectionSlot: v, deliveryDay: "", deliverySlot: "", deliveryEco: false });
+  const setCollectionSlot = (s: Slot) => {
+    patch({
+      collectionSlot: s.label,
+      collectionSlotId: s.id,
+      deliveryDay: "",
+      deliverySlot: "",
+      deliverySlotId: "",
+      deliveryEco: false,
+    });
+    setDeliveryAvailability(null);
     setLeg("delivery");
   };
 
   /* The eco flag is stored with the choice rather than recomputed later:
      the review screen has no availability data, and by then the answer
      could have changed anyway. */
-  const setDeliverySlot = (v: string) => {
-    const match = (deliveryAvailability[data.deliveryDay] || []).find((x) => x.label === v);
-    patch({ deliverySlot: v, deliveryEco: Boolean(match && match.eco) });
+  const setDeliverySlot = (s: Slot) => {
+    patch({ deliverySlot: s.label, deliverySlotId: s.id, deliveryEco: s.eco });
   };
 
   const summary = (day: string, slot: string, fallback: string) => {
@@ -170,6 +269,13 @@ export default function TimeScreen() {
   };
 
   const isCollection = leg === "collection";
+  const legError = isCollection ? collectionError : deliveryError;
+  /* Only the leg on screen. The delivery request is deliberately not started
+     until a collection window exists, so "no data and no error" is its
+     resting state, not a spinner. */
+  const legLoading = isCollection
+    ? !collectionAvailability && !collectionError
+    : collectionDone && !deliveryAvailability && !deliveryError;
   const collectDay = parseDay(data.collectionDay);
   const sentence = repeatSentence(data);
 
@@ -227,6 +333,28 @@ export default function TimeScreen() {
       </div>
 
       <div id={`${ids}-panel-${leg}`} role="tabpanel" aria-labelledby={`${ids}-tab-${leg}`}>
+        {/* Loading and failure are distinct from "nothing offered". The
+            calendar's own empty state says we have no windows, which would be
+            a lie while the request is still going or after it fell over. */}
+        {legError ? (
+          <div className={CARD}>
+            <p className={cn(ERR, "mb-3")} role="alert">
+              <Icon icon={P.alert} size={15} />
+              {legError}
+            </p>
+            <Button
+              surface="booking" variant="ghost" block
+              onClick={isCollection ? retryPickup : retryDropoff}
+            >
+              Try again
+            </Button>
+          </div>
+        ) : legLoading ? (
+          <p className="flex items-center gap-2.5 py-6 text-[14px] text-bk-ink-2" aria-live="polite">
+            <Loader className="h-4 w-4" />
+            Finding the windows we have left&hellip;
+          </p>
+        ) : (
         <div className={WHEN}>
           <Calendar
             key={leg}
@@ -234,9 +362,9 @@ export default function TimeScreen() {
             onChange={(k) =>
               isCollection
                 ? setCollectionDay(k)
-                : patch({ deliveryDay: k, deliverySlot: "", deliveryEco: false })
+                : patch({ deliveryDay: k, deliverySlot: "", deliverySlotId: "", deliveryEco: false })
             }
-            available={isCollection ? collectionAvailability : deliveryAvailability}
+            available={(isCollection ? collectionAvailability : deliveryAvailability) ?? {}}
             today={today}
             label={isCollection ? "Collection date" : "Delivery date"}
             note={
@@ -249,7 +377,7 @@ export default function TimeScreen() {
             <SlotPicker
               name={isCollection ? "Collection window" : "Delivery window"}
               value={isCollection ? data.collectionSlot : data.deliverySlot}
-              onChange={(v) => (isCollection ? setCollectionSlot(v) : setDeliverySlot(v))}
+              onChange={(s) => (isCollection ? setCollectionSlot(s) : setDeliverySlot(s))}
               slots={isCollection ? collectionSlots : deliverySlots}
             />
           ) : (
@@ -260,6 +388,7 @@ export default function TimeScreen() {
             </p>
           )}
         </div>
+        )}
         {!isCollection && ecoChosen && (
           <p className="mt-3 flex items-center gap-[9px] rounded-card-md bg-panel px-[13px] py-2.5 text-[13.5px] leading-[1.45] text-bk-ink-2 to-720:mt-2 to-720:gap-2 to-720:px-[11px] to-720:py-2 to-720:text-[13px]">
             <Icon icon={P.leaf} size={17} className="flex-none text-brand-ink" />
@@ -279,6 +408,22 @@ export default function TimeScreen() {
         <>
           <div className={DIVIDER} />
 
+          {/* One schedule per account. Offering the toggle to somebody who
+              already has one is offering a control that cannot work: the
+              server refuses a second `frequency` outright, and it does so as a
+              500 rather than as anything we could turn into a sentence. So the
+              check happens here, against `recurring` on /my-status, which the
+              brief defines as the active subscription or null.
+
+              Deliberately no "manage it in the app" — there is no endpoint for
+              editing or cancelling a recurring order and no screen to send
+              anyone to, so that would be a second dead end rather than a way
+              out of the first. */}
+          {hasRecurring ? (
+            <Notice tone="plain" icon={P.repeat} title="You already have a repeating collection">
+              This one is booked as a one-off.
+            </Notice>
+          ) : (
           <div className={CARD}>
             <label className={TOGGLE}>
               <input
@@ -342,6 +487,7 @@ export default function TimeScreen() {
               </div>
             )}
           </div>
+          )}
         </>
       )}
 
@@ -350,10 +496,15 @@ export default function TimeScreen() {
         <>
           <div className={DIVIDER} />
           <Field label="Anything else we should know? (optional)" id={`${ids}-note`}>
+            {/* 400 is the backend's cap on `note` in POST /orders. Enforced
+                here as well as in the wrapper, so the limit is felt as the
+                field refusing another character rather than as a validation
+                error two screens later. */}
             <Textarea
               id={`${ids}-note`}
               value={data.access}
               onChange={(e) => patch({ access: e.target.value })}
+              maxLength={NOTE_MAX}
               placeholder="Buzzer 12, side gate is unlocked until 8pm"
             />
           </Field>

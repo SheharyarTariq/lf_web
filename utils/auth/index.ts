@@ -36,7 +36,7 @@
 import apiCall, { clearApiCache } from "@/utils/api-call";
 import { routes } from "@/utils/routes";
 import { deleteCookie, getCookie, setCookie } from "@/utils/helper";
-import { readMessage, readViolations, type ErrorBody } from "@/utils/api";
+import { readHumanMessage, readViolations, type ErrorBody } from "@/utils/api";
 import type { VerificationPurpose } from "@/utils/auth/model";
 
 export const TOKEN_COOKIE = "authtoken";
@@ -80,8 +80,63 @@ interface LoginBody {
   user?: AuthUser;
 }
 
-interface MyStatusBody {
+/** The saved address, as /my-status returns it. `isActive` is the server's
+ *  answer to "do we collect from that postcode", decided for the postcode it
+ *  holds — and note it normalises what we send: PATCH `KT21 1PG`, read back
+ *  `KT211PG`. Its copy is the authoritative one. */
+export interface MyStatusAddress {
+  line1?: string | null;
+  line2?: string | null;
+  line3?: string | null;
+  town?: string | null;
+  county?: string | null;
+  postcodeString?: string | null;
+  isActive?: boolean;
+}
+
+/** A saved card. `isDefault` is the one that matters to the checkout: POST
+ *  /orders charges the default card, so an account with one already needs no
+ *  card step at all. */
+export interface PaymentMethod {
+  id: string | number;
+  brand?: string | null;
+  last4?: string | null;
+  expiryMonth?: number | null;
+  expiryYear?: number | null;
+  isDefault?: boolean;
+  paymentChannel?: string | null;
+}
+
+/** The in-flight order, or null. Statuses are `created`, `awaiting_review`,
+ *  `payment_pending`, `payment_failed`, `processing`, `delivered`,
+ *  `cancelled`. `pickupSlot` arrives as an IRI rather than an object. */
+export interface RecentActiveOrder {
+  id?: string | number;
+  number?: string | null;
+  status?: string | null;
+  pickupDate?: string | null;
+  pickupSlot?: string | null;
+  dropoffDate?: string | null;
+}
+
+/**
+ * Everything /my-status returns — §4 of the brief, and the single source the
+ * whole app hydrates from.
+ *
+ * `recurring` and `nextOrderDiscount` are deliberately loose: the brief names
+ * them but does not give their fields, and inventing a shape here would make a
+ * guess look like a contract. Type them properly once something reads them.
+ *
+ * **Money is integers in pennies** wherever it appears below.
+ */
+export interface MyStatus {
   user?: AuthUser;
+  address?: MyStatusAddress | null;
+  recentActiveOrder?: RecentActiveOrder | null;
+  completedOrderCount?: number;
+  paymentMethods?: PaymentMethod[];
+  recurring?: Record<string, unknown> | null;
+  nextOrderDiscount?: Record<string, unknown> | null;
 }
 
 /** Every failure in this file, in one shape, so callers never have to know
@@ -111,7 +166,9 @@ function failure(res: { data: unknown; status: number | null; message: string })
   const body = (res.data ?? null) as ErrorBody | null;
   return {
     ok: false,
-    message: readMessage(body) ?? res.message,
+    /* Human-readable only. A 500's `detail` is a stack-trace fragment, and it
+       has already reached one customer's screen from another wrapper. */
+    message: readHumanMessage(body, res.status) ?? res.message,
     fields: readViolations(body),
     status: res.status,
   };
@@ -289,9 +346,14 @@ export async function login(email: string, password: string): Promise<LoginResul
 /** The bare request, with no opinion about whether the address is proved.
  *  Split out because verification needs to read /my-status at the exact
  *  moment loadSession would have thrown the session away: straight after
- *  promoting a token, when emailVerifiedAt has only just stopped being null. */
-export async function fetchStatus(): Promise<AuthUser | null> {
-  const res = await apiCall<MyStatusBody>({
+ *  promoting a token, when emailVerifiedAt has only just stopped being null.
+ *
+ *  Returns the **whole** payload, not just the user. AuthProvider holds it for
+ *  the life of the page so the address, the saved cards and the in-flight order
+ *  are read once rather than refetched per screen — `apiCall`'s GET cache
+ *  cannot do that job, because every mutation clears it. */
+export async function fetchMyStatus(): Promise<MyStatus | null> {
+  const res = await apiCall<MyStatus>({
     endpoint: routes.api.myStatus,
     method: "GET",
     headers: JSON_HEADERS,
@@ -308,28 +370,33 @@ export async function fetchStatus(): Promise<AuthUser | null> {
     return null;
   }
 
-  const user = res.data?.user;
   /* 200 with no user is not a session. Treat it as signed out rather than
      showing a header with an empty address in it. */
-  return user?.email ? user : null;
+  return res.data?.user?.email ? res.data : null;
+}
+
+/** Just the user, for the three verification calls that only ever wanted that
+ *  much. Kept so those call sites read as what they are. */
+export async function fetchStatus(): Promise<AuthUser | null> {
+  return (await fetchMyStatus())?.user ?? null;
 }
 
 /** Returns null when there is nothing to restore, which is the ordinary case
  *  for a first visit and not an error. */
-export async function loadSession(): Promise<AuthUser | null> {
+export async function loadSession(): Promise<MyStatus | null> {
   if (!getToken()) return null;
 
-  const user = await fetchStatus();
+  const status = await fetchMyStatus();
 
   /* Belt and braces. A session cookie is only ever written for a verified
      account, so this should not fire — but if a token ever reaches the cookie
      by another route, this is what stops an unproved address being treated as
      signed in everywhere else in the app. */
-  if (user?.emailVerifiedAt === null) {
+  if (status?.user?.emailVerifiedAt === null) {
     logout();
     return null;
   }
-  return user;
+  return status;
 }
 
 /* ── Proving the address ──────────────────────────────────────────

@@ -92,6 +92,26 @@ export function readMessage(body: ErrorBody | null): string | undefined {
   );
 }
 
+/**
+ * The server's own wording, but only where it was written for a person.
+ *
+ * 4xx bodies carry messages meant to be read — "Incorrect code", "Email is
+ * already verified.", validation violations. 5xx bodies carry internals, and
+ * `readMessage` cannot tell them apart because both arrive in `detail`.
+ * *"Expected an instance of App\Entity\Postcode. Got: NULL"* was rendered
+ * under the Town field of the checkout before this existed.
+ *
+ * Returns undefined for anything outside 400-499, so callers fall back to
+ * apiCall's own generic copy for that status.
+ */
+export function readHumanMessage(
+  body: ErrorBody | null,
+  status: number | null,
+): string | undefined {
+  if (status === null || status < 400 || status >= 500) return undefined;
+  return readMessage(body);
+}
+
 async function send<T = Record<string, unknown>>(
   path: string,
   payload: unknown,
