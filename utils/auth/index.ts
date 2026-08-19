@@ -105,6 +105,11 @@ export interface PaymentMethod {
   expiryYear?: number | null;
   isDefault?: boolean;
   paymentChannel?: string | null;
+  /** Not in §4's field list, but staging sends it. It is what the card list
+   *  sorts on: the response itself is ordered default-first, so without a
+   *  stable key of its own the rows reshuffle every time somebody chooses a
+   *  different card. */
+  createdAt?: string | null;
 }
 
 /** The in-flight order, or null. Statuses are `created`, `awaiting_review`,

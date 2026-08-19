@@ -15,7 +15,7 @@
    ══════════════════════════════════════════════════════════════════ */
 
 import { cn } from "@/utils/cn";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Button from "@/components/common/Button";
 import Loader from "@/components/common/Loader";
 import Modal from "@/components/common/Modal";
@@ -104,6 +104,21 @@ export default function PaymentMethods({
   const [confirming, setConfirming] = useState<PaymentMethod | null>(null);
   const [error, setError] = useState("");
 
+  /* Newest first, and ours rather than the server's.
+     /my-status returns the cards **default-first**, so choosing the second row
+     made it jump to the top — the row moving out from under the finger that
+     pressed it. Age is a key that never changes, so the positions hold still
+     and the selection is left to the only two things that should say it: the
+     radio and the highlight. A card just added lands at the top, which is
+     where somebody looks for the one they have this second typed in.
+
+     Falls back to the response's own order if any card lacks the field, since
+     a half-sorted list would be worse than an unsorted one. */
+  const ordered = useMemo(() => {
+    if (cards.some((c) => !c.createdAt)) return cards;
+    return [...cards].sort((a, b) => (a.createdAt! < b.createdAt! ? 1 : -1));
+  }, [cards]);
+
   const choose = async (card: PaymentMethod) => {
     if (card.isDefault || busyId !== null || disabled) return;
     setBusyId(card.id);
@@ -132,7 +147,7 @@ export default function PaymentMethods({
   return (
     <>
       <ul className="overflow-hidden rounded-card-md">
-        {cards.map((card, i) => {
+        {ordered.map((card, i) => {
           const busy = busyId === card.id;
           const on = Boolean(card.isDefault);
           return (
@@ -141,7 +156,7 @@ export default function PaymentMethods({
                 className={cn(
                   ROW,
                   i === 0 && "rounded-t-card-md",
-                  i === cards.length - 1 && "rounded-b-card-md",
+                  i === ordered.length - 1 && "rounded-b-card-md",
                   single ? ROW_ONLY : on ? ROW_ON : ROW_OFF,
                   (busy || disabled) && "opacity-60",
                 )}

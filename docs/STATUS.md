@@ -251,19 +251,37 @@ no card field of its own, so "use this one" and "make it default" are the same a
 mutation ends in `refreshSession()`, so the list always shows the server's answer rather than
 our guess at it — which matters, because the list **re-orders on each read**, default first.
 
-Three states, and the two card-capture paths are deliberately different:
+Three states, one button:
 
-- **No cards** — the Element is the step and Confirm order captures it. One tap, which is the
-  whole first-time path, and unchanged from before.
+- **No cards** — the Element is the step and Confirm order captures it.
 - **Cards, not adding** — the list. One card renders as a statement (a radio group of one is a
   control with no choice in it); two or more get radios.
-- **Cards, adding** — the Element appears below the list with its own **Save card**, so the new
-  card lands in the list and can be seen before anything is ordered. **Confirm order is disabled
-  while that panel is open**: otherwise somebody types a new card and the order is charged to
-  the old one.
+- **Cards, adding** — the Element opens below the list, with **Cancel** as its only button.
+  Confirm order captures the new card *and* uses it, because the server makes a freshly saved
+  card the default and that is what `POST /orders` charges — "saved" and "used" are one event.
+
+An earlier build had a separate **Save card**, with Confirm order disabled while the panel was
+open, to stop somebody typing a new card and having the order charged to the old one. Making
+Confirm order use the new card removes the hazard, so the second button went with it. The panel
+says *"We will save this card and use it for this order"*, because the row still highlighted
+above it would otherwise contradict what is about to happen, and the list is `disabled` while
+the panel is open so the default cannot be switched mid-compose.
+
+Capture runs **before** the order and refreshes first: if `POST /orders` then fails, the person
+is looking at their new card sitting in the list as the default, and pressing Confirm order
+again takes the saved-card path rather than capturing a second one.
 
 `captureCard()` is shared by both paths, so they cannot drift on the part that matters — never
 treating a card as saved before `check-status` says `true`.
+
+### The list sorts itself, newest first
+
+`/my-status` returns cards **default-first**, so choosing the second row made it jump to the
+top — the row moving out from under the finger that pressed it. The list now sorts on
+`createdAt` (which staging sends and §4 does not mention; added to `PaymentMethod`), so position
+depends on age, which never changes. `mark-as-default` moves nothing, selection is left to the
+radio and the highlight, and a card just added arrives at the top where somebody looks for it.
+Falls back to the response's own order if any card lacks the field.
 
 ### An accessibility bug the aria snapshot caught
 
@@ -279,12 +297,14 @@ name. Put anything that is not the labelled input outside it.
 
 ### Verified
 
-**22/22** against real staging: first card via Confirm order; the list appearing on the next
-booking with no radio for a single card; **Save card** firing `setup-intent` + `check-status`
-and *not* `POST /orders`; two cards listed with the new one default; brands capitalised
-(`"visa"` on the wire); `mark-as-default` moving the selection (4444 → 4242); the confirm dialog
-opening, **Escape cancelling**, and confirming firing `DELETE`. All test cards and orders were
-cleaned up afterwards.
+**18/18** against real staging from a zero-card account: first card and order in one press; the
+list appearing on the next booking with no radio for a single card; adding a second card where
+Confirm order fires `setup-intent` → `check-status` → **exactly one** `POST /orders`; **row
+order unchanged** across a default switch (`4444,4242 → 4444,4242`) while the selection moved
+`4444 → 4242`; Cancel restoring the saved-card path; and `4000 0000 0000 0002` while adding
+showing *"Your card has been declined."* with **no order created**. Earlier, 22/22 covered the
+removal path — the confirm dialog opening, **Escape cancelling**, and confirming firing
+`DELETE`. All test cards and orders were cleaned up afterwards.
 
 **The 409 on DELETE is real and its wording is good** — *"You have pending orders that require a
 payment method. Add another card before removing this one, or cancel the outstanding orders

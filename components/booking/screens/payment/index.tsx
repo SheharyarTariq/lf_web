@@ -74,11 +74,14 @@ export default function PaymentScreen() {
      captures it — see the two branches below. */
   const [adding, setAdding] = useState(false);
 
-  /* With a card already saved there is no Element to complete, so the terms
-     box is the only gate left. While the add panel is open nothing is ready:
-     letting Confirm order through there would take a new card off somebody and
-     then charge the old one. Cancel is the way out. */
-  const ready = adding ? false : (savedCard ? true : data.cardReady) && data.terms;
+  /* The two states with an Element on screen: no cards at all, or adding one
+     on top of the cards already saved. Both mean Confirm order captures a card
+     before it places anything. */
+  const needsCard = adding || cards.length === 0;
+
+  /* With a card already saved there is no Element to complete, so the terms box
+     is the only gate left. Otherwise the Element has to be complete too. */
+  const ready = data.terms && (needsCard ? data.cardReady : Boolean(savedCard));
 
   /**
    * Validate → SetupIntent → confirm → wait for our server to attach it.
@@ -108,40 +111,35 @@ export default function PaymentScreen() {
     return { ok: true };
   };
 
-  /* Save card, the add-panel's own submit. The card lands in the list as the
-     new default — the server does that on its own — so it is visibly chosen
-     before anybody commits to an order. */
-  const saveCard = async () => {
-    if (!data.cardReady || busy) return;
-    setBusy(true);
-    setError("");
-    const r = await captureCard();
-    if (!r.ok) {
-      setBusy(false);
-      setError(r.message);
-      return;
-    }
-    await refreshSession();
-    patch({ cardReady: false });
-    setAdding(false);
-    setBusy(false);
-  };
-
+  /* One button for the whole step. A new card is saved *and* used by the same
+     press that places the order — there is no separate Save card, because the
+     only reason to have had one was to stop Confirm order charging the old
+     card while a new one sat half-typed, and Confirm order now uses the new
+     one. The server makes a freshly saved card the default, which is what
+     POST /orders charges, so "saved" and "used" are the same event. */
   const submit = async () => {
     if (!ready || busy) return;
     setBusy(true);
     setError("");
 
-    /* One card capture, skipped entirely when the account already has a
-       default. Failures here stop the run: creating an order that cannot be
-       charged is worse than making somebody press the button again. */
-    if (!savedCard) {
+    /* Skipped entirely when the account already has a default and nothing new
+       is being added. Failures here stop the run: creating an order that
+       cannot be charged is worse than making somebody press the button
+       again. */
+    if (needsCard) {
       const captured = await captureCard();
       if (!captured.ok) {
         setBusy(false);
         setError(captured.message);
         return;
       }
+      /* Both before the order, deliberately. If POST /orders then fails, the
+         person is looking at their new card sitting in the list as the
+         default, and pressing Confirm order again takes the saved-card path
+         rather than capturing a second one. */
+      await refreshSession();
+      patch({ cardReady: false });
+      setAdding(false);
     }
 
     const placed = await confirmOrder();
@@ -177,18 +175,18 @@ export default function PaymentScreen() {
             cards={cards}
             onChanged={refreshSession}
             /* Not editable while the screen is mid-flight — a default that
-               moves under a running order, or under a card being saved, is a
-               charge going somewhere nobody chose. */
-            disabled={busy}
+               moves under a running order is a charge going somewhere nobody
+               chose — nor while a new card is being typed, which is already
+               the answer to "which card". */
+            disabled={busy || adding}
           />
         </>
       )}
 
-      {/* Two ways in, and they are genuinely different. With no cards at all
-          the Element *is* the step, and Confirm order captures it — one tap,
-          which is the whole first-time path. With cards already saved, adding
-          another is its own act with its own button, so the new card lands in
-          the list and can be seen before anything is ordered. */}
+      {/* Both ways in end at the same button. With no cards the Element is the
+          whole step; with cards saved it opens under the list. Either way
+          Confirm order captures the card and then places the order, so there is
+          nothing here to submit on its own. */}
       {cards.length === 0 ? (
         <StripePayment
           ref={card}
@@ -205,9 +203,15 @@ export default function PaymentScreen() {
             billing={{ name: data.fullName, email: data.email, phone: toE164(data.mobile) }}
             onCompleteChange={(ok) => patch({ cardReady: ok })}
           />
-          <div className="mt-3.5 flex gap-2.5">
+          {/* Says outright what Confirm order is about to do. Without it the
+              row still highlighted above contradicts it — that card is the
+              account's default until this one saves and takes its place. */}
+          <p className="mt-2.5 text-[13px] leading-[1.5] text-bk-ink-2">
+            We will save this card and use it for this order.
+          </p>
+          <div className="mt-3.5">
             <Button
-              surface="booking" variant="ghost" size="lg" className="flex-[1_1_0]"
+              surface="booking" variant="ghost" size="lg" block
               disabled={busy}
               onClick={() => {
                 setAdding(false);
@@ -216,15 +220,6 @@ export default function PaymentScreen() {
               }}
             >
               Cancel
-            </Button>
-            <Button
-              surface="booking" variant="ink" size="lg" className="flex-[1_1_0] gap-2"
-              disabled={!data.cardReady}
-              isLoading={busy}
-              onClick={saveCard}
-            >
-              {busy && <Loader className="h-4 w-4" />}
-              Save card
             </Button>
           </div>
         </div>
