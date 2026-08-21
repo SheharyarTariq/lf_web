@@ -112,13 +112,20 @@ export default function ConfirmedScreen() {
 
      Guarded by a ref because StrictMode mounts twice in dev. The server reuses
      a code under an hour old, so a double fire would be harmless either way —
-     but two requests for one arrival is still two more than the truth. */
+     but two requests for one arrival is still two more than the truth.
+
+     Watching `isNewAccount` rather than firing on mount alone: confirmOrder
+     kicks off refreshSession and pushes here without waiting, so the flag is
+     still false for the first render or two. A mount-only effect would read it
+     before the session landed and send nothing — the same silence, arrived at
+     a different way. The ref is what makes the send once, not the deps, which
+     is why sendCode's identity is not among them. */
   const sentRef = useRef(false);
   useEffect(() => {
     if (!isNewAccount || verified || sentRef.current) return;
     sentRef.current = true;
     void sendCode();
-  }, [isNewAccount, verified, sendCode]);
+  }, [isNewAccount, verified]);
 
   const submitCode = async () => {
     if (busy || code.length !== CODE_LENGTH) return;
