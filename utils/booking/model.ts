@@ -101,25 +101,16 @@ export type BookingPatch = Partial<BookingData>;
    part is unchanged, only who decides it. */
 
 /* ── Discount ─────────────────────────────────────────────────────
-   null = returning customer, so no discount row is rendered at all. A
-   "£0 off" line reads like a bug. The backend sends this; because the
-   order total is not known until items are counted, it can only ever be
-   a percentage here — the cash figure appears on the invoice. */
-export interface Discount {
-  label: string;
-  value: number;
-  unit: string;
-}
+   null = no discount, so no row is rendered at all. A "£0 off" line reads
+   like a bug.
 
-const FIRST_ORDER_DISCOUNT: Discount = {
-  label: "25% off your first order",
-  value: 25,
-  unit: "percent",
-};
-
-/* Swap to null to see the returning-customer variant of the review
-   screen. */
-export const DISCOUNT: Discount | null = FIRST_ORDER_DISCOUNT;
+   The hardcoded 25% that used to live here is gone, along with the returning
+   customer it lied to. The figure now comes from the server — the public
+   first-order table for a visitor, `nextOrderDiscount` on /my-status once we
+   know whose order it is — and utils/discount is the one place that decides
+   which. The type is re-exported so the context and the three screens that
+   render a discount still import it from the model they already read. */
+export type { Discount } from "@/utils/discount";
 
 /* ── Rules ────────────────────────────────────────────────────── */
 
@@ -459,10 +450,12 @@ export function repeatSentence(data: BookingData): string {
    otherwise every price breakdown bounces silently. */
 export type ProviderId = "apple" | "google";
 
-export const SOCIAL: [id: ProviderId, label: string][] = [
-  ["apple", "Apple"],
-  ["google", "Google"],
-];
+/* `SOCIAL` was here — the pair of provider buttons the checkout's log-in
+   sheet used to offer. They are gone with the mock behind them: there is no
+   OAuth endpoint, so pressing one produced an account object and no token,
+   and every step past that point now needs a real one. `ProviderId` stays;
+   the contact screen still renders a provider mark for a session that came
+   from one, which is what will be true again once the endpoints exist. */
 
 /* ── Preferences (confirmation screen) ────────────────────────────
    They live there rather than in the checkout: they are genuine choices,

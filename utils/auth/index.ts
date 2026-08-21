@@ -162,6 +162,58 @@ export type VerifyResult = { ok: true; user: AuthUser | null } | AuthFailure;
  *  already — the caller is now logged in and should stop asking for a code. */
 export type ChangeEmailResult = { ok: true; promoted?: AuthUser | null } | AuthFailure;
 
+/* ── How an account is labelled on screen ─────────────────────────
+   Three places show who is signed in — the header bar, the mobile drawer and
+   the checkout chrome — and all three used to print the raw address. The name
+   has been on /my-status the whole time.
+
+   Typed structurally rather than against AuthedUser: that interface lives in
+   components/common/AuthProvider, which imports *this* file, so naming it here
+   would close the loop. Every caller's object satisfies this anyway.
+   ───────────────────────────────────────────────────────────────── */
+
+interface Named {
+  email: string;
+  /** What /my-status calls `name`. AuthProvider maps it across. */
+  fullName?: string;
+  /** A social provider gives one field rather than two. */
+  name?: string;
+}
+
+/** The name if the account has one, the address otherwise.
+ *
+ *  Trimmed before it is judged: an account created with a space in the name
+ *  field would otherwise label the header with a blank. */
+export function displayName(who: Named): string {
+  return who.fullName?.trim() || who.name?.trim() || who.email;
+}
+
+/**
+ * Up to two letters for the avatar.
+ *
+ * Initials from the first and last word of a name — "Sheharyar Tariq" gives ST
+ * and "Ada Something Lovelace" gives AL, because the surname is the half people
+ * recognise. One word gives one letter rather than two from the same word,
+ * which reads as an abbreviation of nothing.
+ *
+ * With no name it falls back to the address' local part, and "?" only if that
+ * is empty too — which the server should never allow, but a placeholder beats
+ * an empty circle.
+ */
+export function initials(who: Named): string {
+  const name = who.fullName?.trim() || who.name?.trim() || "";
+  if (name) {
+    const words = name.split(/\s+/);
+    const first = words[0][0];
+    const last = words.length > 1 ? words[words.length - 1][0] : "";
+    return (first + last).toUpperCase();
+  }
+  /* Not who.email[0]: an address may legitimately start with a character that
+     is not a letter, but the first of the local part is still the best guess
+     available and is what every other product does here. */
+  return who.email.trim()[0]?.toUpperCase() ?? "?";
+}
+
 /* apiCall only surfaces the backend's own wording for 409 and 422; on a 400 it
    substitutes "Invalid request. Please check your input." Both messages this
    file cares about — "Incorrect code" and "Email is already verified." — are
@@ -344,6 +396,124 @@ export async function login(email: string, password: string): Promise<LoginResul
   };
 }
 
+/* ── Signing up inside the checkout ───────────────────────────────
+   POST /register { email, name, phone?, plainPassword? } → { token, user }
+   ─────────────────────────────────────────────────────────────────
+
+   Two things the brief gets wrong about this endpoint, both probed:
+
+   · **It answers with a token.** "Registering does not log you in — call
+     login next" is not what happens; 201 carries the same `{ token, user }`
+     shape as /login-check, so the second round trip buys nothing.
+   · **`plainPassword` is optional.** `{ email, name }` alone is a 201. That
+     is the whole reason the design's *One-click registration* can exist —
+     without it the recommended path would be a password field like the
+     alternative beside it, and the two would be the same thing twice.
+
+   **This writes a session for an unverified address, and `login()`
+   deliberately does not.** The rule elsewhere is that an unproved address
+   gets a one-hour `pendingtoken` and nothing else, because there the address
+   was *typed into a form* and might belong to somebody else. Here it was
+   typed by the person creating the account, seconds ago, and the next thing
+   they do is put a card against it. Sending them to their inbox mid-booking
+   costs the booking, and the server asks for nothing — an unverified account
+   saves an address, reads slots, stores a card and places an order, all
+   probed. The confirmation screen offers to finish the account afterwards,
+   which is the moment somebody has to spare.
+
+   So the gate still holds where it was written for — the header's sign-up —
+   and does not hold here. That is a product decision, not a security one:
+   the server has never enforced it either way. */
+export async function registerAccount(details: {
+  email: string;
+  name: string;
+  phone?: string;
+  password?: string;
+}): Promise<LoginResult> {
+  const email = details.email.trim();
+  const body: Record<string, unknown> = { email, name: details.name.trim() };
+  /* Omitted rather than sent empty. `phone: ""` is a 422 naming the field;
+     leaving the key out is a 201. */
+  if (details.phone) body.phone = details.phone;
+  if (details.password) body.plainPassword = details.password;
+
+  const res = await apiCall<LoginBody>({
+    endpoint: routes.api.register,
+    method: "POST",
+    data: body,
+    headers: JSON_HEADERS,
+    /* The panel shows its own message under the field the server named.
+       apiCall would toast only violations[0] and lose which field it was. */
+    showErrorToast: false,
+  });
+
+  if (!res.success) return failure(res);
+
+  const token = res.data?.token;
+  if (!token) {
+    return {
+      ok: false,
+      message: "Your account was created, but no token came back.",
+      fields: {},
+      status: res.status,
+    };
+  }
+
+  const user = res.data?.user;
+  clearPendingToken();
+  storeToken(token);
+  return {
+    ok: true,
+    verified: user?.emailVerifiedAt != null,
+    user: { ...user, email: user?.email || email, name: user?.name || details.name.trim() },
+  };
+}
+
+/* ── Signing in with an emailed code ──────────────────────────────
+   POST /login-with-code { email, code } → { token, user }
+   ─────────────────────────────────────────────────────────────────
+
+   Undocumented, and the missing half of `requestVerificationCode`'s `login`
+   purpose — which has always been able to *send* a code that nothing could
+   redeem. Probed: the route is live and a wrong code is a 400 "Incorrect
+   code", the same wording the email-verification endpoint uses.
+
+   Unlike `login()` this always writes a session, and for the opposite reason
+   to `registerAccount` above: reading a code out of an inbox *is* proof of the
+   address. Somebody who arrives this way has demonstrated more than a password
+   would, so holding their token back to ask them to prove it again would be
+   asking twice for the same thing. */
+export async function loginWithCode(email: string, code: string): Promise<LoginResult> {
+  const res = await apiCall<LoginBody>({
+    endpoint: routes.api.loginWithCode,
+    method: "POST",
+    data: { email: email.trim(), code: code.trim() },
+    headers: JSON_HEADERS,
+    showErrorToast: false,
+  });
+
+  if (!res.success) return failure(res);
+
+  const token = res.data?.token;
+  if (!token) {
+    return {
+      ok: false,
+      message: "That code was accepted, but no token came back.",
+      fields: {},
+      status: res.status,
+    };
+  }
+
+  const user = res.data?.user;
+  clearPendingToken();
+  storeToken(token);
+  return {
+    ok: true,
+    verified: true,
+    user: { ...user, email: user?.email || email.trim(), name: user?.name || "" },
+  };
+}
+
 /* ── Restore ──────────────────────────────────────────────────────
    GET /my-status → everything about the current user in one call.
    ───────────────────────────────────────────────────────────────── */
@@ -391,17 +561,24 @@ export async function fetchStatus(): Promise<AuthUser | null> {
 export async function loadSession(): Promise<MyStatus | null> {
   if (!getToken()) return null;
 
-  const status = await fetchMyStatus();
+  /* This used to throw the session away when `emailVerifiedAt` came back
+     null, as a second line of defence behind login()'s rule that an unproved
+     address gets no session. It cannot any more, because that is no longer an
+     invariant: `registerAccount` writes a session for an unverified account on
+     purpose, since a guest booking has to be able to reach a card without a
+     detour through their inbox.
 
-  /* Belt and braces. A session cookie is only ever written for a verified
-     account, so this should not fire — but if a token ever reaches the cookie
-     by another route, this is what stops an unproved address being treated as
-     signed in everywhere else in the app. */
-  if (status?.user?.emailVerifiedAt === null) {
-    logout();
-    return null;
-  }
-  return status;
+     Removing it was not optional — it fired on every load for exactly the
+     accounts the checkout had just created, and signed them straight back out
+     between one request and the next.
+
+     The gate still exists, in the one place that can tell the two apart:
+     `login()` holds a token back for an unverified address, because there the
+     address was typed into a form and might not be theirs. Registration knows
+     it is, because it just made it. Nothing else in the app needs to ask —
+     `user.verified` carries the answer from /my-status, which is what the
+     confirmation screen reads to decide whether to offer the code. */
+  return fetchMyStatus();
 }
 
 /* ── Proving the address ──────────────────────────────────────────

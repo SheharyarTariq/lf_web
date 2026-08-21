@@ -12,7 +12,6 @@
    lands on, not how far along someone is.
    ══════════════════════════════════════════════════════════════════ */
 
-import { accountExists } from "@/utils/booking/mocks";
 import type { BookingData } from "@/utils/booking/model";
 
 export type Route = "address" | "time" | "contact" | "review" | "payment" | "confirmed";
@@ -60,16 +59,21 @@ export function stepOf(route: Route, wide: boolean): string {
    needs. Without this, a bookmarked /book/review renders a summary of
    empty strings.
 
-   `signedIn` exists for one line of this, and it is the line that pulls the
-   `accountExists` mock into the flow. Somebody with a session has already
-   proved who they are; asking a real customer to satisfy a stand-in that
-   compares their address against a hardcoded list is the wrong answer whether
-   the list says yes or no. */
+   Address and Time are open to anyone: /find-addresses is public, and so are
+   both slot endpoints once a `postcode` is passed — which is the whole reason
+   the design's order survives contact with the API. Everything past Details
+   needs a token, so `verified` is the gate, and it is set by exactly two
+   things: the identity panel resolving, or the seed recognising a session.
+
+   `signedIn` is now belt and braces rather than the rule. It covers the frame
+   after a sign-in from the header, where the session exists but the seed that
+   sets `verified` has not run yet — without it the guard would bounce a
+   signed-in customer back to Details for one render. */
 export function furthestAllowed(d: BookingData, signedIn = false): Route {
   if (!(d.postcode && d.line1 && d.town)) return "address";
   if (!(d.collectionDay && d.collectionSlot && d.deliveryDay && d.deliverySlot)) return "time";
   if (!(d.fullName && d.mobile && d.email)) return "contact";
-  /* Existing account, not yet logged in — the flow cannot continue. */
-  if (!signedIn && accountExists(d.email) && !d.verified) return "contact";
+  /* No account yet — the card and the order both need one. */
+  if (!signedIn && !d.verified) return "contact";
   return "payment";
 }

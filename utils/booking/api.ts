@@ -217,12 +217,27 @@ function toAvailability(groups: DayGroup[]): Availability {
   return out;
 }
 
-/** GET /slots/pickup?days= — 28 is the documented maximum. */
-export async function fetchPickupSlots(days = 21): Promise<SlotsResult> {
+/**
+ * GET /slots/pickup?postcode=&days= — 28 is the documented maximum.
+ *
+ * **`postcode` is what makes this work signed out**, and it is not in the
+ * brief. Without it the endpoint resolves the area from the logged-in user and
+ * answers 500 to anyone who is not one; with it, 200 and no token needed. It is
+ * sent for everybody, not only guests, because it also *overrides* the
+ * account's saved address — so the windows follow the address being booked
+ * rather than whatever happens to be on the account.
+ *
+ * The caller must already know the postcode is served. An inactive one is a
+ * 500 whose message is addressed to us rather than to a customer: "Callers
+ * check the postcode is served before asking for its slots." The address
+ * step's `isActive` check is that guard, which is why this is only ever
+ * reached with a postcode that passed it.
+ */
+export async function fetchPickupSlots(postcode: string, days = 21): Promise<SlotsResult> {
   const res = await apiCall<DayGroup[]>({
     endpoint: routes.api.slotsPickup,
     method: "GET",
-    data: { days },
+    data: { days, postcode },
     headers: JSON_HEADERS,
     showErrorToast: false,
   });
@@ -234,19 +249,23 @@ export async function fetchPickupSlots(days = 21): Promise<SlotsResult> {
 }
 
 /**
- * GET /slots/dropoff?pickupSlot=&pickupDate=
+ * GET /slots/dropoff?pickupSlot=&pickupDate=&postcode=
  *
  * `pickupSlot` goes as an IRI (`/slots/{id}`), not a bare id — which is the
  * whole reason slot ids are carried through the booking at all.
+ *
+ * `postcode` does the same job as it does on pickup: it is the difference
+ * between 200 and a 500 for a signed-out visitor.
  */
 export async function fetchDropoffSlots(
   pickupSlotId: string,
   pickupDate: string,
+  postcode: string,
 ): Promise<SlotsResult> {
   const res = await apiCall<DayGroup[]>({
     endpoint: routes.api.slotsDropoff,
     method: "GET",
-    data: { pickupSlot: routes.api.slotIri(pickupSlotId), pickupDate },
+    data: { pickupSlot: routes.api.slotIri(pickupSlotId), pickupDate, postcode },
     headers: JSON_HEADERS,
     showErrorToast: false,
   });

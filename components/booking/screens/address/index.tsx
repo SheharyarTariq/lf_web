@@ -212,10 +212,16 @@ export default function AddressScreen() {
     if (!ready || saving) return;
     clearSaveErrors();
 
-    /* Signed-out visitors are not saved anywhere — the endpoint needs a token,
-       and guest checkout is a decision that has not been made yet. Slots are
-       still mocked, so nothing downstream notices today. This condition is the
-       line that changes when guest checkout is designed. */
+    /* Signed out, this is skipped rather than blocking: the endpoint needs a
+       token and a guest has neither one nor an account to hang it on. Nothing
+       downstream minds — the slot endpoints take the postcode directly, which
+       is what lets this step come first for everybody — and the address itself
+       is saved later, once at confirmOrder, where every route through the
+       checkout passes with an id in hand.
+
+       Kept here for a signed-in customer even so, because it is the only
+       screen that can put a violation under the field that caused it. The save
+       at confirm time is the guarantee; this one is the good error message. */
     if (user?.id) {
       setSaving(true);
       const r = await updateAddress(user.id, {

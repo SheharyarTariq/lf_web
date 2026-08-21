@@ -25,6 +25,13 @@ node scripts/audit/deep.mjs   compare deep
 
 `compare` exits non-zero on any difference, so it drops into CI as-is.
 
+**Finish with `rm -rf .next` before going back to `next dev`.** `next build` and `next dev`
+share that directory — dev keeps its own tree under `.next/dev`, but the root still holds the
+build's `BUILD_ID`, `routes-manifest.json` and `app-path-routes-manifest.json`, and a dev
+server started on top of them can serve **404 for every route but `/`** while the compiled
+pages sit on disk right beside the manifest that no longer lists them. It looks like the app
+is broken; it is leftover build output. Costs one `rm -rf .next` and a restart.
+
 The three packages are deliberately **not** in `package.json` — playwright pulls a browser
 download, and this is tooling rather than something the app needs to build. Install them when
 you audit. If this ever runs in CI, move them to `devDependencies` then.

@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import { CLOSE_BTN } from "@/utils/booking/styles";
 import { routesFor, stepsFor, type Route } from "@/utils/booking/flow";
+import { displayName } from "@/utils/auth";
 import { BRAND } from "@/utils/content";
 import { routes } from "@/utils/routes";
 
@@ -58,7 +59,9 @@ export function Header({
   onClose: () => void;
   onFaq: () => void;
   onLogin: (() => void) | null;
-  user: { email: string } | null;
+  /** `fullName` so this labels the account the same way the site header does.
+   *  Optional: an account can have no name on it. */
+  user: { email: string; fullName?: string } | null;
   /** One surface, so a shadow is the only thing that ever separates the
    *  chrome from the page — and only once something is behind it. */
   scrolled: boolean;
@@ -96,13 +99,17 @@ export function Header({
         {/* A returning customer otherwise cannot log in until step 3 —
             the one step we eventually want to skip for them. */}
         {user ? (
-          /* The address is the first thing to go below 560: the logo, Back
-             and Close all have to fit before it earns any room. */
+          /* Who you are is the first thing to go below 560: the logo, Back
+             and Close all have to fit before it earns any room.
+
+             Name over address, matching the site header — the two headers are
+             one product and had already drifted once. No menu here though:
+             mid-form is the wrong place to offer a way to log out. */
           <span
             className="order-3 min-w-0 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap px-1.5 text-[13.5px] text-bk-ink-2 to-560:hidden"
             title={user.email}
           >
-            {user.email}
+            {displayName(user)}
           </span>
         ) : (
           onLogin && (

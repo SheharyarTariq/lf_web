@@ -12,18 +12,13 @@ import Button from "@/components/common/Button";
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Icon, P, ProviderMark } from "@/components/booking/icons";
+import { Icon, P } from "@/components/booking/icons";
 import Field from "@/components/booking/common/Field";
 import Modal from "@/components/common/Modal";
-import { MODAL_FOOT, MODAL_NAV, MODAL_NAV_BTN } from "@/utils/booking/styles";
-import { verifyCode, signInWith } from "@/utils/booking/mocks";
-import {
-  CODE_LENGTH,
-  EMAIL_RE,
-  RESEND_SECONDS,
-  SOCIAL,
-  type ProviderId,
-} from "@/utils/booking/model";
+import { ERR, MODAL_FOOT, MODAL_NAV, MODAL_NAV_BTN } from "@/utils/booking/styles";
+import Loader from "@/components/common/Loader";
+import { login, loginWithCode, requestVerificationCode } from "@/utils/auth";
+import { CODE_LENGTH, EMAIL_RE, RESEND_SECONDS } from "@/utils/booking/model";
 import { BTN_LINK, SEC_H, SEC_P } from "@/utils/booking/styles";
 import { routes } from "@/utils/routes";
 import { BRAND, FAQ, FAQ_PREVIEW_COUNT } from "@/utils/content";
@@ -209,7 +204,30 @@ export function BillingModal({ onClose }: { onClose: () => void }) {
    in the tab holding the booking, and nothing can be lost.
 
    It also sidesteps mail scanners and link previewers, which follow URLs
-   and would consume a single-use link before the customer taps it. */
+   and would consume a single-use link before the customer taps it.
+
+   ── What changed when this stopped being a mock ──────────────────
+
+   The code path is real now: `verification-code/request` with
+   `purpose: "login"` sends it and `/login-with-code` redeems it. The second
+   of those is undocumented and was found by probing; without it this sheet
+   could only ever have sent codes nothing would accept.
+
+   **The Apple and Google buttons are gone.** They called a mock that
+   fabricated an account and returned no token. That was survivable while the
+   checkout ran on mocks; it is not now — every step past this one needs a
+   real Bearer token, so a provider button would have waved somebody through
+   to a payment step that answers 401. A control that cannot do what it says
+   is worse than an absent one. They come back when there is an endpoint
+   behind them; see docs/ENDPOINTS.md.
+
+   In their place is the thing people actually arrive here wanting: their
+   password. An unverified account is handed to the code path rather than
+   refused, because a code both proves the address and issues the session —
+   which is exactly what such an account is missing.
+   ══════════════════════════════════════════════════════════════════ */
+
+const BTN_SPACE = "mt-2.5";
 
 export function LoginSheet({
   email,
@@ -220,10 +238,12 @@ export function LoginSheet({
   onClose: () => void;
   onLoggedIn: (who: { identity: string; email: string; fullName?: string }) => void;
 }) {
-  const [view, setView] = useState<"choose" | "email" | "waiting">("choose");
+  const [view, setView] = useState<"choose" | "email" | "waiting" | "password">("choose");
   const [addr, setAddr] = useState(email || "");
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const ids = useId();
 
@@ -233,37 +253,83 @@ export function LoginSheet({
     return () => clearInterval(t);
   }, [cooldown]);
 
+  /* Deliberately says nothing about whether that address has an account.
+     The endpoint answers 200 either way — by design, so it cannot be used to
+     ask who is a customer — and a sheet that claimed a code was on its way
+     would be repeating a promise the server never made. */
+  const sendCode = async (to: string) => {
+    setBusy(true);
+    setError("");
+    await requestVerificationCode(to, "login");
+    setBusy(false);
+    setCode("");
+    setCooldown(RESEND_SECONDS);
+    setView("waiting");
+  };
+
+  const submitCode = async () => {
+    if (busy || code.length !== CODE_LENGTH) return;
+    setBusy(true);
+    setError("");
+    const r = await loginWithCode(addr, code);
+    setBusy(false);
+    if (!r.ok) {
+      setError(r.message);
+      return;
+    }
+    onLoggedIn({ identity: "", email: r.user.email, fullName: r.user.name });
+  };
+
+  const submitPassword = async () => {
+    if (busy || !EMAIL_RE.test(addr) || !password) return;
+    setBusy(true);
+    setError("");
+    const r = await login(addr, password);
+    setBusy(false);
+    if (!r.ok) {
+      setError(r.message);
+      return;
+    }
+    /* Right password, unproved address. login() has held the token back
+       rather than writing a session — that rule is not relaxed here, it is
+       satisfied: a code proves the address, and /login-with-code answers with
+       a session token of its own. */
+    if (!r.verified) {
+      void sendCode(addr);
+      return;
+    }
+    onLoggedIn({ identity: "", email: r.user.email, fullName: r.user.name });
+  };
+
+  const alert = error ? (
+    <p className={cn(ERR, "mt-3")} role="alert">
+      <Icon icon={P.alert} size={16} className="mt-0.5 flex-none" />
+      {error}
+    </p>
+  ) : null;
+
   return (
-    <Modal title="Log in or create an account" labelledBy="lfb-login-t" onClose={onClose}>
+    <Modal title="Log in to your account" labelledBy="lfb-login-t" onClose={onClose}>
       {view === "choose" && (
         <>
-          <div className="mb-4 grid gap-2.5" style={{ gridTemplateColumns: "1fr" }}>
-            {SOCIAL.map(([id, label]) => (
-              <Button
-                key={id}
-                surface="booking" variant={id as ProviderId} size="oauth"
-                onClick={() => {
-                  const who = signInWith(id);
-                  onLoggedIn({ identity: id, email: who.email, fullName: who.name });
-                }}
-              >
-                <ProviderMark id={id} />
-                {/* Both companies specify the wording. "Sign in with" and
-                    "Continue with" are approved; anything else is not. */}
-                Sign in with {label}
-              </Button>
-            ))}
-          </div>
-          <p className="mb-4 flex items-center gap-[14px] text-[13px] text-bk-ink-3 before:h-px before:flex-auto before:bg-bk-line before:content-[''] after:h-px after:flex-auto after:bg-bk-line after:content-['']">
-            <span>or</span>
+          <p className={SEC_P}>
+            Both work. A code needs nothing but your inbox; a password signs you straight in.
           </p>
           <Button
-            surface="booking" variant="email" size="oauth"
+            surface="booking" variant="lime" size="lg" block
             onClick={() => setView("email")}
           >
             <Icon icon={P.mail} size={18} />
-            Continue with email
+            Email me a code
           </Button>
+          <div className={BTN_SPACE}>
+            <Button
+              surface="booking" variant="ghost" size="lg" block
+              onClick={() => setView("password")}
+            >
+              Use my password
+            </Button>
+          </div>
           <p className={MODAL_FOOT}>
             By continuing you agree to our{" "}
             <Link className={LINK} href={routes.ui.terms}>
@@ -290,15 +356,56 @@ export function LoginSheet({
             />
           </Field>
           <Button
-            surface="booking" variant="lime" size="lg" block
-            disabled={!EMAIL_RE.test(addr)}
-            onClick={() => {
-              setView("waiting");
-              setCooldown(RESEND_SECONDS);
-            }}
+            surface="booking" variant="lime" size="lg" block className="gap-2"
+            disabled={!EMAIL_RE.test(addr) || busy}
+            isLoading={busy}
+            onClick={() => void sendCode(addr)}
           >
+            {busy && <Loader className="h-4 w-4" />}
             Send me a code
           </Button>
+          {alert}
+        </>
+      )}
+
+      {view === "password" && (
+        <>
+          <Field label="Email" id={`${ids}-pe`}>
+            <Input
+              id={`${ids}-pe`}
+              type="email"
+              value={addr}
+              onChange={(e) => setAddr(e.target.value)}
+              autoComplete="email"
+            />
+          </Field>
+          <Field label="Password" id={`${ids}-pp`}>
+            <Input
+              id={`${ids}-pp`}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void submitPassword();
+              }}
+              autoComplete="current-password"
+            />
+          </Field>
+          <Button
+            surface="booking" variant="lime" size="lg" block className="gap-2"
+            disabled={!EMAIL_RE.test(addr) || !password || busy}
+            isLoading={busy}
+            onClick={() => void submitPassword()}
+          >
+            {busy && <Loader className="h-4 w-4" />}
+            Log in
+          </Button>
+          {alert}
+          <p className={cn(MODAL_FOOT, "text-center")}>
+            <Button variant="bare" className={BTN_LINK} onClick={() => setView("email")}>
+              Email me a code instead
+            </Button>
+          </p>
         </>
       )}
 
@@ -322,31 +429,24 @@ export function LoginSheet({
                 setError("");
               }}
               onKeyDown={(e) => {
-                if (e.key !== "Enter" || code.length !== CODE_LENGTH) return;
-                if (!verifyCode(addr, code)) setError("That code is not right.");
-                else onLoggedIn({ identity: "", email: addr });
+                if (e.key === "Enter") void submitCode();
               }}
             />
           </Field>
           <Button
-            surface="booking" variant="lime" size="lg" block
-            disabled={code.length !== CODE_LENGTH}
-            onClick={() => {
-              if (!verifyCode(addr, code)) return setError("That code is not right.");
-              onLoggedIn({ identity: "", email: addr });
-            }}
+            surface="booking" variant="lime" size="lg" block className="gap-2"
+            disabled={code.length !== CODE_LENGTH || busy}
+            isLoading={busy}
+            onClick={() => void submitCode()}
           >
+            {busy && <Loader className="h-4 w-4" />}
             Log in
           </Button>
           <p className="mt-[14px] text-center">
             <Button variant="bare"
               className={cn(BTN_LINK, "disabled:cursor-default disabled:opacity-50")}
-              disabled={cooldown > 0}
-              onClick={() => {
-                setCooldown(RESEND_SECONDS);
-                setCode("");
-                setError("");
-              }}
+              disabled={cooldown > 0 || busy}
+              onClick={() => void sendCode(addr)}
             >
               {cooldown > 0 ? `Send a new code in ${cooldown}s` : "Send a new code"}
             </Button>

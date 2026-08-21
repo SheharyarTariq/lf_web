@@ -36,13 +36,6 @@ export default function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
 
-      <a
-        className="absolute left-3 top-[-56px] z-[99] rounded-pill bg-brand px-5 py-3 font-bold text-ink no-underline transition-[top] duration-150 focus:top-3"
-        href="#lf-main"
-      >
-        Skip to content
-      </a>
-
       <main id="lf-main" className="lf-controls flex-1">
         <Hero />
         <StatStrip />

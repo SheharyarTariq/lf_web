@@ -16,7 +16,10 @@ import {
   type RefObject,
 } from "react";
 import { DELETE_SPEED, HOLD_EMPTY, HOLD_FULL, TYPE_SPEED } from "@/utils/content";
-import { getBearerToken, subscribeToken } from "@/utils/auth";
+import { getBearerToken, subscribeToken, type MyStatus } from "@/utils/auth";
+import { firstOrderDiscount, nextOrderDiscount, type Discount } from "@/utils/discount";
+import apiCall from "@/utils/api-call";
+import { routes } from "@/utils/routes";
 
 /**
  * Enter the booking flow, optionally with a slot preselected.
@@ -76,9 +79,25 @@ export function usePrefersReducedMotion(): boolean {
  *
  * A cookie fires no event, so anything that has to react to one being written
  * needs telling; utils/auth announces on every write. Same shape as
- * useMediaQuery above and for the same reason, and the server snapshot is
- * `null` because a cookie is not readable during SSR anyway — so the first
- * client render matches the markup.
+ * useMediaQuery above, but *not* the same server snapshot, and the difference
+ * is the whole point:
+ *
+ * Three values, not two. `undefined` is "the cookie has not been read yet",
+ * `null` is "there is no credential", and a string is the credential. A cookie
+ * is unreadable during SSR either way, so hydration has to render something it
+ * does not know — but for useMediaQuery `false` is a harmless first answer that
+ * only decides what gets painted and self-corrects a commit later, whereas here
+ * `null` is a *verdict a caller acts on*: /verify-email raises a login modal on
+ * it. Collapsing "unknown" into "none" is what put a login modal on top of a
+ * page that had just confirmed the user's email and signed them in — the modal
+ * opened on the hydration render, before the real cookie value arrived.
+ *
+ * Two React details that make `undefined` safe here. Snapshots are compared
+ * with Object.is, so both `undefined → "<token>"` and `undefined → null` count
+ * as changes and force the re-render. And getServerSnapshot is consulted *only*
+ * while hydrating, so on a client-side navigation the first render already has
+ * the real value and `undefined` never appears at all — nothing may assume the
+ * value always passes through it.
  *
  * The verify-email page is why this exists. Someone arriving from a mail
  * client with no session logs in on the spot, and this is what tells the page
@@ -86,8 +105,14 @@ export function usePrefersReducedMotion(): boolean {
  * Deliberately not `useAuth().user`, which is null for an unverified account
  * by design and would therefore never fire.
  */
-export function useBearerToken(): string | null {
-  return useSyncExternalStore(subscribeToken, getBearerToken, () => null);
+export function useBearerToken(): string | null | undefined {
+  /* The type argument is load-bearing: inference takes `string | null` from
+     getBearerToken and then rejects `() => undefined` as the third argument. */
+  return useSyncExternalStore<string | null | undefined>(
+    subscribeToken,
+    getBearerToken,
+    () => undefined,
+  );
 }
 
 /** Types each word out, holds, backspaces it, then moves on. Loops. */
@@ -191,6 +216,66 @@ export function useScrollLock(active: boolean): void {
       document.body.style.overflow = previous;
     };
   }, [active]);
+}
+
+interface SystemStatusResponse {
+  orderDiscounts?: unknown;
+}
+
+/**
+ * The offer to show, and whether we know who is being shown it.
+ *
+ * The offer bar and the checkout both need the identical answer — a bar
+ * promising 25% above a review screen that offers nothing is worse than
+ * either alone — so the decision lives here once rather than in both.
+ *
+ * `status` comes in as an argument rather than from `useAuth()` because utils/
+ * must not import from components/, and both callers already hold it.
+ *
+ * Signed in, the answer is `nextOrderDiscount` off the /my-status payload
+ * AuthProvider is already holding — no request of its own. Signed out, the
+ * public first-order row is fetched from /system-status; `apiCall` caches
+ * GETs, so both callers mounting at once still make one request.
+ *
+ * No `loading` argument: `status` is null until the session lands, so that
+ * window already reads as signed out and gets the public offer. That is the
+ * right answer for it — server-rendered markup is always the signed-out state,
+ * since the cookie is not readable until the client runs, so the bar that was
+ * server-rendered stays on screen rather than blanking for one round trip.
+ */
+export function useOfferDiscount(status: MyStatus | null): {
+  discount: Discount | null;
+  signedIn: boolean;
+} {
+  const signedIn = Boolean(status?.user);
+  const [publicOffer, setPublicOffer] = useState<Discount | null>(null);
+
+  useEffect(() => {
+    /* Nothing to fetch: this account's own answer is already in hand, and the
+       public table would only be a worse version of it. */
+    if (signedIn) return undefined;
+
+    let live = true;
+    apiCall<SystemStatusResponse>({
+      endpoint: routes.api.systemStatus,
+      method: "GET",
+      /* A missing discount is not something to interrupt anyone about — they
+         simply see no offer. */
+      showErrorToast: false,
+    }).then((res) => {
+      if (!live || !res.success) return;
+      setPublicOffer(firstOrderDiscount(res.data?.orderDiscounts));
+    });
+
+    return () => {
+      live = false;
+    };
+  }, [signedIn]);
+
+  return {
+    discount: signedIn ? nextOrderDiscount(status?.nextOrderDiscount) : publicOffer,
+    signedIn,
+  };
 }
 
 /** Escape-to-close, attached only while the surface is open. */

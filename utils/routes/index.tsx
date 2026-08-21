@@ -78,6 +78,13 @@ export const routes = {
     /* ── Public: no Bearer token ────────────────────────────────────── */
     register: "/register",
     loginCheck: "/login-check",
+
+    /* Undocumented, and the other half of verificationCodeRequest's `login`
+       purpose: it takes { email, code } and answers with a token, exactly like
+       /login-check. Probed — a wrong code is 400 "Incorrect code", so the route
+       is live. Without it the checkout's "enter the code we sent you" panel
+       would have a way to send a code and no way to redeem one. */
+    loginWithCode: "/login-with-code",
     systemStatus: "/system-status",
     resetPasswordRequest: "/reset-password/request",
     resetPasswordConfirm: "/reset-password/confirm",
@@ -113,7 +120,23 @@ export const routes = {
     updateAddress: (userId: string | number) => `/users/${userId}/update-address`,
 
     /* `days` is optional on pickup, max 28. Dropoff needs both
-       ?pickupSlot=<IRI>&pickupDate=YYYY-MM-DD. */
+       ?pickupSlot=<IRI>&pickupDate=YYYY-MM-DD.
+
+       **Both are public when `postcode` is passed**, which is what makes the
+       guest flow possible at all — the brief does not mention the parameter.
+       Without it they resolve the area from the signed-in user and answer 500
+       ("Expected an instance of App\Entity\User. Got: NULL") to anyone else.
+       With it they answer 200 with no token.
+
+       We always send it, signed in or not: it also *overrides* the account's
+       saved address, so the windows follow the address being booked rather
+       than whatever was last saved. Probed — the same account gets different
+       slots for two different postcodes.
+
+       The postcode must already be known to be served. An inactive one is a
+       500 whose message is written for us rather than for a customer:
+       "Callers check the postcode is served before asking for its slots."
+       The address step's isActive check is that guard. */
     slotsPickup: "/slots/pickup",
     slotsDropoff: "/slots/dropoff",
     /* Slots are referenced by IRI, not bare id — both as the `pickupSlot`

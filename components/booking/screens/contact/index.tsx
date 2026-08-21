@@ -16,13 +16,7 @@ import { Icon, P, ProviderMark } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
 import Field from "@/components/booking/common/Field";
 import { useBooking } from "@/utils/booking/context";
-import { checkAccount, mobileHasAccount } from "@/utils/booking/mocks";
-import {
-  EMAIL_RE,
-  UK_MOBILE_RE,
-  domainComplete,
-  domainSuggestions,
-} from "@/utils/booking/model";
+import { EMAIL_RE, UK_MOBILE_RE, domainSuggestions } from "@/utils/booking/model";
 import {
   BTN_LINK,
   H1,
@@ -31,12 +25,6 @@ import {
   NAV_FORWARD,
   } from "@/utils/booking/styles";
 
-/* The link must not outweigh the sentence it sits in — at 600 it read as
-   a heading and pushed the whole thing onto two lines. */
-const NUDGE = "-mt-2 mb-[14px] text-[13px] leading-[1.5] text-bk-ink-2";
-const NUDGE_LINK =
-  "cursor-pointer border-none bg-transparent p-0 text-[13px] font-medium leading-[1.5] " +
-  "text-bk-ink-2 underline underline-offset-[3px] hover:text-bk-ink";
 
 /* In flow rather than floating over the page. There is nothing under the
    email field but the identity panel, which is shut while an address is
@@ -53,38 +41,14 @@ const SUG_BTN =
   "block min-h-11 w-full cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap " +
   "rounded-card-sm border-0 px-3 py-[11px] text-left text-[14.5px] leading-[1.6] text-bk-ink-3";
 
-/* Type states the union outright rather than leaving it inferred: the
-   screen has to tell "not asked yet" from "asked and it failed". */
-type Check = { exists: boolean } | "failed" | null;
-
-/* Three ways an address arrives, and blur only catches one of them.
-   Autofill leaves the cursor sitting in the field, so waiting for blur
-   meant the panel never opened and Next stayed disabled with nothing
-   on screen saying why — a dead end, and the disabled button gives no
-   feedback to explain it.
-
-   Autofill and paste deliver the whole value in one go, so there is
-   nothing to wait for. Chrome reports no inputType for autofill;
-   Safari and Firefox use insertReplacementText. Typing still waits,
-   but now on a pause rather than on blur, so someone who types their
-   address and simply stops is not stranded either.
-
-   Two pauses, because "still typing" is not one state. An address
-   already ending in a domain we know in full has nothing left to come,
-   so it goes almost at once. Anything else waits longer, since firing
-   early on an unfamiliar domain wastes a round trip and drops a
-   spinner on an address still being written. */
-const WHOLE_VALUE = ["insertReplacementText", "insertFromPaste"];
-const PAUSE_KNOWN_MS = 350;
-const PAUSE_MS = 1200;
 
 export default function ContactScreen() {
   const { data, patch, go, back, wide, moreBelow, openLogin } = useBooking();
-  /* A session settles the address. The account-check and the code below both
-     exist to establish who somebody is, and there is nothing left to
-     establish — so for a signed-in customer the address is shown, not asked
-     for, and neither the check nor the code is reachable. */
-  const { user } = useAuth();
+  /* A session settles the address. The panel below exists to establish who
+     somebody is, and there is nothing left to establish — so for a signed-in
+     customer the address is shown rather than asked for, and the panel never
+     mounts. */
+  const { user, refreshSession } = useAuth();
   const signedIn = Boolean(user);
   const ids = useId();
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -96,8 +60,6 @@ export default function ContactScreen() {
   const mobileRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
-  const mobileTaken =
-    !signedIn && UK_MOBILE_RE.test(data.mobile.trim()) && mobileHasAccount(data.mobile);
   const emailValid = EMAIL_RE.test(data.email.trim());
 
   /* One schema drives both the message and the rule. Still gated on `touched`,
@@ -113,75 +75,19 @@ export default function ContactScreen() {
   const restValid = Boolean(data.fullName.trim() && UK_MOBILE_RE.test(data.mobile.trim()));
   const valid = restValid && emailValid;
 
-  /* null while nothing has been asked, then { exists } or "failed". */
-  const [check, setCheck] = useState<Check>(null);
-  const [checking, setChecking] = useState(false);
-  const checkId = useRef(0);
+  /* Everything the panel needs to be worth showing: an address to register,
+     somebody who is not already signed in, and nothing settled yet.
 
-  /* The answer, once there is one and it is not the failure. Held as its
-     own value so the panel below is guarded by the thing it reads from
-     rather than by a boolean that only implies it. */
-  const account = check && check !== "failed" ? check : null;
-  const showPanel = Boolean(account) && emailValid && !data.verified && !signedIn;
+     There is no account probe behind this any more. The mock it replaced
+     asked an endpoint that does not exist and should not — an unauthenticated
+     yes/no on any address typed into a box is an enumeration oracle. The
+     panel now opens on "create an account" and finds out the other way, from
+     the 422 that /register answers for an address it already holds. See the
+     header of IdentityPanel. */
+  const showPanel = emailValid && !data.verified && !signedIn;
 
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const settleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(
-    () => () => {
-      clearTimeout(advanceTimer.current);
-      clearTimeout(settleTimer.current);
-    },
-    [],
-  );
-
-  /* Every settled address is a request, so the answers can arrive out of
-     order — a slow first call landing after a fast second would describe
-     the wrong address. Only the latest id is allowed to write. */
-  const runCheck = (email: string) => {
-    const id = ++checkId.current;
-    setChecking(true);
-    setCheck(null);
-    checkAccount(email)
-      .then((r) => {
-        if (id !== checkId.current) return;
-        setChecking(false);
-        setCheck(r);
-      })
-      .catch(() => {
-        if (id !== checkId.current) return;
-        setChecking(false);
-        /* Not silently treated as "no account". Registering a second
-           account on an address that already has one is worse than
-           asking someone to press a button again. */
-        setCheck("failed");
-      });
-  };
-
-  /* The address the answer on screen belongs to.
-     Without this, blurring the field asked again for an address already
-     answered — and after autofill the cursor is still in the field, so
-     the first thing tapped is the panel's own button. The blur fires on
-     mousedown, the panel unmounts before the click lands, and the tap is
-     swallowed. Nothing happens, twice. */
-  const checkedFor = useRef("");
-
-  const settle = (value: string) => {
-    const v = value.trim().toLowerCase();
-    clearTimeout(settleTimer.current);
-    if (!EMAIL_RE.test(v) || checkedFor.current === v) return;
-    checkedFor.current = v;
-    runCheck(value);
-  };
-
-  /* Coming back to this screen — from Back, from an Edit link, from the
-     browser's own back button — remounts it, and the answer to the last
-     check went with it. The address is still in the field, so nothing
-     will ever ask again: no panel, Next disabled, no way forward and
-     nothing on screen saying why. Ask on arrival instead. */
-  useEffect(() => {
-    if (!data.verified) settle(data.email);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => () => clearTimeout(advanceTimer.current), []);
 
   /* The panel opens below the fold on a phone, so the spinner finishes
      and the thing it was fetching is off screen. "nearest" scrolls the
@@ -201,28 +107,9 @@ export default function ContactScreen() {
   }, [showPanel]);
 
   const onEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const type = (e.nativeEvent as InputEvent).inputType;
-    patch({ email: value, verified: false, identity: "" });
-    clearTimeout(settleTimer.current);
+    patch({ email: e.target.value, verified: false, identity: "" });
     setSugDismissed(false);
     setSugIndex(-1);
-    /* Whatever was known about the old address no longer applies, and a
-       check still in flight for it must not be allowed to land. */
-    checkId.current += 1;
-    checkedFor.current = "";
-    setChecking(false);
-    setCheck(null);
-
-    if (!EMAIL_RE.test(value.trim())) return;
-    if (!type || WHOLE_VALUE.includes(type)) {
-      settle(value);
-      return;
-    }
-    settleTimer.current = setTimeout(
-      () => settle(value),
-      domainComplete(value) ? PAUSE_KNOWN_MS : PAUSE_MS,
-    );
   };
 
   /* Most people never wait for either pause: they tap a domain. The list
@@ -232,16 +119,8 @@ export default function ContactScreen() {
 
   const chooseSuggestion = (addr: string) => {
     patch({ email: addr, verified: false, identity: "" });
-    clearTimeout(settleTimer.current);
-    checkId.current += 1;
-    checkedFor.current = "";
-    setChecking(false);
-    setCheck(null);
     setSugDismissed(true);
     setSugIndex(-1);
-    /* Straight to the check. Picking from the list is as settled as an
-       address gets — there is nothing left to wait for. */
-    settle(addr);
   };
 
   /* Same problem as the panel, worse: the email field sits low, so the
@@ -286,7 +165,23 @@ export default function ContactScreen() {
      would strand the person on Review with a gap they never saw; focus
      the gap instead. Deliberately no error flash — being marked wrong
      immediately after succeeding reads as a punishment. */
+  /* Registering or logging in is the last thing this screen asks for, so
+     once it lands there is nothing left here to do — move on rather than
+     making someone hunt for a Next button that just went live.
+
+     Only when the rest is already filled, which is the ordinary case
+     since email sits last. If a field is still empty, jumping past it
+     would strand the person on Review with a gap they never saw; focus
+     the gap instead. Deliberately no error flash — being marked wrong
+     immediately after succeeding reads as a punishment.
+
+     The booking's address is *not* saved here, even though this is the first
+     moment there is an account to save it against. It is saved once, in
+     confirmOrder — see the note there. Doing it at this point would cover the
+     panel and miss every other way a session can appear on this screen: the
+     Log in link, the header, another tab. */
   const onResolved = () => {
+    void refreshSession();
     if (restValid) {
       /* A beat, so the confirmation registers as a result of the tap
          rather than the screen changing under the finger. */
@@ -386,15 +281,6 @@ export default function ContactScreen() {
           aria-describedby={errors.mobile ? `${ids}-mb-err` : undefined}
         />
       </Field>
-      {mobileTaken && !data.verified && (
-        <p className={NUDGE} aria-live="polite">
-          This number already has an account.{" "}
-          <Button variant="bare" className={NUDGE_LINK} onClick={() => openLogin()}>
-            Log in
-          </Button>
-        </p>
-      )}
-
       <Field label="Email address" id={`${ids}-em`} error={errors.email}>
         {/* The spinner sits in the field rather than under it, so the
             wait is attached to the thing being waited on and nothing
@@ -404,7 +290,6 @@ export default function ContactScreen() {
           <Input
             id={`${ids}-em`}
             ref={emailRef}
-            className={checking ? "pr-[46px]" : ""}
             type="email"
             value={data.email}
             onChange={onEmailChange}
@@ -414,7 +299,6 @@ export default function ContactScreen() {
               setTouched((t) => ({ ...t, email: true }));
               setEmailFocus(false);
               if (data.verified) setEditingEmail(false);
-              if (!data.verified) settle(data.email);
             }}
             placeholder="you@example.com"
             autoComplete="email"
@@ -427,12 +311,6 @@ export default function ContactScreen() {
             aria-invalid={errors.email ? "true" : undefined}
             aria-describedby={errors.email ? `${ids}-em-err` : undefined}
           />
-          {checking && (
-            <span
-              className="pointer-events-none absolute right-4 top-1/2 -mt-[9px] h-[18px] w-[18px] rounded-[50%] border-2 border-bk-line-2 border-t-bk-ink-2 animate-spin-fast motion-reduce:animate-none motion-reduce:border-r-bk-ink-2 motion-reduce:border-b-bk-ink-2 motion-reduce:border-t-bk-line-2"
-              aria-hidden="true"
-            />
-          )}
         </span>
         {sugOpen && (
           <ul className={SUG} id={`${ids}-sug`} ref={sugRef} role="listbox" aria-label="Email suggestions">
@@ -458,25 +336,9 @@ export default function ContactScreen() {
           </ul>
         )}
       </Field>
-      {/* Announced, not just drawn, or the wait is silent to a screen
-          reader while the button they want stays disabled. */}
-      <span className="visually-hidden" role="status">
-        {checking ? "Checking your email address" : ""}
-      </span>
 
-      {check === "failed" && (
-        <p className={NUDGE} aria-live="polite">
-          {/* Never assumed to mean "no account". Registering a second
-              account on an address that already has one is the worse
-              outcome, so this stops rather than guesses. */}
-          We could not check that address just now.{" "}
-          <Button variant="bare" className={NUDGE_LINK} onClick={() => runCheck(data.email)}>
-            Try again
-          </Button>
-        </p>
-      )}
 
-      {showPanel && account && (
+      {showPanel && (
         /* The scroll target. These margins are what stop scrollIntoView
            tucking the panel under the sticky header or behind the action
            bar. */
@@ -486,7 +348,6 @@ export default function ContactScreen() {
         >
           <IdentityPanel
             key={data.email}
-            known={account.exists}
             data={data}
             patch={patch}
             onLogin={openLogin}

@@ -4,19 +4,19 @@ Which file calls which endpoint, and what it replaces. Source of truth for the e
 themselves is [`FE-API-GUIDE.md`](./FE-API-GUIDE.md); this file maps that brief onto our
 code. Path constants live in [`utils/routes/index.tsx`](../utils/routes/index.tsx).
 
-**Nothing below is wired yet** except the rows marked *live*. Integration order is
-recorded in [`STATUS.md`](./STATUS.md): logged-in flow first, guest checkout after.
+**Nothing below is wired yet** except the rows marked *live*.
 
-**The signed-in flow is complete end to end.** Registration, login, email verification,
-address, slots, card capture and order creation are all wired and proven against staging.
-What is left is the guest flow, and the account surface (card management, order tracking,
-cancellation) which has no design yet.
+**Both flows are complete end to end.** A signed-in customer and a visitor with no account
+can each book from an empty browser to a placed order, proven against staging. What is left
+is the account surface — order tracking, cancellation, preferences — which has no design yet.
 
 ## Ground rules from the brief
 
 - `Content-Type: application/json` on POST. PATCH needs `application/merge-patch+json`
   (only `/users/{id}/update-address` uses PATCH).
-- `Authorization: Bearer <token>` on everything except the five public endpoints below.
+- `Authorization: Bearer <token>` on everything except the public endpoints below. The brief
+  says four; probed, it is **eight** — `/find-addresses` and both slot endpoints answer 200
+  with no token, and `/login-with-code` is not in the brief at all.
 - **Money is integers in pennies** — `1295` = £12.95. Dates `YYYY-MM-DD`, times `HH:MM`.
 
 ---
@@ -25,8 +25,9 @@ cancellation) which has no design yet.
 
 | Endpoint | Call site | State |
 |---|---|---|
-| `GET /system-status` | [`components/layout/announce-bar/index.tsx`](../components/layout/announce-bar/index.tsx) | **live and correct** — reads `orderDiscounts`, picks `forOrder === 1`, appends `%` when `type === "percent"`, falls back to `BRAND.offer` on any failure |
-| `POST /register` | [`utils/api/index.ts`](../utils/api/index.ts) `register()` → [`AuthModal.tsx:402`](../components/auth/auth-modal/index.tsx) | **live**, payload matches: `{ email, plainPassword, name, phone? }` |
+| `GET /system-status` | [`utils/hooks`](../utils/hooks/index.ts) `useOfferDiscount()` → [`announce-bar`](../components/layout/announce-bar/index.tsx) and [`booking-shell`](../components/booking/booking-shell/index.tsx) | **live and correct**, and now the **signed-out** source only — reads `orderDiscounts`, picks `forOrder === 1`, appends `%` when `type === "percent"`, falls back to `BRAND.offer` on any failure. Probed: `[{forOrder:1,type:"percent",amount:25},{forOrder:2,type:"percent",amount:15}]`. Not requested at all once somebody is signed in |
+| `POST /register` | [`utils/api/index.ts`](../utils/api/index.ts) `register()` → [`AuthModal`](../components/auth/auth-modal/index.tsx), and [`utils/auth`](../utils/auth/index.ts) `registerAccount()` → [`identity-panel`](../components/booking/identity-panel/index.tsx) | **live**. Two things the brief gets wrong, both probed: it **answers with a token** (201 carries `{ token, user }`, so "call login next" is a round trip for nothing), and **`plainPassword` is optional** — `{ email, name }` alone is a 201. The second is what makes the design's *One-click registration* real rather than aspirational. A duplicate address is `422` naming `email` — *"This email is already taken."* — which **is** the account check the UI used to mock |
+| `POST /login-with-code` | [`utils/auth`](../utils/auth/index.ts) `loginWithCode()` → [`identity-panel`](../components/booking/identity-panel/index.tsx) and the checkout's [`LoginSheet`](../components/booking/overlays/index.tsx) | **live, and absent from the brief** — `{ email, code }` → `{ token, user }`, the same shape as `/login-check`. Found by probing: a wrong code is `400 "Incorrect code"`. It is the half `verificationCodeRequest`'s `login` purpose was missing — without it the checkout could send codes that nothing would accept. Always writes a session, unlike `login()`: reading a code out of an inbox proves the address, which is the very thing the pending-token rule exists to establish |
 | `POST /login-check` | [`utils/auth`](../utils/auth/index.ts) `login()` → [`AuthModal.tsx`](../components/auth/auth-modal/index.tsx) `submitLogin` | **live and integrated** — goes through `apiCall`, reads the response's `user` object (the only source of `emailVerifiedAt`), stores the JWT in the `authtoken` cookie |
 | `GET /my-status` | [`utils/auth`](../utils/auth/index.ts) `loadSession()` → [`AuthProvider.tsx`](../components/common/AuthProvider/index.tsx) on mount | **live and integrated** — restores the session on load; a 401 clears the dead token |
 | `POST /verification-code/request` | [`utils/auth`](../utils/auth/index.ts) `requestVerificationCode()` | **wrapper written, no call site yet** — `{ email, purpose }`, purpose ∈ `email_verification` \| `login` \| `password_reset`. Live on staging: 200 for an unknown address, 422 naming `purpose` for a bad one. Everywhere we hold a token, `emailVerificationResend` is preferred — it follows the account rather than an address in our state, and it can actually report a failure |
@@ -34,7 +35,24 @@ cancellation) which has no design yet.
 | `POST /reset-password/confirm` | [`utils/auth`](../utils/auth/index.ts) `confirmPasswordReset()` → [`components/reset-password`](../components/reset-password/index.tsx) | **live** — public, so the emailed link finishes on any device with no session. A successful reset also verifies the address, so the page logs them straight in |
 
 `/my-status`'s `recurring` is read by `TimeScreen` (to hide Repeat) and by `confirmOrder`.
-`completedOrderCount`, `recentActiveOrder` and `nextOrderDiscount` are fetched and still unread.
+`nextOrderDiscount` is read by [`utils/discount`](../utils/discount/index.ts) via `useOfferDiscount()`
+— it is the **signed-in** source for both the offer bar and the checkout's discount row, and `null`
+means neither renders.
+
+**Observed `null` on a real staging account** (`+m203@gmail.com`, 22/08/26) — so the null path is
+confirmed and that account correctly sees no offer bar and no discount row. **The non-null shape is
+still unconfirmed**: the brief never named its fields and nothing has yet seen one populated, so the
+reader accepts `amount` / `value` / `percentage` and `type` / `unit` and returns `null` on anything
+else. When a populated one does turn up, collapse the reader to the fields that actually come back
+and tighten `MyStatus.nextOrderDiscount` in [`utils/auth`](../utils/auth/index.ts) from
+`Record<string, unknown>` to a named interface.
+
+Worth knowing before deriving it locally instead: that account has `completedOrderCount: 0`, which
+against `/system-status`'s table would say *25% off your first order* — while the server itself says
+`null`. It also has a `recentActiveOrder`, which is the likeliest reason. **The two do not agree, and
+the server is the one that decides**, which is why `completedOrderCount` is not used for this.
+
+`completedOrderCount` and `recentActiveOrder` are fetched and still unread.
 
 `/system-status` also returns fields nothing reads yet: `serviceAreas`, `supportEmail`,
 `supportWhatsAppNumber`, `supportDaysLabel`, `supportHoursLabel`,
@@ -79,8 +97,27 @@ Response field is `postcodeString`, not `postcode`. The address fields (`line1`,
 
 | Endpoint | Call site | Replaces |
 |---|---|---|
-| `GET /slots/pickup?days=` | [`utils/booking/api.ts`](../utils/booking/api.ts) `fetchPickupSlots()` → [`TimeScreen.tsx`](../components/booking/screens/time/index.tsx) | **live** — 21 days requested, 28 is the documented max. **Needs a saved address** or it 500s from `AreaResolver` |
-| `GET /slots/dropoff?pickupSlot=&pickupDate=` | [`utils/booking/api.ts`](../utils/booking/api.ts) `fetchDropoffSlots()` → `TimeScreen.tsx` | **live** — `pickupSlot` goes as an IRI (`/slots/{id}`), which is why slot ids are carried through the booking |
+| `GET /slots/pickup?days=&postcode=` | [`utils/booking/api.ts`](../utils/booking/api.ts) `fetchPickupSlots()` → [`TimeScreen.tsx`](../components/booking/screens/time/index.tsx) | **live** — 21 days requested, 28 is the documented max. **`postcode` is undocumented and is what makes the guest flow possible** |
+| `GET /slots/dropoff?pickupSlot=&pickupDate=&postcode=` | [`utils/booking/api.ts`](../utils/booking/api.ts) `fetchDropoffSlots()` → `TimeScreen.tsx` | **live** — `pickupSlot` goes as an IRI (`/slots/{id}`), which is why slot ids are carried through the booking |
+
+**The `postcode` parameter is the single most important undocumented thing in this file.**
+Without it, both endpoints resolve the area from the signed-in user and answer **500** —
+`Expected an instance of App\Entity\User. Got: NULL` — to anybody else. With it they answer
+200 with no token at all. That is the difference between a guest checkout that works and one
+that cannot exist, and the brief does not mention it.
+
+Two consequences worth knowing:
+
+- **It overrides the account's saved address.** Probed: the same signed-in account gets
+  different windows for two different postcodes. So we send it for everybody, and the windows
+  follow the address being booked rather than whatever was last saved.
+- **The postcode must already be known to be served.** An inactive one is a 500 whose message
+  is written for us rather than for a customer: *"Callers check the postcode is served before
+  asking for its slots."* The address step's `isActive` check is that guard.
+
+The 500-instead-of-401 on the no-postcode path is still a backend bug: authentication is
+running after the controller has already dereferenced a null user, and the response carries a
+vendor stack trace.
 
 `pickupSlot` is passed as an IRI (`/slots/{id}`), not a bare id — use `routes.api.slotIri`.
 The response is day groups of `{ id, startTime, endTime }`; our `Availability` type is a map
@@ -171,26 +208,29 @@ Statuses: `created`, `awaiting_review`, `payment_pending`, `payment_failed`, `pr
 
 | Feature | Where it appears | Note |
 |---|---|---|
-| Account-exists check | `checkAccount`, `accountExists`, `mobileHasAccount` → [`ContactScreen.tsx`](../components/booking/screens/contact/index.tsx), [`BookingShell.tsx`](../components/booking/booking-shell/index.tsx), [`utils/booking/flow.ts`](../utils/booking/flow.ts) | `ContactScreen` probes on blur and has spinner, retry and stale-response handling. Nothing to call |
-| Apple / Google sign-in | [`AuthModal.tsx:38`](../components/auth/auth-modal/index.tsx), [`Overlays.tsx:243`](../components/booking/overlays/index.tsx) | both render provider buttons |
-| SMS / mobile verification | `mobileHasAccount`, the tel row in `ContactScreen` | the brief covers email verification only |
+| ~~Account-exists check~~ | ~~`checkAccount`, `accountExists`, `mobileHasAccount`~~ | **Gone, and deliberately not replaced.** An unauthenticated yes/no on any address typed into a box is an account enumeration oracle. `POST /register`'s 422 on `email` is the answer instead — authoritative, rate-limited with registration, and only reachable by somebody who has just tried to create an account on that address |
+| Set a password while signed in | the confirmation's "Keep your account" | **No endpoint.** `PATCH /users/{id}` is 405; `change-password` and `set-password` are 404. The block asks `POST /reset-password/request` to email a link instead, which lands on our own `/reset-password` page |
+| Apple / Google sign-in | [`AuthModal`](../components/auth/auth-modal/index.tsx) only | **Removed from the checkout.** The mock returned an account and no token, which was survivable while the checkout ran on mocks and is not now — every step past identity needs a real Bearer token, so a provider button waved somebody through to a payment step that answers 401. The header's copy of the mock is still there |
+| SMS / mobile verification | the tel row in `ContactScreen` | the brief covers email verification only |
 | Pricing | [`utils/content/index.ts`](../utils/content/index.ts) `PRICING`, ten categories | invented for the design |
 | Ratings | [`utils/content/index.ts`](../utils/content/index.ts) `RATING = { 4.9, 63 }` | invented for the design |
 | `POST /request-deletion` | [`request-deletion/page.tsx:24`](<../app/(legal)/request-deletion/page.tsx>) | in production use, URL hardcoded rather than `config.apiUrl`, and absent from the brief |
 
 ---
 
-## Every mock, accounted for
-
-Each of these is one function body in [`utils/booking/mocks.ts`](../utils/booking/mocks.ts):
+## Every mock, accounted for — there are none left
 
 | Mock | Status |
 |---|---|
-| ~~`makeReference`~~ | **gone** — `createOrder` in `utils/booking/api.ts`; the server mints the number |
-| ~~`attemptLogin`~~ | **gone** — it had no call site left; `utils/auth` `login()` is the real one |
-| ~~`lookupAddresses`~~ | **gone** — `findAddresses` in `utils/booking/api.ts` calls the real endpoint. `SERVED` went with it |
-| ~~`fetchCollectionAvailability`~~ | **gone** — `fetchPickupSlots` in `utils/booking/api.ts` |
-| ~~`fetchDeliveryAvailability`~~ | **gone** — `fetchDropoffSlots`. The eco rule survived the move into `markEcoWindows` in model.ts: the endpoints send no eco flag, and the same-weekday-same-window round schedule is real, not a placeholder |
-| `verifyCode` | still mocked **in the checkout only**, and unreachable while signed in: the seed sets `verified: true`, so `IdentityPanel` never mounts. `utils/auth` `verifyEmail()` is the real one; `LoginSheet` still compares against `"123456"` for guests |
-| `checkAccount`, `accountExists`, `mobileHasAccount` | **unbacked**, and now unreachable for a signed-in user — `furthestAllowed` takes a `signedIn` flag and `ContactScreen` gates on it |
-| `signInWith` | **unbacked** |
+| ~~`makeReference`~~ | **gone** — `createOrder`; the server mints the number |
+| ~~`attemptLogin`~~ | **gone** — `login()` in `utils/auth` |
+| ~~`lookupAddresses`~~ | **gone** — `findAddresses`. The `SERVED` district table went with it |
+| ~~`fetchCollectionAvailability`~~ | **gone** — `fetchPickupSlots` |
+| ~~`fetchDeliveryAvailability`~~ | **gone** — `fetchDropoffSlots`. The eco rule survived into `markEcoWindows`: the endpoints send no flag, and same-weekday-same-window is the real round schedule |
+| ~~`verifyCode`~~ | **gone** — `POST /login-with-code` for signing in, `POST /email-verification/verify` for confirming an address |
+| ~~`accountExists` / `checkAccount` / `mobileHasAccount`~~ | **deleted, not replaced** — see the row above |
+| ~~`signInWith`~~ | **gone from the checkout** — still mocked in `components/auth/auth-modal` |
+
+[`utils/booking/mocks.ts`](../utils/booking/mocks.ts) is now only the record of where each one
+went, kept because three of them turned out to be the wrong question rather than a missing
+endpoint.

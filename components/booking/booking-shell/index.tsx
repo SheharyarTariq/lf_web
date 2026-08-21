@@ -10,12 +10,11 @@ import { BookingContext, type BookingContextValue } from "@/utils/booking/contex
 import SummaryPanel from "@/components/booking/summary-panel";
 import Loader from "@/components/common/Loader";
 import { furthestAllowed, isRoute, routesFor, stepOf, type Route } from "@/utils/booking/flow";
-import { accountExists } from "@/utils/booking/mocks";
-import { createOrder } from "@/utils/booking/api";
-import { DISCOUNT, EMPTY, type BookingData, type BookingPatch, type Leg } from "@/utils/booking/model";
+import { createOrder, updateAddress } from "@/utils/booking/api";
+import { EMPTY, type BookingData, type BookingPatch, type Leg } from "@/utils/booking/model";
 import type { MyStatus } from "@/utils/auth";
 import { INHERIT_FONT } from "@/utils/booking/styles";
-import { useWide } from "@/utils/hooks";
+import { useOfferDiscount, useWide } from "@/utils/hooks";
 
 /**
  * Everything the six screens share: the data, the router, the overlays and
@@ -66,6 +65,12 @@ export default function BookingShell({ children }: { children: React.ReactNode }
   const wide = useWide();
   const { user, status, loading, openAuth, refreshSession } = useAuth();
   const signedIn = Boolean(user);
+
+  /* The same answer the offer bar shows, from the same place — a bar promising
+     25% above a review screen offering nothing would be worse than either
+     alone. Replaces the hardcoded 25% that used to come from the model and was
+     shown to returning customers too. */
+  const { discount } = useOfferDiscount(status);
 
   const [data, setData] = useState<BookingData>(EMPTY);
   const [exiting, setExiting] = useState(false);
@@ -206,6 +211,46 @@ export default function BookingShell({ children }: { children: React.ReactNode }
   }, [wide, step, dirty, router]);
 
   const confirmOrder = useCallback(async () => {
+    /* ── The address, saved once, here ─────────────────────────────
+       This is the only place the booking's address is written to the account,
+       and it is here because it is the only point every route through the
+       checkout passes through with an id in hand.
+
+       The address step cannot do it for a guest — PATCH
+       /users/{id}/update-address needs an account and there is none yet — and
+       doing it the moment one appears would cover the identity panel and miss
+       the Log in link, the header, and a sign-in that happened in another tab.
+       It also would not survive the address being edited afterwards from
+       Review, which the summary's Edit links make a one-tap thing to do.
+
+       Slots no longer depend on it (they take the postcode directly), but the
+       order does: this is the address a van is sent to. Probed, POST /orders
+       accepts an account with no address at all and answers 201 — so nothing
+       downstream will catch a booking with nowhere to collect from, which
+       makes it ours to refuse.
+
+       A failure stops the order. An order that cannot be collected is worse
+       than one that has to be placed again, and the message is the server's
+       own — these are 4xx violations naming a field. */
+    if (user?.id) {
+      const saved = await updateAddress(user.id, {
+        line1: data.line1,
+        line2: data.line2,
+        line3: data.line3,
+        town: data.town,
+        county: data.county,
+        postcode: data.postcode,
+      });
+      if (!saved.ok) {
+        return {
+          ok: false,
+          message:
+            saved.message ||
+            "We could not save your collection address. Please check it and try again.",
+        };
+      }
+    }
+
     /* One recurring subscription per account: a second `frequency` is refused,
        and refused as a 500 rather than as something we could show anybody. The
        time step hides the toggle when /my-status reports one, so this only
@@ -229,7 +274,7 @@ export default function BookingShell({ children }: { children: React.ReactNode }
 
     router.push("/book/confirmed");
     return { ok: true };
-  }, [data, router, refreshSession, status]);
+  }, [data, router, refreshSession, status, user]);
 
   const value = useMemo<BookingContextValue>(
     () => ({
@@ -242,20 +287,23 @@ export default function BookingShell({ children }: { children: React.ReactNode }
       timeLeg,
       setTimeLeg,
       moreBelow,
-      discount: DISCOUNT,
+      discount,
       reference,
-      /* Whether the confirmation offers to keep the account it just made.
-         Asked of the address, not of how they signed in: someone who
-         verified a code on an address that already had an account does not
-         need a password set, and someone who came in through Apple or
-         Google is new to us unless the address is one we know. */
-      isNewAccount: !user && !accountExists(data.email),
+      /* Whether the confirmation offers to finish the account this booking
+         created. `verified` is the answer: an account reached by typing a code
+         out of an inbox has proved its address and needs nothing, while one
+         made by the panel's one-click path — which is most of them — has an
+         unproved address and no password on it.
+
+         Read off /my-status rather than off how they signed in, so it stays
+         right for somebody who verified in another tab. */
+      isNewAccount: Boolean(user) && user?.verified === false,
       confirmOrder,
       requestExit: () => (dirty ? setExiting(true) : router.push("/")),
       openLogin: (prefill?: string) => setLoginFor(prefill ?? data.email ?? ""),
       openBilling: () => setBillingOpen(true),
     }),
-    [data, patch, step, go, back, wide, timeLeg, moreBelow, reference, user, confirmOrder, dirty, router],
+    [data, patch, step, go, back, wide, timeLeg, moreBelow, discount, reference, user, confirmOrder, dirty, router],
   );
 
   const showChrome = step !== "confirmed";
@@ -299,7 +347,7 @@ export default function BookingShell({ children }: { children: React.ReactNode }
                above seeds the booking flow's own LoginSheet. */
             user || step === "confirmed" ? null : () => openAuth("login", data.email)
           }
-          user={user ? { email: user.email } : null}
+          user={user ? { email: user.email, fullName: user.fullName } : null}
           scrolled={scrolled}
         >
           {showChrome && (

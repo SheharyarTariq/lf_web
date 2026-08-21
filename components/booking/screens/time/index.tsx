@@ -132,7 +132,7 @@ export default function TimeScreen() {
   useEffect(() => {
     let live = true;
     void (async () => {
-      const r = await fetchPickupSlots();
+      const r = await fetchPickupSlots(data.postcode);
       if (!live) return;
       if (!r.ok) {
         setCollectionError(r.message);
@@ -144,7 +144,11 @@ export default function TimeScreen() {
     return () => {
       live = false;
     };
-  }, [pickupTick]);
+    /* The postcode is a dependency because it is now what the endpoint
+       resolves the area from — for a signed-out visitor it is the *only*
+       thing it has. Changing the address and coming back re-asks, rather than
+       offering the previous area's windows under a new address. */
+  }, [pickupTick, data.postcode]);
 
   /* Keyed on the chosen slot's id, because the endpoint needs the IRI — and a
      different window genuinely changes which days come back, not just which
@@ -157,7 +161,7 @@ export default function TimeScreen() {
 
     let live = true;
     void (async () => {
-      const r = await fetchDropoffSlots(slotId, day);
+      const r = await fetchDropoffSlots(slotId, day, data.postcode);
       if (!live) return;
       if (!r.ok) {
         setDeliveryError(r.message);
@@ -171,7 +175,7 @@ export default function TimeScreen() {
     return () => {
       live = false;
     };
-  }, [dropoffTick, data.collectionSlotId, data.collectionDay, data.collectionSlot]);
+  }, [dropoffTick, data.collectionSlotId, data.collectionDay, data.collectionSlot, data.postcode]);
 
   /* Retries are event handlers, so they may clear state outright — and a tick
      is what re-runs the effect above without duplicating the fetch here. */

@@ -1,62 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Button from "@/components/common/Button";
-import apiCall from "@/utils/api-call";
-import { routes } from "@/utils/routes";
+import { useAuth } from "@/components/common/AuthProvider";
 import { BRAND } from "@/utils/content";
-import { useStartBooking } from "@/utils/hooks";
+import { useOfferDiscount, useStartBooking } from "@/utils/hooks";
 
 /**
  * The lime offer bar, above the sticky header so it scrolls away rather
  * than taking up permanent space. Clickable, because an offer people cannot
  * act on is just decoration.
  *
- * Replaces the old PromoBar and keeps its one piece of live wiring: the
- * discount figure comes from GET /system-status. The design's static "25%
- * off your first order" is the fallback, so an unset NEXT_PUBLIC_API_URL,
- * an offline server or a changed payload all degrade to the copy that was
- * designed rather than to a blank.
+ * The figure is live, and which source it comes from depends on whether we
+ * know who is reading it — see `useOfferDiscount`. Signed out it is the
+ * public first-order row from /system-status; signed in it is this account's
+ * own `nextOrderDiscount` from /my-status, which is the only source that can
+ * be right for somebody on their third order.
  *
- * TODO (integration phase): the checkout has its own hardcoded DISCOUNT
- * constant. Both should read one server-side eligibility answer — as it
- * stands a returning customer is shown a first-order offer.
+ * Signed in with no discount, the bar does not render at all. It used to
+ * advertise 25% off a first order to returning customers, which is the bug
+ * this component's TODO carried for as long as the figure had only one source.
  */
-
-interface OrderDiscount {
-  forOrder: number;
-  type: string;
-  amount: number;
-}
-
-interface SystemStatusResponse {
-  orderDiscounts?: OrderDiscount[];
-}
-
 export default function AnnounceBar() {
-  const [offer, setOffer] = useState<string>(BRAND.offer);
+  const { status } = useAuth();
+  const { discount, signedIn } = useOfferDiscount(status);
   const startBooking = useStartBooking();
 
-  useEffect(() => {
-    async function fetchDiscount() {
-      const res = await apiCall<SystemStatusResponse>({
-        endpoint: routes.api.systemStatus,
-        method: "GET",
-        /* A missing discount is not something to interrupt anyone about —
-           the designed copy is already on screen and reads correctly. */
-        showErrorToast: false,
-      });
-      if (!res.success || !Array.isArray(res.data?.orderDiscounts)) return;
+  /* Nothing to offer this account. No bar, rather than filler: a strip that
+     advertises nothing is decoration, and the checkout already takes the same
+     line with its discount row. */
+  if (signedIn && !discount) return null;
 
-      const firstOrderDiscount = res.data.orderDiscounts.find((d) => d.forOrder === 1);
-      if (firstOrderDiscount && typeof firstOrderDiscount.amount === "number") {
-        const suffix = firstOrderDiscount.type === "percent" ? "%" : "";
-        setOffer(`${firstOrderDiscount.amount}${suffix} off your first order`);
-      }
-    }
-
-    fetchDiscount();
-  }, []);
+  /* The designed copy is the fallback for the signed-out path only, so an
+     unset NEXT_PUBLIC_API_URL or an offline server degrades to the wording
+     that was drawn rather than to a blank. It is never used to fill in for a
+     signed-in account — that would be the lie this change removes. */
+  const offer = discount?.label ?? BRAND.offer;
 
   return (
     <Button

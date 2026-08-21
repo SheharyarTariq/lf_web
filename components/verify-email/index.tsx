@@ -36,7 +36,7 @@ import Input from "@/components/common/Input";
 import Loader from "@/components/common/Loader";
 import { useAuth } from "@/components/common/AuthProvider";
 import { useBearerToken } from "@/utils/hooks";
-import { logout, resendVerification, verifyEmail } from "@/utils/auth";
+import { fetchStatus, logout, resendVerification, verifyEmail } from "@/utils/auth";
 import { CODE_LENGTH, RESEND_SECONDS } from "@/utils/auth/model";
 import { AUTH_CODE_INPUT } from "@/utils/auth/styles";
 import { validateAndSetErrors } from "@/utils/validation";
@@ -65,7 +65,7 @@ export default function VerifyEmail({
   canOpenApp: boolean;
 }) {
   const bearer = useBearerToken();
-  const { user, loading, openAuth, refreshSession } = useAuth();
+  const { user, loading, openAuth, closeAuth, refreshSession } = useAuth();
 
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [code, setCode] = useState(token);
@@ -73,6 +73,10 @@ export default function VerifyEmail({
   const [busy, setBusy] = useState(false);
   const [resendAt, setResendAt] = useState(0);
   const [left, setLeft] = useState(0);
+  /* Whose address the "already confirmed" pane is talking about. Only set on
+     the path that had to ask /my-status to find out; the ordinary path already
+     has it from the session. */
+  const [confirmedEmail, setConfirmedEmail] = useState<string | null>(null);
 
   /* Set to the credential it was tried with, not to a boolean: that survives
      StrictMode's double mount while still allowing exactly one more attempt if
@@ -80,20 +84,38 @@ export default function VerifyEmail({
   const attemptedFor = useRef<string | null>(null);
   const prompted = useRef(false);
 
+  /* `bearer === undefined` is "the cookie has not been read yet", which is what
+     every hydration render sees, and it is deliberately not folded into the
+     `!bearer` arm below. That arm opens a login modal, and offering to log in
+     someone who is already holding a token is the bug this shape exists to
+     prevent — see the auto-open effect. A spinner is the honest answer while
+     the answer is unknown, and it costs one commit.
+
+     `!token` stays first: a bare /verify-email renders manual entry with no
+     credential involved, so it should not wait on a cookie to say so. */
   const view: ViewState =
     outcome ??
     (!token
       ? "noToken"
-      : !bearer
-        ? "needsLogin"
-        : !loading && user?.verified
-          ? "alreadyVerified"
-          : "checking");
+      : bearer === undefined
+        ? "checking"
+        : !bearer
+          ? "needsLogin"
+          : !loading && user?.verified
+            ? "alreadyVerified"
+            : "checking");
 
   const submit = useCallback(
     async (value: string) => {
       const r = await verifyEmail(value);
       if (r.ok) {
+        /* Before the await, not after it, or a modal sits over the success
+           pane for the length of a /my-status round trip. This is not what
+           stops the modal opening — the `undefined` arm in `view` is — it is
+           what makes "a login form on top of a page saying you are signed in"
+           unreachable from any route, including ones that do not exist yet.
+           A no-op on every path we have: nobody is logged out here. */
+        closeAuth();
         /* utils/auth has already promoted the pending token, so there is a
            session now — but the header is still rendering the one from before
            it existed. */
@@ -116,11 +138,42 @@ export default function VerifyEmail({
         setOutcome(null);
         return;
       }
-      /* 400 covers "wrong" and "expired" both, and the API does not say which
-         — so neither does the copy. */
-      setOutcome(r.status === 400 || r.status === 422 ? "invalid" : "error");
+      if (r.status === 400 || r.status === 422) {
+        /* 400 is "wrong", "expired" and "already used" all at once, and the
+           API does not say which. It used to be reported as a dead link on
+           that basis — but two of the ordinary ways to land here are not the
+           link's fault at all, and both end with an address that is in fact
+           confirmed:
+
+             · the code was already spent, by another tab or an earlier click
+             · a leftover pendingtoken from a previous signup posted this code
+               under a different account — invisible in the header, because
+               loadSession only answers for a session cookie
+
+           So ask what is true before blaming the link. The POST just emptied
+           apiCall's GET cache, so this reads fresh.
+
+           Note what this can and cannot know: /my-status describes whoever
+           holds the token, which in the second case above is *not* the account
+           the code was issued for. So the answer names the address rather than
+           asserting a bare "you're all set" — "<addr> is already confirmed" is
+           true either way, and makes a mismatch the user's to spot instead of
+           ours to get wrong. */
+        const who = await fetchStatus();
+        if (who?.emailVerifiedAt) {
+          closeAuth();
+          setConfirmedEmail(who.email ?? null);
+          setOutcome("alreadyVerified");
+          return;
+        }
+        /* Genuinely unverified: the code really is wrong or expired, and the
+           existing copy is the honest answer. */
+        setOutcome("invalid");
+        return;
+      }
+      setOutcome("error");
     },
-    [refreshSession],
+    [closeAuth, refreshSession],
   );
 
   /* The automatic path. Nothing is set synchronously here: `view` is derived,
@@ -135,7 +188,16 @@ export default function VerifyEmail({
   }, [token, bearer, outcome, loading, user?.verified, submit]);
 
   /* Offered once, not on every render, and never re-opened after a dismiss —
-     the page keeps its own Log in button for that. */
+     the page keeps its own Log in button for that.
+
+     This effect is why `view` distinguishes "not read yet" from "no token", so
+     do not collapse those two arms back together. It latches `prompted` the
+     first time it sees needsLogin and cannot be undone, and on the hydration
+     commit it reads a `view` that React has already scheduled a re-render to
+     replace: useSyncExternalStore detects the changed snapshot in its own
+     passive effect, but scheduling from inside a commit does not flush before
+     the rest of that commit's effects run. So a `view` that is merely stale
+     here is acted on as though it were settled. */
   useEffect(() => {
     if (view !== "needsLogin" || prompted.current) return;
     prompted.current = true;
@@ -257,7 +319,21 @@ export default function VerifyEmail({
           <>
             <CheckCircle2 className="mx-auto text-brand-ink" size={52} aria-hidden="true" />
             <h1 className={cn(H1, "mt-4")}>You&rsquo;re all set</h1>
-            <p className={P}>This address has already been confirmed.</p>
+            {/* Named rather than "this address", because the two are not
+                always the same one: a credential left in this browser by an
+                earlier sign-up answers for its own account, not for whoever
+                the code was sent to. Saying which is what lets somebody
+                notice they are signed in as the wrong person. */}
+            {confirmedEmail ?? user?.email ? (
+              <p className={P}>
+                <strong className="font-semibold text-dark">
+                  {confirmedEmail ?? user?.email}
+                </strong>{" "}
+                has already been confirmed.
+              </p>
+            ) : (
+              <p className={P}>This address has already been confirmed.</p>
+            )}
             <div className="mx-auto mt-7 max-w-[300px]">
               <Link className={btn({ block: true })} href={routes.ui.indexRoute}>
                 Continue

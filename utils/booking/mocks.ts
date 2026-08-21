@@ -1,94 +1,58 @@
 /* ══════════════════════════════════════════════════════════════════
-   Stand-ins for the endpoints the backend still owes
+   Nothing in the checkout is mocked any more
    ══════════════════════════════════════════════════════════════════
 
-   Every mock in the checkout lives here, each next to the request that
-   replaces it, so the swap is one function body at a time and nothing
-   else in the flow has to know where its data came from. The components
-   take their data as props precisely so that stays true.
+   This file held the stand-ins for endpoints the backend owed. It is kept
+   as the record of where each one went, because the answer is not always
+   "a wrapper with the same name" — three of them turned out to be the wrong
+   question rather than a missing endpoint.
 
-   What is left is **unreachable for a signed-in customer** and survives only
-   until guest checkout is decided. A session settles who somebody is, so the
-   account check, the code and the provider buttons are all gated off behind
-   it — see `signedIn` in the contact screen and in flow.ts `furthestAllowed`.
-   None of the three has an endpoint to be replaced by; that is the open
-   question, not an outstanding piece of wiring.
+   ── Replaced by a real request ───────────────────────────────────
+
+   · `makeReference`                 → `createOrder`, POST /orders. The number
+                                       is minted by the server, as it always
+                                       should have been: it is printed on the
+                                       confirmation and quoted in every email.
+   · `attemptLogin`                  → `login()` in utils/auth.
+   · `lookupAddresses`               → `findAddresses`, POST /find-addresses.
+                                       The hardcoded SERVED district table went
+                                       with it — coverage is `isActive` on the
+                                       response now.
+   · `fetchCollectionAvailability`   → `fetchPickupSlots`, GET /slots/pickup
+   · `fetchDeliveryAvailability`     → `fetchDropoffSlots`, GET /slots/dropoff
+                                       The eco rule survived the move into
+                                       `markEcoWindows`: same weekday, same
+                                       window is the real round schedule, and
+                                       the endpoints send no flag for it.
+
+   ── Deleted, because the question was wrong ──────────────────────
+
+   · `accountExists` / `checkAccount` / `mobileHasAccount`
+       These asked an unauthenticated endpoint whether an address or a number
+       belongs to a customer. No such endpoint exists and none should: it
+       answers "is this person one of yours?" to anybody who asks, which is an
+       account enumeration oracle with a spinner on it.
+
+       The answer arrives from the act instead. `POST /register` refuses an
+       address it already holds with a 422 naming `email`, and the identity
+       panel reads that refusal as the account check — authoritative, rate
+       limited by whoever rate limits registration, and only ever reachable by
+       somebody who has just tried to create an account on that address.
+
+   · `verifyCode`
+       Compared against the string "123456". Real codes are six digits from
+       the inbox and are redeemed by `POST /login-with-code` (undocumented;
+       found by probing) or, for an address being confirmed rather than logged
+       in with, `POST /email-verification/verify`.
+
+   · `signInWith`
+       Fabricated an Apple or Google account and returned no token. Survivable
+       while the checkout ran on mocks; not now, when every step past identity
+       needs a Bearer token — it would have waved somebody through to a payment
+       step that answers 401. The provider buttons came out of the checkout's
+       log-in sheet with it. `components/auth/auth-modal` still has a copy of
+       this mock on the header path; that one is listed in docs/ENDPOINTS.md
+       under "the UI offers these; no endpoint exists".
    ══════════════════════════════════════════════════════════════════ */
 
-import { type ProviderId } from "@/utils/booking/model";
-
-/* ── Who already has an account ───────────────────────────────────
-   MOCK. Replace with a rate-limited endpoint that answers in constant
-   time — this is the account-enumeration surface, and it is now probed
-   on blur, so the rate limit matters more than before. */
-const KNOWN_EMAILS = ["returning@laundryfree.co.uk"];
-const KNOWN_MOBILES = ["07778423419", "+447778423419"];
-
-export function accountExists(email: string): boolean {
-  return KNOWN_EMAILS.includes(email.trim().toLowerCase());
-}
-
-export function mobileHasAccount(mobile: string): boolean {
-  const n = mobile.replace(/[\s()]/g, "");
-  return KNOWN_MOBILES.includes(n);
-}
-
-/* The async form, and the one the screen actually uses.
-   ─────────────────────────────────────────────────────
-   POST /api/account/exists  { email }  →  { exists: boolean }
-
-   Replace the body and nothing else changes: the field already shows a
-   spinner while this is in flight, discards answers that arrive after
-   the address has moved on, and offers a retry if it throws.
-
-   MOCK latency is deliberately slow enough to see. Set FAIL_CHECK_FOR to
-   an address to exercise the failure path. */
-const ACCOUNT_CHECK_MS = 700;
-const FAIL_CHECK_FOR = "offline@example.com";
-
-export function checkAccount(email: string): Promise<{ exists: boolean }> {
-  const e = email.trim().toLowerCase();
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (e === FAIL_CHECK_FOR) reject(new Error("network"));
-      else resolve({ exists: KNOWN_EMAILS.includes(e) });
-    }, ACCOUNT_CHECK_MS);
-  });
-}
-
-/* `attemptLogin` was here. It is `login()` in utils/auth, against the real
-   POST /login-check, and had no call site left. */
-
-/* MOCK only. The real call returns the provider's verified email. */
-export function signInWith(provider: ProviderId): { name: string; email: string } {
-  return provider === "apple"
-    ? { name: "Shahzaib Tariq", email: "sx8k2p9qmt@privaterelay.appleid.com" }
-    : { name: "Shahzaib Tariq", email: "shahzaib.tariq@gmail.com" };
-}
-
-/* MOCK only: the code is always 123456.
-   POST /api/account/verify { email, code } → { ok: boolean } */
-const MOCK_CODE = "123456";
-
-export function verifyCode(email: string, code: string): boolean {
-  return code === MOCK_CODE;
-}
-
-/* `lookupAddresses` was here. It is `findAddresses` in utils/booking/api.ts
-   now, against the real POST /find-addresses — and the district table it used
-   to derive the town from is gone with it, because the response carries both
-   the town and whether we cover the postcode at all. */
-
-/* `fetchCollectionAvailability` and `fetchDeliveryAvailability` were here.
-   They are `fetchPickupSlots` / `fetchDropoffSlots` in utils/booking/api.ts
-   now, against GET /slots/pickup and GET /slots/dropoff.
-
-   The eco rule went with them but survived: the mock's "same weekday and the
-   same window as the collection" is the real round schedule, not a
-   placeholder, and it lives in `markEcoWindows` in model.ts. The endpoints
-   send no eco flag, so it stays ours to derive. */
-
-/* `makeReference` was here. The order number is `createOrder` in
-   utils/booking/api.ts now, against the real POST /orders — and it always
-   should have been the server's to mint, since it is printed on the
-   confirmation and quoted in every email about the order. */
+export {};

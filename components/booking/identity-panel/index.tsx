@@ -9,13 +9,41 @@
    dismissed — but only because the recommended path is a single tap, so
    there is nothing to escape from. A panel with no exit and no easy
    option would simply lose people.
+
+   ── Which of the two states shows, and when ──────────────────────
+
+   The design draws two: "Create your account", and "You already have an
+   account" with a code box. It assumed an endpoint that answers whether an
+   address is a customer. There is none, and there should not be — an
+   unauthenticated yes/no on any address anybody types is an account
+   enumeration oracle, which is why the mock it replaces was never going to
+   ship as written.
+
+   So the panel opens on **Create your account** and flips to the other state
+   only when the server says so: `POST /register` answers 422 with
+   `email: This email is already taken.`, and that *is* the account check —
+   authoritative, rate-limited by whoever rate-limits registration, and only
+   ever reachable by somebody who just tried to make an account on that
+   address. The code is requested at the same moment, so the flip lands on a
+   box with a code already on its way to it.
+
+   Both design states survive intact. Only the moment we learn which one
+   applies has moved, from a probe on blur to the press that needed the
+   answer.
    ══════════════════════════════════════════════════════════════════ */
 
 import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
+import Loader from "@/components/common/Loader";
 import { useEffect, useId, useRef, useState } from "react";
 import { Icon, P } from "@/components/booking/icons";
-import { verifyCode } from "@/utils/booking/mocks";
+import { toE164 } from "@/utils/api";
+import {
+  loginWithCode,
+  registerAccount,
+  requestVerificationCode,
+  type AuthUser,
+} from "@/utils/auth";
 import {
   CODE_LENGTH,
   PASSWORD_RE,
@@ -88,26 +116,35 @@ const METER_FILL = {
   strong: "bg-brand-ink",
 } as const;
 
+/** What the server calls an address it already holds. Matched on the field
+ *  rather than on the sentence, so a reworded message still routes correctly. */
+const TAKEN_FIELD = "email";
+
 export default function IdentityPanel({
-  known,
   data,
   patch,
   onLogin,
   onResolved,
 }: {
-  known: boolean;
   data: BookingData;
   patch: (next: BookingPatch) => void;
   onLogin: (prefill?: string) => void;
-  onResolved?: () => void;
+  /** Handed the account that now exists, because the caller has a booking to
+   *  save against it and only the id can address the user endpoints. */
+  onResolved?: (user: AuthUser) => void;
 }) {
   const ids = useId();
+  /* Which of the design's two states is on screen. Starts on "create" for
+     everybody: nothing can be known about an address until something is tried
+     against it. */
+  const [known, setKnown] = useState(false);
   const [password, setPassword] = useState("");
   const [pwOpen, setPwOpen] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const strength = passwordStrength(password);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
@@ -116,28 +153,73 @@ export default function IdentityPanel({
     return () => clearInterval(t);
   }, [cooldown]);
 
-  /* Sent on sight now, not behind a press. The press existed to stop an
-     email bomb, and most of that risk is already gone: this only fires
-     for an address the check said exists, so it cannot be aimed at a
-     stranger. What is left — hammering one known customer by retyping
-     their address — is the server's to stop.
+  const done = (user: AuthUser) => {
+    patch({ verified: true, identity: "" });
+    onResolved?.(user);
+  };
 
-     THE BACKEND OWES A RATE LIMIT HERE. Per email and per IP, or this
-     endpoint will happily mail the same person a hundred times.
+  /* The code goes out on the flip, and only then — never on sight of an
+     address. `purpose: "login"` is the one /login-with-code redeems.
 
-     Fired once per address: the panel is keyed on the email, so a new
-     address is a new component. The ref is for StrictMode, which mounts
-     everything twice in development. */
+     Fired at most once per address: the panel is keyed on the email upstream,
+     so a different address is a different component with its own ref. */
   const sentRef = useRef(false);
-  useEffect(() => {
-    if (!known || sentRef.current) return;
-    sentRef.current = true;
+  const sendLoginCode = async () => {
     setCooldown(RESEND_SECONDS);
-  }, [known]);
+    setCode("");
+    await requestVerificationCode(data.email, "login");
+  };
 
-  const done = (extra?: BookingPatch) => {
-    patch({ verified: true, ...extra });
-    onResolved?.();
+  /* Both halves of the design's "Create your account" — the recommended
+     one-click button and the password row beside it — are the same request.
+     `plainPassword` is genuinely optional on /register, which is the only
+     reason one tap can be the whole action. */
+  const create = async (withPassword?: string) => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    const r = await registerAccount({
+      email: data.email,
+      name: data.fullName,
+      phone: toE164(data.mobile),
+      password: withPassword,
+    });
+    if (r.ok) {
+      setBusy(false);
+      done(r.user);
+      return;
+    }
+    /* The account check, arriving as a refusal. Flip to the other state and
+       start the code on its way, so the box they land on is not one they have
+       to prime themselves. */
+    if (r.fields[TAKEN_FIELD]) {
+      setKnown(true);
+      setError("");
+      if (!sentRef.current) {
+        sentRef.current = true;
+        await sendLoginCode();
+      }
+      setBusy(false);
+      return;
+    }
+    setBusy(false);
+    /* A violation on any other field is shown as-is: it is the server naming
+       something we sent, and the fields it can name — name, phone — are all on
+       the form directly above this panel. */
+    setError(r.fields.name || r.fields.phone || r.message);
+  };
+
+  const submitCode = async () => {
+    if (busy || code.length !== CODE_LENGTH) return;
+    setBusy(true);
+    setError("");
+    const r = await loginWithCode(data.email, code);
+    setBusy(false);
+    if (r.ok) {
+      done(r.user);
+      return;
+    }
+    setError(r.message);
   };
 
   if (known) {
@@ -159,6 +241,7 @@ export default function IdentityPanel({
             autoComplete="one-time-code"
             maxLength={CODE_LENGTH}
             value={code}
+            disabled={busy}
             aria-label={`${CODE_LENGTH}-digit code`}
             aria-invalid={error ? "true" : undefined}
             placeholder="······"
@@ -167,18 +250,16 @@ export default function IdentityPanel({
               setError("");
             }}
             onKeyDown={(e) => {
-              if (e.key !== "Enter" || code.length !== CODE_LENGTH) return;
-              if (verifyCode(data.email, code)) done();
-              else setError("That code is not right.");
+              if (e.key === "Enter") void submitCode();
             }}
           />
           <Button
-            surface="booking" size="lg" className="flex-none"
-            disabled={code.length !== CODE_LENGTH}
-            onClick={() =>
-              verifyCode(data.email, code) ? done() : setError("That code is not right.")
-            }
+            surface="booking" size="lg" className="flex-none gap-2"
+            disabled={code.length !== CODE_LENGTH || busy}
+            isLoading={busy}
+            onClick={() => void submitCode()}
           >
+            {busy && <Loader className="h-4 w-4" />}
             Log in
           </Button>
         </div>
@@ -191,11 +272,10 @@ export default function IdentityPanel({
         <p className={ALT}>
           <Button variant="bare"
             className={cn(BTN_LINK, "disabled:cursor-default disabled:opacity-50")}
-            disabled={cooldown > 0}
+            disabled={cooldown > 0 || busy}
             onClick={() => {
-              setCooldown(RESEND_SECONDS);
-              setCode("");
               setError("");
+              void sendLoginCode();
             }}
           >
             {cooldown > 0 ? `Send a new code in ${cooldown}s` : "Send a new code"}
@@ -204,7 +284,7 @@ export default function IdentityPanel({
 
         <p className={ALT}>
           <Button variant="bare" className={BTN_LINK} onClick={() => onLogin(data.email)}>
-            Use Apple or Google instead
+            Use a password instead
           </Button>
         </p>
       </div>
@@ -227,11 +307,15 @@ export default function IdentityPanel({
             Recommended
           </span>
           <Button
-            surface="booking" size="lg" block
-            onClick={() => done()}
+            surface="booking" size="lg" block className="gap-2"
+            disabled={busy}
+            isLoading={busy}
+            onClick={() => void create()}
           >
+            {busy && <Loader className="h-4 w-4" />}
             {/* "One-click" carries the meaning nothing else does: that
-                this is the entire action, not the start of a sign-up. */}
+                this is the entire action, not the start of a sign-up.
+                It is also literally true — /register takes no password. */}
             One-click registration
           </Button>
         </span>
@@ -258,9 +342,12 @@ export default function IdentityPanel({
             id={`${ids}-pw`}
             type={showPw ? "text" : "password"}
             value={password}
+            disabled={busy}
             onChange={(e) => setPassword(e.target.value)}
             onFocus={() => setPwOpen(true)}
-            onKeyDown={(e) => e.key === "Enter" && PASSWORD_RE.test(password) && done()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && PASSWORD_RE.test(password)) void create(password);
+            }}
             /* One word. At 320px the row leaves the field about 96px once
                the eye and Confirm have taken their share, so anything
                longer is read as clipped text rather than a placeholder.
@@ -280,13 +367,21 @@ export default function IdentityPanel({
           </Button>
           <Button variant="bare"
             className="h-10 flex-none cursor-pointer rounded-ctl-md border-none bg-bk-ink px-4 text-[14px] font-semibold leading-[1.6] text-white disabled:cursor-not-allowed disabled:opacity-35"
-            disabled={!PASSWORD_RE.test(password)}
-            onClick={() => done()}
+            disabled={!PASSWORD_RE.test(password) || busy}
+            onClick={() => void create(password)}
           >
             Confirm
           </Button>
         </div>
       </div>
+
+      {error && (
+        <p className={ERR} role="alert">
+          <Icon icon={P.alert} size={16} className="mt-0.5 flex-none" />
+          {error}
+        </p>
+      )}
+
       {/* Nothing here until the field is touched. The rule is two lines
           on a phone, and it is guidance for a path most people will not
           take — printed up front it is the tallest thing in the panel and

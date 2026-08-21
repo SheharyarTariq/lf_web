@@ -8,8 +8,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import SocialLinks from "@/components/common/SocialLinks";
 import StoreButtons from "@/components/common/StoreButtons";
 import Wordmark from "@/components/common/Wordmark";
+import AccountMenu from "@/components/layout/site-header/account-menu";
 import { useAuth } from "@/components/common/AuthProvider";
 import { BRAND, NAV } from "@/utils/content";
+import { displayName } from "@/utils/auth";
 import { btn } from "@/utils/button";
 import { useEscapeKey, useScrollLock, useStartBooking } from "@/utils/hooks";
 import { WRAP } from "@/utils/styles";
@@ -24,18 +26,10 @@ const NAV_LINK =
 const DRAWER_ITEM =
   "text-[21px] font-bold tracking-[-.4px] no-underline py-[15px] border-b border-line last:border-b-0";
 
-/* Shared by "Log in" and "Log out" so the two states swap without the header
-   reflowing — same height, same weight, same padding. */
+/* The signed-out control. Sized to match the account menu it swaps with —
+   same 44px height — so the header does not reflow when a session lands. */
 const AUTH_BTN =
   "inline-flex min-h-11 cursor-pointer items-center whitespace-nowrap border-none bg-transparent px-1 py-0 text-[15px] font-semibold text-ink no-underline hover:underline";
-
-/* The signed-in address. Truncated rather than wrapped: the header is a tight
-   1fr/auto/1fr grid and an address of any length would otherwise push
-   "Get the app" into the wordmark. Full value stays in the title attribute.
-   The treatment matches the checkout header (components/booking/Chrome.tsx)
-   so the two do not read as different products. */
-const AUTH_EMAIL =
-  "hidden max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-[14px] text-ink-2 from-1024:inline to-1180:max-w-[130px]";
 
 export default function SiteHeader() {
   const [open, setOpen] = useState(false);
@@ -162,19 +156,13 @@ export default function SiteHeader() {
                 server HTML entirely — no control at all without JavaScript,
                 and a hole in the header on every signed-out load, which is
                 most of them. Rendering it up front costs a returning customer
-                one frame of "Log in" before their address replaces it. */}
+                one frame of "Log in" before their account replaces it. */}
             {user ? (
-              <>
-                <span className={AUTH_EMAIL} title={user.email}>
-                  {user.email}
-                </span>
-                {/* Wrapped, not passed directly: onClick would hand signOut a
-                  MouseEvent as its first argument. Harmless today, a trap the
-                  moment it grows a parameter. */}
-              <Button variant="bare" onClick={() => signOut()} className={AUTH_BTN}>
-                  Log out
-                </Button>
-              </>
+              /* Identity is the control and Log out lives inside it. Two
+                 separate things in the bar cost more width than the header
+                 has — which is why the address used to disappear below
+                 1024px, leaving a "Log out" that named no account. */
+              <AccountMenu user={user} onSignOut={signOut} />
             ) : (
               /* A button, not a link: it opens a dialog rather than going
                  anywhere, and a link that does not navigate breaks
@@ -258,15 +246,20 @@ export default function SiteHeader() {
                   the same reason — neither goes anywhere. */}
               {user ? (
                 <>
-                  {/* The address is a label, not a control: there is nothing
+                  {/* Who you are is a label, not a control: there is nothing
                       to tap it for. Smaller and lighter than the nav items so
                       it does not read as another destination, and truncated
-                      because the drawer is only 340px at its widest. */}
+                      because the drawer is only 340px at its widest.
+
+                      Flat rows on purpose — the drawer already *is* the menu,
+                      and nesting a dropdown inside it would add a tap for
+                      nothing. The address stays in the title attribute for an
+                      account whose name is showing. */}
                   <span
                     className={cn(DRAWER_ITEM, "block overflow-hidden text-ellipsis whitespace-nowrap text-[15px] font-medium tracking-normal text-ink-2")}
                     title={user.email}
                   >
-                    {user.email}
+                    {displayName(user)}
                   </span>
                   <Button variant="bare"
                     onClick={() => {

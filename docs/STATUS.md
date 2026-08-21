@@ -148,8 +148,17 @@ on the verify pane showing the typed address; `pendingtoken` is written with a ~
 verify → code rather than restarting (60s → 58s); a wrong code shows the server's own
 "Incorrect code" under the field with no toast and no cookie; Update is dead until the address
 actually differs; both cookies behave correctly across a reload; `/verify-email?token=…` in the
-same browser authenticates itself with no login prompt, and in a fresh context falls back to
-one.
+same browser authenticates itself, and in a fresh context falls back to a login.
+
+**Corrected since:** that last claim used to read "with no login prompt", and it was wrong from
+the day the page shipped. The same browser *did* authenticate itself — and also raised the
+login modal over the top of the success pane, where it stayed until dismissed by hand. The
+scripted run missed it because it asserted on the success copy, which passes perfectly well
+with a modal stacked on it; nothing asserted on what else was on screen. `useBearerToken`
+returned a hardcoded `null` on the hydration render, `view` derived `needsLogin` from it, and
+the auto-open effect fired before React re-rendered with the real cookie. Fixed by giving the
+hook a third value for "not read yet". Worth remembering that an assertion on the thing you
+expect is not an assertion on the absence of the thing you don't.
 
 **Not verified by me:** the happy path with a genuine code, which only the inbox has. Every
 other branch above is real.
@@ -239,6 +248,168 @@ challenge resolves in Stripe's modal with the booking intact behind it is reason
 this and is unverified — the client gate was stubbed at `/my-status` to get a session. Its
 orders and card were cancelled and deleted afterwards; its address (`1 Probe Cottage`,
 Ashtead, `KT211PG`) remains.
+
+## Done — the guest checkout
+
+**A visitor with no account can now book from an empty browser to a placed order**, and the
+design's flow survived intact: Address → Time → Details → Payment, with identity settled on
+the Details step exactly where it was drawn. Nothing was reordered and no screen moved.
+
+That was not the plan an hour earlier. The working assumption — mine, from testing the slot
+endpoints with a token and never without — was that `/slots/*` required one, which would have
+forced identity before the Time step and a reordering of the whole flow. **The backend dev was
+right and the assumption was wrong.**
+
+### `postcode` is the whole thing
+
+```
+GET /slots/pickup?days=21&postcode=KT211PG              → 200, 21 day groups, 122 slots
+GET /slots/pickup?days=21                               → 500, "Got: NULL"
+```
+
+Both slot endpoints are **public when `postcode` is passed**, and the brief does not mention
+the parameter. Without it they resolve the area from the signed-in user and dereference a null
+one; with it they answer 200 to anybody. That single parameter is the difference between a
+guest checkout that works and one that cannot exist.
+
+Two things follow from it:
+
+- **It overrides the account's saved address**, so it is sent for everybody. The windows then
+  follow the address being booked rather than whatever was last saved — which is what a person
+  changing their address on Review would expect, and what used to be wrong.
+- **The postcode must already be known to be served.** An inactive one is a 500 whose message
+  is addressed to us: *"Callers check the postcode is served before asking for its slots."*
+  The address step's `isActive` check is that guard.
+
+The no-postcode 500 is still a backend bug — authentication running after the controller has
+already dereferenced a null user, with a vendor stack trace in the body. It should be a 401.
+
+### Three more undocumented things, all of which the design needed
+
+- **`POST /register` answers with a token.** 201 carries `{ token, user }`, the same shape as
+  `/login-check`. "Registering does not log you in — call login next" is a round trip for
+  nothing.
+- **`plainPassword` is optional.** `{ email, name }` alone is a 201. This is what makes the
+  design's *One-click registration* real: the recommended path is genuinely one tap, not a
+  password field wearing a different label.
+- **`POST /login-with-code` exists.** `{ email, code }` → a token. It is the missing half of
+  `/verification-code/request`'s `login` purpose, which could always send a code that nothing
+  would redeem. Found by guessing route names against the API; a wrong code is
+  `400 "Incorrect code"`.
+
+And one that closes a hole rather than opening one: **a duplicate address is `422` naming
+`email`** — *"This email is already taken."*
+
+### The account check that should never have been an endpoint
+
+`accountExists`, `checkAccount` and `mobileHasAccount` are **deleted, not replaced**. They
+asked an unauthenticated endpoint whether an address belongs to a customer, which is an
+account enumeration oracle with a spinner on it. No such endpoint exists and none should.
+
+The 422 above is the answer instead. The identity panel opens on **Create your account** for
+everybody and flips to **You already have an account** when the server refuses the
+registration — requesting a login code at the same moment, so the box they land on already has
+one on its way. Both of the design's states survive; only the moment we learn which one applies
+has moved, from a probe on blur to the press that needed the answer.
+
+That deleted the debounce machinery around the email field with it — two pause lengths, the
+whole-value input-type detection, the stale-response counter, the retry nudge and the in-field
+spinner all existed to pace a request that no longer happens.
+
+### An unverified account gets a session — in the checkout only
+
+`login()` still holds a token back for an address nobody has proved, because there the address
+was typed into a form and might belong to someone else. `registerAccount()` does not, because
+the person creating the account is sitting there and the next thing they do is put a card
+against it. The server asks for nothing either way: an unverified account saves an address,
+reads slots, stores a card and places an order — all probed, and then proven in a browser.
+
+**One guard had to come out of `loadSession`**, and it is worth recording because its own
+comment predicted this exact moment: it discarded any session whose `emailVerifiedAt` was
+null, as a second line of defence behind `login()`'s rule. That rule is no longer an
+invariant, so the guard fired on every load for precisely the accounts the checkout had just
+created and signed them straight back out between one request and the next. The gate now lives
+in `login()` alone, which is the only place that can tell a form submission from a
+registration.
+
+### What the confirmation asks for instead
+
+The design's *"Keep your account — set a password"* assumed an account created with one click
+and no password on it. That half is right. The other half had no endpoint: there is no way to
+set a password on an account that is already signed in — `PATCH /users/{id}` is 405,
+`change-password` and `set-password` are both 404.
+
+So the block now offers the two things that do exist, and they answer different questions:
+
+- **Confirm your email** — the code box, on `/email-verification/resend` and `/verify`. This is
+  for *this* order: it is what makes it trackable.
+- **Email me a link to set a password** — `POST /reset-password/request`, landing on the
+  `/reset-password` page this site already has. This is for the *next* one.
+
+`isNewAccount` is now `user.verified === false` read off /my-status, rather than a guess from
+how they signed in — so it stays right for somebody who verified in another tab.
+
+### The address is saved once, at confirm
+
+The address step cannot save for a guest — `PATCH /users/{id}/update-address` needs an id and
+there is no account yet — and saving the moment one appears would cover the identity panel and
+miss the Log in link, the header, and a sign-in in another tab. It also would not survive the
+address being edited from Review, which the summary's Edit links make a one-tap thing to do.
+
+So `confirmOrder` saves it, once, immediately before `POST /orders`, and a failure stops the
+order. Slots no longer need it (they take the postcode directly) but the order does: it is the
+address a van is sent to, and **probed, `POST /orders` accepts an account with no address at
+all and answers 201**. Nothing downstream will catch a booking with nowhere to collect from,
+which makes it ours to refuse.
+
+The address step keeps its own save for a signed-in customer, because it is the only screen
+that can put a violation under the field that caused it. That one is the good error message;
+the one at confirm is the guarantee.
+
+### The provider buttons came out of the checkout
+
+`signInWith` fabricated an Apple or Google account and returned no token. Survivable while the
+checkout ran on mocks; not now, when every step past identity needs a real Bearer token — it
+would have waved somebody through to a payment step that answers 401. A control that cannot do
+what it says is worse than an absent one.
+
+In their place, the log-in sheet offers what people arrive at it wanting: a code, or their
+password. Both real. An unverified account that logs in with a password is handed to the code
+path rather than refused, because a code both proves the address and issues the session, which
+is exactly what such an account is missing. The header's `AuthModal` still has its own copy of
+the mock; that is listed in ENDPOINTS.md and is not on the checkout's path.
+
+### Verified
+
+**31/31 guest**, in a browser against real staging from an empty context: no cookie at the
+start; 14 addresses for `KT211PG`; **`/book/time` reached with no account and no token**;
+`postcode=KT211PG` on both slot requests; 21 open days and real windows signed out; the
+identity panel opening on a valid address with **nothing probed before the press**; exactly one
+`POST /register`; a session cookie written by it; the step advancing on its own; the Element
+mounted for an account with no card; `setup-intent` → `check-status` → **`PATCH update-address`
+→ `POST /orders`, in that order, one of each**; the server's own order number on the
+confirmation; the account block offering both the code and the password link; a wrong code
+showing the server's *"Incorrect code"*; and `POST /reset-password/request` fired once with a
+non-committal reply.
+
+**12/12 returning customer**: the panel opens on create, the 422 flips it to the known state,
+a login code is requested once, the resend sits on its cooldown, **no session is written on the
+flip**, a wrong code goes to `/login-with-code` and comes back with the server's own wording,
+and nothing about a bad code advances the flow.
+
+**9/9 signed in**, so the finished flow did not regress: `/my-status` still fetched once, the
+address still seeded, still saved on the address step, `postcode` now on its slot requests too,
+21 days, no identity panel, the signed-in card instead, and Next live without a code.
+
+**Not verified by me:** the two happy paths that need an inbox — a correct login code, and a
+correct verification code on the confirmation. Both endpoints are exercised and both refusals
+are real; only the success branch is unreached.
+
+**Left on staging:** two or three orders in `created` status on throwaway `@example.com`
+accounts, from harness runs before the harness learned to cancel after itself. They carry no
+items and a £0 total. The accounts were made by one-click registration, so they have no
+password and no reachable inbox — there is no way back into them to cancel from here. Worth
+mentioning to the backend dev rather than leaving to be found.
 
 ## Done — the saved cards
 
@@ -645,35 +816,45 @@ two ways that will bite whoever wires it:
 Enough to build the lookup against; not enough to trust an end-to-end run. Worth resolving with
 the backend before the address step is called done.
 
-### Slots are blocked, and 500 where they should 401
+### Slots: resolved, except for the status code
 
-- `GET /slots/pickup` with **no token** returns **500** — `Expected an instance of
-  App\Entity\User. Got: NULL` — with a full vendor stack trace in the response body. A missing
-  auth guard, and an information leak on an anonymous endpoint.
-- With a valid token but no address on the account it still 500s, from `AreaResolver.php:38`:
-  `Expected an instance of App\Entity\Postcode. Got: NULL`. So **slots require a saved address**,
-  which the brief does not mention.
-- `GET /slots/dropoff` validates `pickupSlot` and returns 422 to an anonymous caller — the same
-  bug class, authentication running after validation.
+Both of the original complaints turned out to be one thing seen from the wrong side. **Pass
+`postcode` and both endpoints answer 200 with no token and no saved address** — that is the
+supported anonymous path, and it is not in the brief.
+
+What remains is genuinely a bug, and it is what sent this the wrong way for two sessions:
+
+- `GET /slots/pickup` with **no token and no postcode** returns **500** —
+  `Expected an instance of App\Entity\User. Got: NULL` — with a vendor stack trace in the
+  body. It should be a `400` naming the missing parameter, or a `401`. As a 500 it reads as
+  "this endpoint is broken or protected", which is why the public path went unfound.
+- Same for `/slots/dropoff`.
+
+Worth raising with the backend dev alongside the recurring 500 — same class of thing, a
+precondition answered as a server error.
 
 Phase 1, logged-in: ~~login~~ → ~~email verification~~ → ~~address~~ → ~~slots~~ →
-~~save card~~ → ~~create order~~. **Complete.** Only `register()` moving onto `apiCall`
-remains, and it is unrelated to the checkout — see open item 4 below.
+~~save card~~ → ~~create order~~. **Complete.**
 
-Phase 2, guest checkout: blocked on conflict 1 below.
+Phase 2, guest checkout: **complete** — see "Done — the guest checkout" above. It needed no
+new design and no reordering; it needed the `postcode` parameter, which is not in the brief.
+
+Only `register()` moving onto `apiCall` remains, and it is unrelated to both — see open
+item 4 below.
 
 ### Ten places the API and the design disagree
 
 Numbered so they can be referred to. 1, 2 and 6 change what gets built; the rest are
 contained.
 
-1. **Guest checkout is still blocked, but less than the brief implies.** Probed, the real public
-   set is **six**, not four: `/register`, `/login-check`, `/system-status`, `/reset-password/*`,
-   `/verification-code/request` (absent from the brief) **and `/find-addresses`** (documented as
-   authenticated, actually answers 200 with no token). So the address step *can* run for a
-   signed-out visitor. `/slots/*`, `/payment-methods/*` and `/orders` genuinely cannot — they
-   401. The `/book` flow is guest-first by design, so the decision is now narrower: login can be
-   demanded at the **time** step rather than before the address step. Still decide before phase 2.
+1. ~~**Guest checkout is blocked.**~~ **Settled: it was never blocked, and the design needed no
+   change.** The real public set is **eight**, not four: `/register`, `/login-check`,
+   `/system-status`, `/reset-password/*`, `/verification-code/request`, `/login-with-code`,
+   `/find-addresses` **and both `/slots/*` endpoints when `postcode` is passed**. The last of
+   those is what settles it, and I had it wrong twice: first assuming the brief's list was
+   complete, then confirming the 500 without trying the parameter. Only
+   `/payment-methods/*`, `/orders`, `/my-status` and `/users/{id}/*` genuinely need a token,
+   and by the time the flow reaches them the Details step has produced one.
 2. ~~**There is no payment step, there is a save-a-card step.**~~ **Done.** The sequence is
    SetupIntent → `confirmSetup` → `check-status` → `POST /orders`, and `PaymentScreen` skips
    the Element entirely when `/my-status` already reports a default card. See "Done — the card
@@ -816,7 +997,7 @@ a 401 page should be designed at the same time. `apiCall` (client) is unaffected
 |---|---|
 | Fabricated `RATING = { score: 4.9, count: 63 }` | `utils/content/index.ts` |
 | Ten invented `PRICING` categories | `utils/content/index.ts` |
-| Hardcoded 25% `DISCOUNT`, shown to returning customers too | `utils/booking/model.ts` |
+| ~~Hardcoded 25% `DISCOUNT`, shown to returning customers too~~ **Fixed.** The const is gone; both the offer bar and the checkout read [`utils/discount`](../utils/discount/index.ts) through `useOfferDiscount()` — `/system-status` signed out, `nextOrderDiscount` signed in, nothing rendered when there is none. `nextOrderDiscount`'s field names still need confirming against a live session | `utils/discount/index.ts` |
 | Stripe key now read from `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — **the live key must be set in the deploy environment**; unset, the payment step says so instead of failing at confirm time | `config.ts` |
 | JWT in a script-readable `authtoken` cookie — only the server can set httpOnly, so the backend needs to set it instead of returning the token in the body | `utils/auth/index.ts` |
 | `SERVED` omits Fetcham, which the landing page advertises | `utils/booking/model.ts` |
@@ -833,3 +1014,14 @@ offer bar silently falls back to its designed copy.
 `next.config.ts` marks `/_next/static/*` `immutable` in production only. In dev Turbopack
 reuses chunk filenames, so `immutable` there pins whichever stylesheet a browser saw first
 and no ordinary reload dislodges it — which once presented as a completely unstyled page.
+
+**A production build left in `.next` can make `next dev` answer 404 to every route but `/`.**
+The two share the directory: dev keeps its own tree under `.next/dev`, but the root still
+carries the build's `BUILD_ID`, `routes-manifest.json` and `app-path-routes-manifest.json`,
+and a dev server started on top of those ends up with a route table that knows almost nothing
+— while `.next/dev/server/app/book/[step]/page.js` sits compiled on disk next to the manifest
+that does not list it. There is no error in the dev log and no error overlay; it simply reads
+as "the app is broken". It is not. `rm -rf .next` and restart.
+
+This is easy to cause by accident, because `scripts/audit/*` require a production build to run
+against — see the note in [`scripts/audit/README.md`](../scripts/audit/README.md).
