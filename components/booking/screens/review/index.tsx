@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
 import { useBooking } from "@/utils/booking/context";
-import { REPEAT_EVERY, longDate, parseDay, type Leg } from "@/utils/booking/model";
+import { REPEAT_EVERY, formatUkMobile, longDate, parseDay, type Leg } from "@/utils/booking/model";
 import {
   BTN_LINK,
   DISC,
@@ -146,7 +146,7 @@ export default function ReviewScreen() {
           {/* One line each. Run together they read as one string, and the
               email is the thing most worth checking here — it is the only
               address the order confirmation goes to. */}
-          <span className={SUM_LINE}>{data.mobile}</span>
+          <span className={SUM_LINE}>{formatUkMobile(data.mobile)}</span>
           <span className={SUM_LINE}>{data.email}</span>
         </SummaryRow>
         <SummaryRow label="Payment">

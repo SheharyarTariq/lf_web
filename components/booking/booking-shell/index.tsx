@@ -11,6 +11,7 @@ import SummaryPanel from "@/components/booking/summary-panel";
 import Loader from "@/components/common/Loader";
 import { furthestAllowed, isRoute, routesFor, stepOf, type Route } from "@/utils/booking/flow";
 import { createOrder, updateAddress } from "@/utils/booking/api";
+import { toNationalUk } from "@/utils/api";
 import { EMPTY, type BookingData, type BookingPatch, type Leg } from "@/utils/booking/model";
 import type { MyStatus } from "@/utils/auth";
 import { INHERIT_FONT } from "@/utils/booking/styles";
@@ -41,7 +42,10 @@ function seedFromStatus(status: MyStatus, current: BookingData): BookingPatch {
   const who = status.user;
   const next: BookingPatch = {
     fullName: who?.name || current.fullName,
-    mobile: who?.phone || current.mobile,
+    /* E.164 from the server, national for the field — <PhoneInput> supplies the
+       +44 itself, and a value arriving with one already on it is how a valid
+       number ends up sent as +4444…. */
+    mobile: toNationalUk(who?.phone) || current.mobile,
     email: who?.email || current.email,
     /* No code to enter: this session exists because the address was proved. */
     verified: true,

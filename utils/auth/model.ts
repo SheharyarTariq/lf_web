@@ -39,3 +39,22 @@ export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export const PASSWORD_RE = /^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$/;
 
 export const PASSWORD_RULE = "At least 8 characters, one capital letter and one symbol";
+
+/** The one UK mobile rule, for the one phone field.
+ *
+ *  There used to be two — this shape and a second in utils/booking/model that
+ *  matched the number as typed, +44 and all — because the checkout collected
+ *  the whole number in a free text box while the auth modal collected the
+ *  national part behind a fixed +44. Two inputs, two shapes. Both now use
+ *  <PhoneInput>, so there is one input and one shape, and the two constants
+ *  had to become one before they disagreed about a number in front of somebody.
+ *
+ *  Still written to tolerate a leading 0 or 44 even though PhoneInput strips
+ *  them on the way in: autofill can write a DOM value without an input event
+ *  ever firing, and a customer whose browser helpfully filled the field is
+ *  exactly who should not be told their own number is wrong. */
+export const UK_MOBILE_RE = /^(?:0|\+?44)?7\d{9}$/;
+
+/** Shown against the field, which sits behind a fixed +44 — hence no leading
+ *  zero in the example. */
+export const UK_MOBILE_MESSAGE = "Enter a UK mobile, for example 7700 900123.";

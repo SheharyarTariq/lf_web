@@ -8,6 +8,7 @@ import { validateFormSync } from "@/utils/validation";
 import { contactSchema } from "./schema";
 import { cn } from "@/utils/cn";
 import Input from "@/components/common/Input";
+import PhoneInput from "@/components/common/PhoneInput";
 import Button from "@/components/common/Button";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import IdentityPanel from "@/components/booking/identity-panel";
@@ -16,7 +17,8 @@ import { Icon, P, ProviderMark } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
 import Field from "@/components/booking/common/Field";
 import { useBooking } from "@/utils/booking/context";
-import { EMAIL_RE, UK_MOBILE_RE, domainSuggestions } from "@/utils/booking/model";
+import { EMAIL_RE, domainSuggestions } from "@/utils/booking/model";
+import { UK_MOBILE_RE } from "@/utils/auth/model";
 import {
   BTN_LINK,
   H1,
@@ -267,17 +269,18 @@ export default function ContactScreen() {
       </Field>
 
       <Field label="Mobile number" id={`${ids}-mb`} error={errors.mobile}>
-        <Input
+        {/* Behind a fixed +44, the same field the account form uses. It was a
+            free text box, which let somebody type their own +44 in front of the
+            one we then added — a correct number, refused. */}
+        <PhoneInput
+          surface="booking"
           id={`${ids}-mb`}
           ref={mobileRef}
-          type="tel"
-          inputMode="tel"
           value={data.mobile}
-          onChange={(e) => patch({ mobile: e.target.value })}
+          onChange={(mobile) => patch({ mobile })}
           onBlur={() => setTouched((t) => ({ ...t, mobile: true }))}
-          placeholder="07xxx xxxxxx"
-          autoComplete="tel"
-          aria-invalid={errors.mobile ? "true" : undefined}
+          placeholder="7700 900123"
+          error={errors.mobile}
           aria-describedby={errors.mobile ? `${ids}-mb-err` : undefined}
         />
       </Field>
