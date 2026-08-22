@@ -42,13 +42,14 @@ import {
   signupSchema,
 } from "./schema";
 import { cn } from "@/utils/cn";
-import { AUTH_CODE_INPUT, AUTH_INPUT_BASE } from "@/utils/auth/styles";
+import { AUTH_CODE_INPUT } from "@/utils/auth/styles";
 import Input from "@/components/common/Input";
+import PhoneInput from "@/components/common/PhoneInput";
 import Button from "@/components/common/Button";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { routes } from "@/utils/routes";
-import { register as apiRegister } from "@/utils/api";
+import { register as apiRegister, toNationalUk } from "@/utils/api";
 import {
   changeEmailAddress,
   login as apiLogin,
@@ -320,6 +321,13 @@ export default function AuthModal({
     setErrors((x) => ({ ...x, [k]: "" }));
     setAlert("");
   };
+  /* <PhoneInput> hands back the normalised national number rather than the
+     event, so it cannot go through `set`. Same clearing behaviour otherwise. */
+  const setPhone = (phone: string) => {
+    setForm((f) => ({ ...f, phone }));
+    setErrors((x) => ({ ...x, phone: "" }));
+    setAlert("");
+  };
 
   /* The account behind an unverified sign-in. Never becomes an AuthedUser —
      that is the whole point — but change-email needs its id, and the id is
@@ -409,7 +417,9 @@ export default function AuthModal({
         id: who?.id,
         email: who?.email || fallbackEmail,
         fullName: who?.name,
-        mobile: who?.phone,
+        /* The server holds E.164; `mobile` is what <PhoneInput> shows behind a
+           fixed +44, so the country code comes off on the way across. */
+        mobile: toNationalUk(who?.phone),
         identity: "",
         verified: true,
         signedIn: true,
@@ -778,29 +788,14 @@ export default function AuthModal({
             </Field>
 
             <Field label="Phone" id={`${ids}-tel`} optional error={errors.phone}>
-              <span className="flex items-stretch gap-0 overflow-hidden rounded-card-md border-[1.5px] border-bk-line-2 bg-white focus-within:border-bk-ink focus-within:shadow-[0_0_0_3px_rgba(20,20,15,.08)]">
-                <span
-                  className="flex flex-none items-center border-r border-r-bk-line-2 pl-4 pr-3 text-[15.5px] font-semibold text-bk-ink"
-                  aria-hidden="true"
-                >
-                  +44
-                </span>
-                <input
-                  id={`${ids}-tel`}
-                  className={cn("h-[50px]", AUTH_INPUT_BASE, "rounded-none border-none shadow-none focus:shadow-none")}
-                  type="tel"
-                  inputMode="tel"
-                  value={form.phone}
-                  onChange={set("phone")}
-                  placeholder="7700 900000"
-                  autoComplete="tel-national"
-                  aria-describedby={`${ids}-cc`}
-                  aria-invalid={errors.phone ? "true" : undefined}
-                />
-              </span>
-              <span className="visually-hidden" id={`${ids}-cc`}>
-                United Kingdom, plus four four
-              </span>
+              <PhoneInput
+                surface="auth"
+                id={`${ids}-tel`}
+                value={form.phone}
+                onChange={setPhone}
+                placeholder="7700 900000"
+                error={errors.phone}
+              />
             </Field>
 
             <Field label="Email" id={`${ids}-se`} error={errors.email}>

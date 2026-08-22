@@ -115,7 +115,24 @@ export type { Discount } from "@/utils/discount";
 /* ── Rules ────────────────────────────────────────────────────── */
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-export const UK_MOBILE_RE = /^(?:\+44\s?7\d{3}|\(?07\d{3}\)?)\s?\d{3}\s?\d{3}$/;
+
+/* UK_MOBILE_RE used to live here too, matching the number as typed — +44,
+   spaces, parentheses and all — because the mobile field was a free text box.
+   It is a <PhoneInput> now, holding only the national part behind a fixed +44,
+   which is the shape utils/auth/model's rule already described. Two constants
+   for one field was how a valid number came to be refused, so contact/schema
+   imports that one and this one is gone. */
+
+/** `7700211244` → `+44 7700 211244`. For reading the number back on Review and
+ *  in the summary, where the bare digits the field holds would be a worse
+ *  answer to "is this the right number?" than the form it was entered in. */
+export function formatUkMobile(national: string): string {
+  const n = String(national || "").replace(/\D/g, "");
+  /* Anything unexpected is shown as-is rather than sliced into a shape it does
+     not have — a half-typed number is still the customer's to recognise. */
+  if (!/^7\d{9}$/.test(n)) return national;
+  return `+44 ${n.slice(0, 4)} ${n.slice(4)}`;
+}
 
 /* Eight or more, one capital and one symbol. Kept as one regex so the
    client and the server can be checked against the same rule rather than

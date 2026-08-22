@@ -27,7 +27,7 @@ import Button from "@/components/common/Button";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import { useBooking } from "@/utils/booking/context";
-import { REPEAT_EVERY, longDate, parseDay, type Leg } from "@/utils/booking/model";
+import { REPEAT_EVERY, formatUkMobile, longDate, parseDay, type Leg } from "@/utils/booking/model";
 import { ECO_TAG } from "@/utils/booking/styles";
 import type { Route } from "@/utils/booking/flow";
 
@@ -170,7 +170,7 @@ export default function SummaryPanel() {
             label="Contact"
             editLabel="contact details"
             onEdit={onEdit("contact")}
-            lines={[data.fullName, data.mobile, data.email]}
+            lines={[data.fullName, formatUkMobile(data.mobile), data.email]}
           />
         </div>
 

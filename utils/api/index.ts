@@ -160,14 +160,33 @@ async function send<T = Record<string, unknown>>(
    POST /login-check  { email, password }                    → 200 { token }
    ───────────────────────────────────────────────────────────────── */
 
-/** +441234567890, as the API expects. The form collects a national number
- *  behind a +44 prefix, so the leading zero goes and anything the person
- *  typed for readability goes with it. */
+/** The national part, the way the +44-prefixed fields hold it: ten digits
+ *  starting 7.
+ *
+ *  Takes every shape a person can produce — "+44 7700 900123", "07700900123",
+ *  "447700900123", "(07700) 900123" — because paste and autofill produce all of
+ *  them, and a field sitting behind a fixed +44 must never end up holding the
+ *  +44 as well. That is exactly what used to reach toE164 and come back out as
+ *  +44447700900123.
+ *
+ *  The 44 goes before the 0, so a 00-dialled number degrades sanely, and it is
+ *  `^0` rather than `^0+` because only the trunk zero is not part of the number. */
+export function toNationalUk(input: string | undefined): string {
+  return String(input || "")
+    .replace(/\D/g, "")
+    .replace(/^44/, "")
+    .replace(/^0/, "")
+    .slice(0, 10);
+}
+
+/** +441234567890, as the API expects. */
 export function toE164(national: string | undefined): string | undefined {
-  const digits = String(national || "")
-    .replace(/[^\d]/g, "")
-    .replace(/^0+/, "");
-  return digits ? `+44${digits}` : undefined;
+  const n = toNationalUk(national);
+  /* Exactly ten, or nothing. The brief is "+44 followed by 10 digits", and the
+     field is optional — so a number we cannot form is left out rather than sent
+     to be refused. Nobody reaches this with a bad one anyway: the form's own
+     schema is what holds the door. */
+  return /^7\d{9}$/.test(n) ? `+44${n}` : undefined;
 }
 
 export async function register({
