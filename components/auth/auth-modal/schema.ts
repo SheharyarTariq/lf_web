@@ -1,5 +1,12 @@
 import * as yup from "yup";
-import { CODE_LENGTH, EMAIL_RE, PASSWORD_RE, PASSWORD_RULE } from "@/utils/auth/model";
+import {
+  CODE_LENGTH,
+  EMAIL_RE,
+  PASSWORD_RE,
+  PASSWORD_RULE,
+  UK_MOBILE_MESSAGE,
+  UK_MOBILE_RE,
+} from "@/utils/auth/model";
 
 /* ══════════════════════════════════════════════════════════════════
    Auth modal validation
@@ -16,26 +23,24 @@ import { CODE_LENGTH, EMAIL_RE, PASSWORD_RE, PASSWORD_RULE } from "@/utils/auth/
    and the indirection is not worth churning every call site over. */
 export { EMAIL_RE, PASSWORD_RE, PASSWORD_RULE } from "@/utils/auth/model";
 
-/* Deliberately not the UK_MOBILE_RE in utils/booking/model. This form shows a
-   fixed "+44" prefix and strips spaces before testing, so it sees a bare
-   national number; the checkout's field accepts the whole thing as typed,
-   spaces, parentheses and leading zero included. Two inputs, two shapes —
-   which is also why the example in the message differs by a leading zero. */
-export const UK_MOBILE_RE = /^(?:0|\+?44)?7\d{9}$/;
+/* UK_MOBILE_RE was declared here, alongside a second one in utils/booking/model
+   that matched a different shape — the checkout collected the whole number in a
+   free text box, this form collected the national part behind a fixed +44. Both
+   fields are <PhoneInput> now, so there is one shape and one constant, in
+   utils/auth/model beside EMAIL_RE. Re-exported because this is where the modal
+   has always read its rules from. */
+export { UK_MOBILE_RE } from "@/utils/auth/model";
 
 export const signupSchema = yup.object({
   name: yup.string().trim().required("Tell us your name."),
   /* Optional, so an empty field passes; anything actually typed must be a UK
-     mobile. Spaces are stripped first because the field lets people type the
-     number the way they say it. */
+     mobile. Spaces are stripped first — the field itself no longer lets any
+     through, but a schema that only holds for values its own input produced is
+     not a rule, it is a coincidence. */
   phone: yup
     .string()
     .transform((v) => (typeof v === "string" ? v.replace(/\s/g, "") : v))
-    .test(
-      "uk-mobile",
-      "Enter a UK mobile, for example 7700 900123.",
-      (v) => !v || UK_MOBILE_RE.test(v),
-    ),
+    .test("uk-mobile", UK_MOBILE_MESSAGE, (v) => !v || UK_MOBILE_RE.test(v)),
   email: yup.string().trim().matches(EMAIL_RE, "Enter a valid email address."),
   password: yup.string().matches(PASSWORD_RE, `${PASSWORD_RULE}.`),
 });

@@ -902,8 +902,21 @@ contained.
    pricing tables need checking against that. Nothing on the checkout renders a money figure
    yet, so this is still open rather than wrong — `POST /orders` returns `subtotal`,
    `discountAmount` and `total`, all `0` until the items are counted.
-10. **`toE164` does not enforce length.** The brief says `+44` followed by **10 digits**.
-    `utils/api/index.ts` strips non-digits and leading zeros then prefixes `+44`, with no count check.
+10. ~~**`toE164` does not enforce length.**~~ **Fixed**, and it mattered more than the length.
+    Prefixing `+44` unconditionally meant a number that already carried one went up doubled:
+    the checkout's mobile field was free text, and its regex explicitly *accepted* `+44 7700
+    900123`, so a correct mobile became `+44447700900123` and came back as a 422 reading
+    "must be a valid UK number starting with +44 followed by 10 digits" — shown against a field
+    that was right. Signed-in customers hit it without typing anything, since `user.phone`
+    arrives from `/my-status` already in E.164 and was seeded straight into `mobile`, then
+    handed to `toE164` again for the Stripe billing details.
+    `toE164` now goes through a new **`toNationalUk`** in `utils/api/index.ts`, which reduces
+    any shape — `+44…`, `0…`, `44…`, spaced, bracketed — to the ten national digits, and
+    returns `undefined` unless the result is exactly `7` + 9. Both phone fields are the new
+    `components/common/PhoneInput`, which holds only the national part behind a fixed `+44`
+    and normalises on the way in, so the doubled shape is now unreachable rather than merely
+    unlikely. The two divergent `UK_MOBILE_RE` constants collapsed into one in
+    `utils/auth/model.ts` at the same time — one field, one shape, one rule.
 
 ### The shared `utils/` layer — one change made, several open
 
