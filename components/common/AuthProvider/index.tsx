@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import AuthModal, { type View as AuthView } from "@/components/auth/auth-modal";
 import LogoutConfirm from "@/components/auth/logout-confirm";
 import { loadSession, logout as clearSession, type MyStatus } from "@/utils/auth";
+import { toNationalUk } from "@/utils/api";
 
 /**
  * What the modal hands back. Deliberately wider than the JWT's payload: a
@@ -89,7 +90,8 @@ function toAuthedUser(status: MyStatus | null): AuthedUser | null {
     id: who.id,
     email: who.email,
     fullName: who.name,
-    mobile: who.phone,
+    /* National, not the E.164 the server holds — <PhoneInput> owns the +44. */
+    mobile: toNationalUk(who.phone),
     identity: "",
     /* Always true by the time it gets here: loadSession only answers for a
        session cookie, and one of those only exists for a proved address. Kept
