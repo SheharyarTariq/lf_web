@@ -1,3 +1,4 @@
+import { isStaging } from "@/config";
 import { cn } from "@/utils/cn";
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
@@ -13,6 +14,9 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
+  /* metadataBase stays on the production host on staging too, on purpose:
+     canonical and OG URLs then resolve to the real site, which is the right
+     direction for anything that does slip through the noindex below. */
   metadataBase: new URL("https://www.laundryfree.co.uk"),
   title: {
     default:
@@ -75,17 +79,29 @@ export const metadata: Metadata = {
   publisher: "HQR LTD",
   category: "Local Business",
   classification: "Laundry & Dry Cleaning Service",
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
+  /* Belt and braces with app/robots.ts on staging. robots.txt is only consulted
+     before crawling; a page reached by a direct link — a shared staging URL in
+     a chat that gets scraped — is fetched regardless, and this meta tag is what
+     stops it being indexed. Written as one conditional key rather than a
+     conditional spread higher up the object: a later `robots` key would win
+     over an earlier spread and silently restore index,follow. */
+  robots: isStaging
+    ? {
+        index: false,
+        follow: false,
+        googleBot: { index: false, follow: false },
+      }
+    : {
+        index: true,
+        follow: true,
+        googleBot: {
+          index: true,
+          follow: true,
+          "max-video-preview": -1,
+          "max-image-preview": "large",
+          "max-snippet": -1,
+        },
+      },
   icons: {
     icon: [
       { url: "/favicon.ico" },
@@ -185,17 +201,27 @@ export default function RootLayout({
 
       {/* Google Ads global site tag (gtag.js) — traffic attribution for Google Ads.
           Placed after </body> per the Next.js App Router pattern so it loads once
-          and persists across client navigation. */}
-      <Script
-        src="https://www.googletagmanager.com/gtag/js?id=AW-18237111465"
-        strategy="afterInteractive"
-      />
-      <Script id="google-ads-gtag" strategy="afterInteractive">
-        {`window.dataLayer = window.dataLayer || [];
+          and persists across client navigation.
+
+          Off on staging: the account is the live one, so test traffic would land
+          in real attribution reports and reportAppDownloadConversion() in
+          utils/gtag would file real conversions for clicks nobody made. Gating
+          the loader is enough — that helper checks for window.gtag and no-ops
+          without it, so its callers need no staging branch of their own. */}
+      {!isStaging && (
+        <>
+          <Script
+            src="https://www.googletagmanager.com/gtag/js?id=AW-18237111465"
+            strategy="afterInteractive"
+          />
+          <Script id="google-ads-gtag" strategy="afterInteractive">
+            {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', 'AW-18237111465');`}
-      </Script>
+          </Script>
+        </>
+      )}
     </html>
   );
 }

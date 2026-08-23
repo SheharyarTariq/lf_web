@@ -1,6 +1,12 @@
+import { isStaging } from "@/config";
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  /* Every URL below is absolute and hardcoded to the production host, so on
+     staging this file would advertise the live site's 16 pages from a domain
+     that is meant to be invisible. Empty is the honest answer there. */
+  if (isStaging) return [];
+
   const baseUrl = "https://www.laundryfree.co.uk";
   const now = new Date();
 
