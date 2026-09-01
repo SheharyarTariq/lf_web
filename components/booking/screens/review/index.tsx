@@ -79,7 +79,8 @@ function SummaryRow({
 }
 
 export default function ReviewScreen() {
-  const { data, discount, go, back, moreBelow, openBilling, setTimeLeg } = useBooking();
+  const { data, discount, go, back, moreBelow, openBilling, skipContact, setTimeLeg } =
+    useBooking();
   const collection = parseDay(data.collectionDay);
   const delivery = parseDay(data.deliveryDay);
   const every = REPEAT_EVERY.find(([id]) => id === data.repeatEvery);
@@ -141,14 +142,18 @@ export default function ReviewScreen() {
             {[data.town, data.county, data.postcode].filter(Boolean).join(", ")}
           </span>
         </SummaryRow>
-        <SummaryRow label="Contact" onEdit={() => go("contact")} editLabel="contact details">
-          {data.fullName}
-          {/* One line each. Run together they read as one string, and the
-              email is the thing most worth checking here — it is the only
-              address the order confirmation goes to. */}
-          <span className={SUM_LINE}>{formatUkMobile(data.mobile)}</span>
-          <span className={SUM_LINE}>{data.email}</span>
-        </SummaryRow>
+        {/* The narrow flow's half of the same rule as the pinned panel: no
+            Details step, no Contact row. */}
+        {!skipContact && (
+          <SummaryRow label="Contact" onEdit={() => go("contact")} editLabel="contact details">
+            {data.fullName}
+            {/* One line each. Run together they read as one string, and the
+                email is the thing most worth checking here — it is the only
+                address the order confirmation goes to. */}
+            <span className={SUM_LINE}>{formatUkMobile(data.mobile)}</span>
+            <span className={SUM_LINE}>{data.email}</span>
+          </SummaryRow>
+        )}
         <SummaryRow label="Payment">
           <span className={SUM_LINE}>Added on the next screen to confirm your order.</span>
         </SummaryRow>

@@ -33,11 +33,11 @@
        answers "is this person one of yours?" to anybody who asks, which is an
        account enumeration oracle with a spinner on it.
 
-       The answer arrives from the act instead. `POST /register` refuses an
-       address it already holds with a 422 naming `email`, and the identity
-       panel reads that refusal as the account check — authoritative, rate
-       limited by whoever rate limits registration, and only ever reachable by
-       somebody who has just tried to create an account on that address.
+       Nothing needs the answer either. `POST /register-as-guest` recognises an
+       address it already holds and emails it a code rather than refusing it,
+       so the identity panel takes the same two steps — register, then confirm
+       — for a new customer and a returning one, and never learns which it is
+       dealing with.
 
    · `verifyCode`
        Compared against the string "123456". Real codes are six digits from

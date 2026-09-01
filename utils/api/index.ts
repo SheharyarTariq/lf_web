@@ -182,10 +182,10 @@ export function toNationalUk(input: string | undefined): string {
 /** +441234567890, as the API expects. */
 export function toE164(national: string | undefined): string | undefined {
   const n = toNationalUk(national);
-  /* Exactly ten, or nothing. The brief is "+44 followed by 10 digits", and the
-     field is optional — so a number we cannot form is left out rather than sent
-     to be refused. Nobody reaches this with a bad one anyway: the form's own
-     schema is what holds the door. */
+  /* Exactly ten, or nothing. The brief is "+44 followed by 10 digits", so a
+     number we cannot form is left out rather than sent to be refused. Nobody
+     reaches this with a bad one anyway: the form's own schema is what holds the
+     door, and both forms now require the field. */
   return /^7\d{9}$/.test(n) ? `+44${n}` : undefined;
 }
 
@@ -206,8 +206,10 @@ export async function register({
     plainPassword: password,
   };
   const e164 = toE164(phone);
-  /* Omitted rather than sent empty: the field is optional and an empty
-     string is a value, which validators treat differently from absent. */
+  /* Omitted rather than sent empty: an empty string is a value, which
+     validators treat differently from absent. The signup form requires a valid
+     mobile now, so this is the last line of defence rather than the ordinary
+     path — a caller with nothing to send still must not send "". */
   if (e164) payload.phone = e164;
 
   const r = await send("/register", payload);

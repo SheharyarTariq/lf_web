@@ -469,6 +469,51 @@ export async function registerAccount(details: {
   };
 }
 
+/* ── Registering from the checkout ────────────────────────────────
+   POST /register-as-guest { name, email, phone } → 200, empty body
+   ─────────────────────────────────────────────────────────────────
+
+   The checkout's own registration, and deliberately not `registerAccount`
+   above. Three differences, all of which the identity panel is built around:
+
+   · **No token comes back.** A 200 carries nothing at all, so there is nothing
+     to store and nobody is signed in yet. The session arrives from
+     `loginWithCode` when the emailed code is redeemed — which is why the
+     panel's code step is not optional any more, and why the contact screen's
+     Next stays shut until it passes.
+   · **The server sends the code itself.** Nothing here calls
+     /verification-code/request; doing so on top would put a second code in
+     the same inbox and invalidate the one already on its way. The resend link
+     is the only thing that still asks for one.
+   · **An address it already holds is not an error.** The server recognises it
+     and sends a code to it, so the same screen serves a new customer and a
+     returning one. That also settles what `registerAccount`'s 422 was being
+     used for here — see the identity panel's header. */
+export async function registerGuest(details: {
+  email: string;
+  name: string;
+  phone?: string;
+}): Promise<{ ok: true } | AuthFailure> {
+  const body: Record<string, unknown> = {
+    name: details.name.trim(),
+    email: details.email.trim(),
+  };
+  /* Omitted rather than sent empty, the same trap `registerAccount` documents:
+     `phone: ""` is a 422 naming the field. */
+  if (details.phone) body.phone = details.phone;
+
+  const res = await apiCall({
+    endpoint: routes.api.registerAsGuest,
+    method: "POST",
+    data: body,
+    headers: JSON_HEADERS,
+    /* The panel shows its own message under the field the server named. */
+    showErrorToast: false,
+  });
+
+  return res.success ? { ok: true } : failure(res);
+}
+
 /* ── Signing in with an emailed code ──────────────────────────────
    POST /login-with-code { email, code } → { token, user }
    ─────────────────────────────────────────────────────────────────

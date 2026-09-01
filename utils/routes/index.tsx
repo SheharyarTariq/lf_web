@@ -77,6 +77,13 @@ export const routes = {
   api: {
     /* ── Public: no Bearer token ────────────────────────────────────── */
     register: "/register",
+
+    /* { name, email, phone } → 200 with an empty body. What the checkout uses,
+       and unlike /register it mints no token: the server emails a six-digit
+       login code — for an address it has never seen and for one it already
+       holds alike — and /login-with-code is what turns that code into a
+       session. So registering here does not sign anybody in; confirming does. */
+    registerAsGuest: "/register-as-guest",
     loginCheck: "/login-check",
 
     /* Undocumented, and the other half of verificationCodeRequest's `login`

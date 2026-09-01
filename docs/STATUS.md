@@ -255,6 +255,10 @@ Ashtead, `KT211PG`) remains.
 design's flow survived intact: Address → Time → Details → Payment, with identity settled on
 the Details step exactly where it was drawn. Nothing was reordered and no screen moved.
 
+**Since amended for returning customers — see "The Details step is now conditional" below.**
+The guest flow is still the four steps as drawn; a signed-in account whose details are already
+on file sees three.
+
 That was not the plan an hour earlier. The working assumption — mine, from testing the slot
 endpoints with a token and never without — was that `/slots/*` required one, which would have
 forced identity before the Time step and a reordering of the whole flow. **The backend dev was
@@ -316,6 +320,34 @@ That deleted the debounce machinery around the email field with it — two pause
 whole-value input-type detection, the stale-response counter, the retry nudge and the in-field
 spinner all existed to pace a request that no longer happens.
 
+#### Since superseded — `POST /register-as-guest`
+
+The checkout no longer registers through `/register`, and the 422 is no longer read as an
+account check. `POST /register-as-guest { name, email, phone }` answers **200 with an empty
+body** (route probed: `GET` is 405 where an unknown path is 404), and the backend emails the
+six-digit code itself — for an address it has never seen and for one it already holds alike.
+
+So the panel has one path, in two steps: **One-click registration**, then **Confirm your
+email** with the code box. The design's second state, *You already have an account*, is gone
+along with the question it answered — the server decides, silently, and both kinds of customer
+see the same two screens.
+
+Three consequences worth holding on to:
+
+- **Registering signs nobody in.** No token comes back, so the session is minted by
+  `/login-with-code` when the code is redeemed. `data.verified` — and with it the Details
+  step's Next — is set at that moment and not before.
+- **The Next button is the submit.** The code box has no button of its own; the action bar's
+  Next redeems the code and advances only if it is accepted. That is why the panel's state
+  moved up into `components/booking/identity-panel/use-identity.ts`.
+- **Nothing requests a code on registration.** The server has already sent one; asking again
+  would replace the code sitting in the inbox being read. Only "Send a new code" calls
+  `/verification-code/request`.
+
+The password row beside the one-click button went with it — the endpoint takes no password —
+and with it the strength meter, `passwordStrength()` and the booking copies of `PASSWORD_RE` /
+`PASSWORD_RULE`. The header's sign-up is untouched and still uses `/register`.
+
 ### An unverified account gets a session — in the checkout only
 
 `login()` still holds a token back for an address nobody has proved, because there the address
@@ -331,6 +363,12 @@ invariant, so the guard fired on every load for precisely the accounts the check
 created and signed them straight back out between one request and the next. The gate now lives
 in `login()` alone, which is the only place that can tell a form submission from a
 registration.
+
+**All of that now describes the header's sign-up only.** With `/register-as-guest` the
+checkout has no session between registering and confirming — the code is what produces one, so
+nobody reaches a card without having read their inbox. `registerAccount()` and its deliberate
+unverified session are still there for the header path, and `loadSession` still cannot have
+its guard back while that is true.
 
 ### What the confirmation asks for instead
 
@@ -795,6 +833,65 @@ conditional states (selected day, selected slot, open accordion) for exactly thi
 `AuthModal` statically from the root layout. Loading the modal with `next/dynamic` would move
 it out of the initial bundle; not done, since it changes loading behaviour and deserves its
 own pass.
+
+## Done — the Details step is now conditional
+
+**A signed-in account whose details are already on file no longer sees step 3.** Address →
+Time → Payment, three steps in the stepper, and Time's button says where it actually lands.
+Everyone else — guests, and accounts missing any of it — sees the four steps exactly as
+before. This is a deliberate departure from the design, which draws four for everyone.
+
+The step was a click for nothing and had been since the seed was written.
+`seedFromStatus` copies the account's name, phone and email into the booking *during render*,
+before any screen mounts, so a returning customer was shown three fields read back from their
+own account, a "Signed in" banner, and a Next button that was already live.
+
+Worse, it was a click for nothing that looked editable and was not. Nothing persists a change
+made there: `createOrder` sends only dates and slots, registration is skipped for an account
+that exists, and `PATCH /users/{id}` is 405 (see ENDPOINTS.md). An edit survived until the
+next `refreshSession()` and was then silently overwritten by `/my-status`. Removing the
+screen removes a promise the API cannot keep.
+
+**What made it possible: the mobile is now required at signup.** It was optional — labelled
+"Phone (optional)" — which is exactly why the step could not simply be dropped: an account
+could legitimately have no number, and the checkout needs one for the Stripe billing details
+and for the driver. `signupSchema.phone` is `.required()` now, the field reads "Mobile
+number", and `signupReady` gates the button on `UK_MOBILE_RE`.
+
+**The fallback is the whole design.** The skip is decided by the account, not by being signed
+in: name, email, and a mobile that *passes the regex* — not merely present, because a
+malformed number on an older account is the case that still needs the step. Accounts made
+before this change, and the mocked Google/Apple paths that return no number at all, keep the
+four steps until they have one. The skip fades in as the gap closes; nothing has to be
+backfilled.
+
+Three things worth knowing about the implementation:
+
+- **`utils/booking/flow.ts` grew a second axis.** `routesFor`/`stepsFor` take a
+  `Flow = { wide, skipContact }` instead of a bare `wide`. `ROUTES` — the *parser* set —
+  stays complete on purpose: `/book/contact` must remain a recognised URL when it is not in
+  the walk, or a deep link to it would be treated as gibberish and sent to the start.
+- **The guard's `here < 0` branch used to `replace("/book/address")`.** It was unreachable
+  before (only wide-on-Review could hit it, and a separate effect handles that), and it is
+  the normal path now — a bookmark to `/book/contact`, or the step being pulled out from
+  under someone the moment they sign in. It forwards to `furthestAllowed` instead, so an
+  address and a pair of slots already chosen are not thrown away. It is also guarded with
+  `allowed !== step`, because replacing to the route you are already on is an effect that
+  never settles.
+- **Screens no longer name their successor.** Time pushed `"contact"` literally, which is
+  precisely what breaks when a step leaves the walk. There is a `forward()` on the context
+  now, mirroring `back()`, and it is the only way forward.
+
+**One bug fixed on the way.** `LoginSheet`'s `onLoggedIn` in the booking shell never called
+`refreshSession()` — the only login path in the app that did not (`AuthProvider` does,
+the contact screen does). The seed therefore never re-ran after logging in from inside the
+checkout, so `status` stayed stale. Harmless before; it would have meant a returning customer
+who logged in mid-flow stayed on four steps until they reloaded.
+
+Not changed, deliberately: `seedFromStatus` itself. Skipping the *screen* must not skip the
+*seed* — `data.fullName/mobile/email` are still populated and the payment step still hands
+the phone to Stripe, which `fields.billingDetails: never` depends on (see "Two bugs found by
+running it").
 
 ## Pending — integration
 

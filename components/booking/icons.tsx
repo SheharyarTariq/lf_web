@@ -5,8 +5,6 @@ import {
   ChevronRight,
   Clock,
   CreditCard,
-  Eye,
-  EyeOff,
   Info,
   Leaf,
   List,
@@ -16,7 +14,6 @@ import {
   Repeat,
   ShoppingBag,
   Sparkles,
-  ThumbsUp,
   TriangleAlert,
   X,
 } from "lucide-react";
@@ -40,9 +37,6 @@ export const P = {
   back: ChevronLeft,
   chevron: ChevronRight,
   tick: Check,
-  /* Solid, like the original — at 13px a stroked thumb fills in and reads as
-     a smudge. Pass `fill`. */
-  thumb: ThumbsUp,
   info: Info,
   alert: TriangleAlert,
   lock: Lock,
@@ -51,8 +45,6 @@ export const P = {
   pin: MapPin,
   close: X,
   mail: Mail,
-  eye: Eye,
-  eyeOff: EyeOff,
   bag: ShoppingBag,
   list: List,
   repeat: Repeat,

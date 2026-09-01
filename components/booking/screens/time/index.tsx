@@ -96,7 +96,17 @@ export default function TimeScreen() {
      It being held above this screen also means it is no longer re-guessed from
      the data on every mount: returning to this step lands on the tab it was
      left on. */
-  const { data, patch, go, back, moreBelow, timeLeg: legWanted, setTimeLeg: setLeg } = useBooking();
+  const {
+    data,
+    patch,
+    forward,
+    back,
+    wide,
+    skipContact,
+    moreBelow,
+    timeLeg: legWanted,
+    setTimeLeg: setLeg,
+  } = useBooking();
   /* Non-null is the whole test — the brief defines `recurring` as the active
      subscription or null, and documents no fields inside it. */
   const { status } = useAuth();
@@ -525,9 +535,16 @@ export default function TimeScreen() {
         <Button
           surface="booking" size="lg" className={NAV_FORWARD}
           disabled={!ready}
-          onClick={() => go("contact")}
+          onClick={forward}
         >
-          Continue to your details
+          {/* The button names where it lands, so it cannot promise a details
+              step that an account with its details already on file will never
+              see. `forward` works out the route; this only has to match it. */}
+          {skipContact
+            ? wide
+              ? "Continue to payment"
+              : "Continue to review"
+            : "Continue to your details"}
         </Button>
       </ActionBar>
     </>

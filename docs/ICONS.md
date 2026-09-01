@@ -46,7 +46,6 @@ the call site rather than by scaling the artwork.
 | `back` | `public/icons/checkout/back.svg` | `ChevronLeft` |
 | `chevron` | `public/icons/checkout/chevron.svg` | `ChevronRight` |
 | `tick` | `public/icons/checkout/tick.svg` | `Check` |
-| `thumb` | `public/icons/checkout/thumb.svg` | `ThumbsUp` (filled) |
 | `info` | `public/icons/checkout/info.svg` | `Info` |
 | `alert` | `public/icons/checkout/alert.svg` | `TriangleAlert` |
 | `lock` | `public/icons/checkout/lock.svg` | `Lock` |
@@ -55,8 +54,6 @@ the call site rather than by scaling the artwork.
 | `pin` | `public/icons/checkout/pin.svg` | `MapPin` |
 | `close` | `public/icons/checkout/close.svg` | `X` |
 | `mail` | `public/icons/checkout/mail.svg` | `Mail` |
-| `eye` | `public/icons/checkout/eye.svg` | `Eye` |
-| `eyeOff` | `public/icons/checkout/eyeOff.svg` | `EyeOff` |
 | `bag` | `public/icons/checkout/bag.svg` | `ShoppingBag` |
 | `list` | `public/icons/checkout/list.svg` | `List` |
 | `repeat` | `public/icons/checkout/repeat.svg` | `Repeat` |
@@ -64,9 +61,12 @@ the call site rather than by scaling the artwork.
 | `leaf` | `public/icons/checkout/leaf.svg` | `Leaf` |
 | `leafSolid` | `public/icons/checkout/leafSolid.svg` | `Leaf` (filled) |
 
-`thumb` and `leafSolid` are the two filled icons — everything else is stroked. `thumb` is a
-single path holding two closed subpaths (cuff, then hand) because at 13px a stroked version
-fills in and reads as a smudge.
+`leafSolid` is the only filled icon — everything else is stroked.
+
+Three names left the map when the identity panel lost its password row and its "Recommended"
+badge: `thumb` (`ThumbsUp`, filled), `eye` (`Eye`) and `eyeOff` (`EyeOff`). The artwork is
+still archived under `public/icons/checkout/`, so putting any of them back is one line here
+and one in `P`.
 
 ## Landing — `components/icons.tsx`
 

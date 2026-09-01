@@ -21,8 +21,26 @@ export interface BookingContextValue {
   go: (next: Route) => void;
   /** One route back, or the exit prompt if there is nowhere left to go. */
   back: () => void;
+  /**
+   * One route on, whichever that is in the shape of the flow currently in play.
+   *
+   * Screens must use this rather than naming their successor: with the Details
+   * step conditional, "the screen after Time" is Details for some customers and
+   * Payment for others, and only the shell knows which.
+   */
+  forward: () => void;
   /** ≥1024px: the split layout with the pinned summary and no Review. */
   wide: boolean;
+  /**
+   * The Details step is out of the walk, because the signed-in account already
+   * carries everything it asks for — see the header of utils/booking/flow.ts.
+   *
+   * The two summaries read it to drop their Contact row: with the step gone
+   * there is nowhere for its Edit link to go, and nothing behind an edit to
+   * save it. `data` still holds the contact fields, seeded from the account,
+   * and the payment step still sends them to Stripe.
+   */
+  skipContact: boolean;
   /**
    * Which leg the time step has open.
    *

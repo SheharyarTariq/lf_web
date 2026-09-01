@@ -107,7 +107,7 @@ const oneLine = (day: Date | null, slot: string) =>
   [day ? longDate(day) : "", slot].filter(Boolean).join(" · ");
 
 export default function SummaryPanel() {
-  const { data, discount, go, setTimeLeg } = useBooking();
+  const { data, discount, go, skipContact, setTimeLeg } = useBooking();
   const collection = parseDay(data.collectionDay);
   const delivery = parseDay(data.deliveryDay);
   const every = REPEAT_EVERY.find(([id]) => id === data.repeatEvery);
@@ -166,12 +166,18 @@ export default function SummaryPanel() {
               ) : null
             }
           />
-          <AsideRow
-            label="Contact"
-            editLabel="contact details"
-            onEdit={onEdit("contact")}
-            lines={[data.fullName, formatUkMobile(data.mobile), data.email]}
-          />
+          {/* Gone entirely when the Details step is, rather than kept without
+              its Edit link. AsideRow drops itself when every line is empty, but
+              these lines are full — they are seeded from the account — so the
+              condition has to be said out loud. */}
+          {!skipContact && (
+            <AsideRow
+              label="Contact"
+              editLabel="contact details"
+              onEdit={onEdit("contact")}
+              lines={[data.fullName, formatUkMobile(data.mobile), data.email]}
+            />
+          )}
         </div>
 
         {discount && (

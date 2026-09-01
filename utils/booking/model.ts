@@ -134,31 +134,12 @@ export function formatUkMobile(national: string): string {
   return `+44 ${n.slice(0, 4)} ${n.slice(4)}`;
 }
 
-/* Eight or more, one capital and one symbol. Kept as one regex so the
-   client and the server can be checked against the same rule rather than
-   two prose descriptions that drift. */
-export const PASSWORD_RE = /^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$/;
-export const PASSWORD_RULE =
-  "At least 8 characters, one capital letter and one symbol (! ? @ # £ %)";
-
-export type StrengthLevel = "weak" | "ok" | "strong";
-
-/* Five cheap signals rather than a real entropy estimate — enough to
-   tell someone their password is thin, which is all a meter is for. */
-export function passwordStrength(
-  pw: string,
-): { level: StrengthLevel; label: string; pct: number } | null {
-  if (!pw) return null;
-  let score = 0;
-  if (pw.length >= 8) score += 1;
-  if (pw.length >= 12) score += 1;
-  if (/[A-Z]/.test(pw)) score += 1;
-  if (/[0-9]/.test(pw)) score += 1;
-  if (/[^A-Za-z0-9]/.test(pw)) score += 1;
-  if (score <= 2) return { level: "weak", label: "weak", pct: 33 };
-  if (score <= 4) return { level: "ok", label: "moderate", pct: 66 };
-  return { level: "strong", label: "strong", pct: 100 };
-}
+/* `PASSWORD_RE`, `PASSWORD_RULE`, `StrengthLevel` and `passwordStrength()`
+   stood here for the identity panel's password row. The checkout registers
+   through /register-as-guest now, which takes no password, so the row and its
+   strength meter are gone and nothing in the booking flow asks anybody to
+   choose a password. The header's sign-up still does, from the canonical
+   copies in utils/auth/model.ts. */
 
 /* Character-for-character the backend's Assert\Regex, so a postcode that
    passes here cannot fail on submit. Keep the two in step — including

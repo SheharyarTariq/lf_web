@@ -12,6 +12,7 @@ import PhoneInput from "@/components/common/PhoneInput";
 import Button from "@/components/common/Button";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import IdentityPanel from "@/components/booking/identity-panel";
+import { useIdentity } from "@/components/booking/identity-panel/use-identity";
 import { useAuth } from "@/components/common/AuthProvider";
 import { Icon, P, ProviderMark } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
@@ -45,7 +46,7 @@ const SUG_BTN =
 
 
 export default function ContactScreen() {
-  const { data, patch, go, back, wide, moreBelow, openLogin } = useBooking();
+  const { data, patch, forward, back, moreBelow, openLogin } = useBooking();
   /* A session settles the address. The panel below exists to establish who
      somebody is, and there is nothing left to establish — so for a signed-in
      customer the address is shown rather than asked for, and the panel never
@@ -80,12 +81,11 @@ export default function ContactScreen() {
   /* Everything the panel needs to be worth showing: an address to register,
      somebody who is not already signed in, and nothing settled yet.
 
-     There is no account probe behind this any more. The mock it replaced
-     asked an endpoint that does not exist and should not — an unauthenticated
-     yes/no on any address typed into a box is an enumeration oracle. The
-     panel now opens on "create an account" and finds out the other way, from
-     the 422 that /register answers for an address it already holds. See the
-     header of IdentityPanel. */
+     There is no account probe behind this, and none is wanted — an
+     unauthenticated yes/no on any address typed into a box is an enumeration
+     oracle. The panel opens on "create an account" for everybody, and the
+     server quietly does the right thing for an address it already holds. See
+     the header of IdentityPanel. */
   const showPanel = emailValid && !data.verified && !signedIn;
 
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -155,8 +155,11 @@ export default function ContactScreen() {
     }
   };
 
-  /* Wide drops the review screen, so Next lands on payment there. */
-  const next = () => go(wide ? "payment" : "review");
+  /* Wide drops the review screen, so Next lands on payment there — but that is
+     the shell's answer to give, not this screen's. `forward` walks the route
+     list the flow is actually using, which is the same list the stepper and the
+     Back button read. */
+  const next = forward;
 
   /* Registering or logging in is the last thing this screen asks for, so
      once it lands there is nothing left here to do — move on rather than
@@ -193,6 +196,16 @@ export default function ContactScreen() {
     const gap = data.fullName.trim() ? mobileRef : nameRef;
     gap.current?.focus();
   };
+
+  /* Held here rather than in the panel because the code is submitted by the
+     Next button below, not by anything inside the panel. Declared after
+     `onResolved` for the plain reason that it takes it. */
+  const identity = useIdentity({ data, patch, onResolved });
+
+  /* Waiting on the six digits: Next redeems them instead of moving on, and
+     only moves on if they are right. `data.verified` is the far side of that —
+     once it is set there is nothing left for this screen to settle. */
+  const codeStep = !data.verified && showPanel && identity.phase === "code";
 
   /* Changing the address un-verifies it, so the card and the panel swap
      back automatically. Pressing Change alone does not — someone who
@@ -349,13 +362,10 @@ export default function ContactScreen() {
           className="scroll-mb-[104px] scroll-mt-[calc(var(--bk-hdr-h)+12px)]"
           ref={panelRef}
         >
-          <IdentityPanel
-            key={data.email}
-            data={data}
-            patch={patch}
-            onLogin={openLogin}
-            onResolved={onResolved}
-          />
+          {/* No `key` on the address any more: the state it used to reset now
+              lives in useIdentity, which drops it on a change of email
+              itself. */}
+          <IdentityPanel data={data} identity={identity} />
         </div>
       )}
 
@@ -366,12 +376,22 @@ export default function ContactScreen() {
         >
           Back
         </Button>
+        {/* Two jobs, one button. On the code step it is the submit — it
+            redeems the six digits and the screen moves on by itself when they
+            are accepted (onResolved, above), or shows the refusal in the panel
+            when they are not. Everywhere else it is just Next. */}
         <Button
           surface="booking" size="lg" className={NAV_FORWARD}
-          disabled={!valid || !data.verified}
+          disabled={!valid || (codeStep ? !identity.canSubmitCode : !data.verified)}
+          isLoading={codeStep && identity.busy}
           onClick={() => {
             setTouched({ fullName: true, mobile: true, email: true });
-            if (valid && data.verified) next();
+            if (!valid) return;
+            if (codeStep) {
+              void identity.submitCode();
+              return;
+            }
+            if (data.verified) next();
           }}
         >
           Next

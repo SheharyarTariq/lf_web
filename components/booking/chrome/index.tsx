@@ -15,7 +15,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import { CLOSE_BTN } from "@/utils/booking/styles";
-import { routesFor, stepsFor, type Route } from "@/utils/booking/flow";
+import { routesFor, stepsFor, type Flow, type Route } from "@/utils/booking/flow";
 import { displayName } from "@/utils/auth";
 import { BRAND } from "@/utils/content";
 import { routes } from "@/utils/routes";
@@ -146,15 +146,18 @@ export function Steps({
   current,
   allowed,
   onGo,
-  wide,
+  flow,
 }: {
   current: string;
   allowed: Route;
   onGo: (next: Route) => void;
-  wide: boolean;
+  flow: Flow;
 }) {
-  const STEPS = stepsFor(wide);
-  const R = routesFor(wide);
+  /* Three steps rather than four when Details is skipped. The count is read off
+     the list rather than written down, so the progress bar, the "Step 2 of 3"
+     line and the screen-reader suffix all follow on their own. */
+  const STEPS = stepsFor(flow);
+  const R = routesFor(flow);
   const index = STEPS.findIndex(([id]) => id === current);
   if (index < 0) return null;
   /* A step is reachable if the guard would let the router go there —

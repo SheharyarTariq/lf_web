@@ -9,9 +9,18 @@ import { BillingModal, ExitConfirm, FaqModal, LoginSheet } from "@/components/bo
 import { BookingContext, type BookingContextValue } from "@/utils/booking/context";
 import SummaryPanel from "@/components/booking/summary-panel";
 import Loader from "@/components/common/Loader";
-import { furthestAllowed, isRoute, routesFor, stepOf, type Route } from "@/utils/booking/flow";
+import {
+  furthestAllowed,
+  isRoute,
+  nextAfter,
+  routesFor,
+  stepOf,
+  type Flow,
+  type Route,
+} from "@/utils/booking/flow";
 import { createOrder, updateAddress } from "@/utils/booking/api";
 import { toNationalUk } from "@/utils/api";
+import { UK_MOBILE_RE } from "@/utils/auth/model";
 import { EMPTY, type BookingData, type BookingPatch, type Leg } from "@/utils/booking/model";
 import type { MyStatus } from "@/utils/auth";
 import { INHERIT_FONT } from "@/utils/booking/styles";
@@ -111,11 +120,27 @@ export default function BookingShell({ children }: { children: React.ReactNode }
      empty string is the settled answer for a signed-out visitor — distinct
      from null, which means we do not know yet. */
   const [seed, setSeed] = useState<string | null>(null);
+  /* Whether the account covers everything the Details step asks for — see the
+     header of utils/booking/flow.ts for why that means the step comes out of
+     the walk. Read off the account rather than off `data`, because `data` is the
+     seed plus anything typed since and the question is what the *account*
+     holds. Recomputed on every seed, so signing in mid-checkout starts skipping
+     from that point rather than at the next reload.
+
+     The mobile is regex-tested, not merely truthy: a malformed number on an
+     older account is exactly the case that still needs the step. */
+  const [skipContact, setSkipContact] = useState(false);
   const seedFor = loading ? null : (status?.user?.email ?? "");
   if (seedFor !== null && seedFor !== seed) {
     setSeed(seedFor);
+    const who = status?.user;
+    setSkipContact(
+      Boolean(who?.name && who?.email && UK_MOBILE_RE.test(toNationalUk(who?.phone))),
+    );
     if (status?.user) setData((d) => ({ ...d, ...seedFromStatus(status, d) }));
   }
+
+  const flow = useMemo<Flow>(() => ({ wide, skipContact }), [wide, skipContact]);
 
   const go = useCallback(
     (next: Route) => {
@@ -143,15 +168,27 @@ export default function BookingShell({ children }: { children: React.ReactNode }
        takes to arrive. */
     if (seed === null) return;
     const allowed = furthestAllowed(data, signedIn);
-    const routes = routesFor(wide);
+    const routes = routesFor(flow);
     const here = routes.indexOf(step);
     const limit = routes.indexOf(allowed);
-    if (here < 0) {
-      router.replace("/book/address");
-    } else if (limit >= 0 && here > limit) {
-      router.replace(`/book/${allowed}`);
+    /* Two ways to be somewhere you should not be. Past the filled-in state is
+       the original one. `here < 0` is the new one: a real route this shape of
+       the flow does not contain — a deep link or a bookmark to /book/contact
+       from an account that now skips it, or the step being pulled out from
+       under somebody standing on it when they sign in. Both send them to
+       wherever they had actually got to, which for a complete account is the
+       payment screen they were heading for anyway; replacing to /book/address,
+       as the missing-route case used to, would throw away an address and a pair
+       of slots already chosen.
+
+       The `allowed !== step` test is what makes that safe. `furthestAllowed`
+       cannot name a skipped step today — the same completeness decides both —
+       but if it ever did, replacing to the route we are already on would run
+       this effect again on arrival and never settle. */
+    if (here < 0 || (limit >= 0 && here > limit)) {
+      if (allowed !== step) router.replace(`/book/${allowed}`);
     }
-  }, [step, data, wide, router, seed, signedIn]);
+  }, [step, data, flow, router, seed, signedIn]);
 
   /* Widening the window while on Review has nowhere to land — that screen
      does not exist in the wide flow — so slide forward to Payment, which is
@@ -191,11 +228,21 @@ export default function BookingShell({ children }: { children: React.ReactNode }
 
   /* Every screen focuses its own heading and returns to the top, so a step
      change reads as a new page to a screen reader rather than as a silent
-     swap of the middle of one. */
+     swap of the middle of one.
+
+     Both details here are load-bearing. focus() scrolls implicitly, which
+     aligns the heading to the viewport top — exactly where the sticky header
+     already is, so the heading it just focused ends up hidden behind it;
+     preventScroll keeps the announcement without the scroll. And the reset
+     must say behavior:"auto", because the page is scroll-behavior:smooth and
+     the two-argument scrollTo(0, 0) inherits it: that only *starts* an
+     animation, which the focus on the line before pre-empts. Together they
+     were opening every step already scrolled past its own heading — visible
+     on mobile, where the taller wrapped header and the hidden footer leave
+     just enough scroll range for it. */
   useEffect(() => {
-    window.scrollTo(0, 0);
-    const h1 = document.querySelector<HTMLElement>("main h1");
-    h1?.focus();
+    document.querySelector<HTMLElement>("main h1")?.focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: "auto" });
   }, [step]);
 
   const dirty = useMemo(
@@ -204,7 +251,7 @@ export default function BookingShell({ children }: { children: React.ReactNode }
   );
 
   const back = useCallback(() => {
-    const routes = routesFor(wide);
+    const routes = routesFor(flow);
     const here = routes.indexOf(step);
     if (here <= 0) {
       if (dirty) setExiting(true);
@@ -212,7 +259,15 @@ export default function BookingShell({ children }: { children: React.ReactNode }
       return;
     }
     router.push(`/book/${routes[here - 1]}`);
-  }, [wide, step, dirty, router]);
+  }, [flow, step, dirty, router]);
+
+  /* The mirror of back(), and the only way a screen should move forward. The
+     screens used to name their successor — Time pushed "contact" — which is
+     precisely what breaks when a step leaves the walk. */
+  const forward = useCallback(() => {
+    const next = nextAfter(step, flow);
+    if (next) router.push(`/book/${next}`);
+  }, [flow, step, router]);
 
   const confirmOrder = useCallback(async () => {
     /* ── The address, saved once, here ─────────────────────────────
@@ -287,7 +342,9 @@ export default function BookingShell({ children }: { children: React.ReactNode }
       step,
       go,
       back,
+      forward,
       wide,
+      skipContact,
       timeLeg,
       setTimeLeg,
       moreBelow,
@@ -307,7 +364,7 @@ export default function BookingShell({ children }: { children: React.ReactNode }
       openLogin: (prefill?: string) => setLoginFor(prefill ?? data.email ?? ""),
       openBilling: () => setBillingOpen(true),
     }),
-    [data, patch, step, go, back, wide, timeLeg, moreBelow, discount, reference, user, confirmOrder, dirty, router],
+    [data, patch, step, go, back, forward, wide, skipContact, timeLeg, moreBelow, discount, reference, user, confirmOrder, dirty, router],
   );
 
   const showChrome = step !== "confirmed";
@@ -359,7 +416,7 @@ export default function BookingShell({ children }: { children: React.ReactNode }
               current={stepOf(step, wide)}
               allowed={furthestAllowed(data, signedIn)}
               onGo={go}
-              wide={wide}
+              flow={flow}
             />
           )}
         </Header>
@@ -450,6 +507,12 @@ export default function BookingShell({ children }: { children: React.ReactNode }
               fullName: who.fullName || data.fullName,
               verified: true,
             });
+            /* The sheet hands back what it was told by /login-check, which is
+               not the whole account — no phone, and nothing to say whether the
+               Details step is still needed. This is the only login path in the
+               app that did not refresh, so the seed never re-ran and a returning
+               customer stayed on the four-step flow until they reloaded. */
+            void refreshSession();
             setLoginFor(null);
           }}
         />

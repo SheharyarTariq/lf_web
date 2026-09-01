@@ -40,6 +40,7 @@ import {
   PASSWORD_RE,
   PASSWORD_RULE,
   signupSchema,
+  UK_MOBILE_RE,
 } from "./schema";
 import { cn } from "@/utils/cn";
 import { AUTH_CODE_INPUT } from "@/utils/auth/styles";
@@ -489,7 +490,10 @@ export default function AuthModal({
 
   /* ── Sign up ── */
   const signupReady = Boolean(
-    form.name.trim() && EMAIL_RE.test(form.email.trim()) && PASSWORD_RE.test(form.password),
+    form.name.trim() &&
+      UK_MOBILE_RE.test(form.phone.trim()) &&
+      EMAIL_RE.test(form.email.trim()) &&
+      PASSWORD_RE.test(form.password),
   );
   const submitSignup = async () => {
     /* The schema is the only place the rules and the copy live now. */
@@ -787,7 +791,11 @@ export default function AuthModal({
               />
             </Field>
 
-            <Field label="Phone" id={`${ids}-tel`} optional error={errors.phone}>
+            {/* "Mobile number", the same label the checkout uses, because the
+                rule is a UK mobile and "Phone" invites a landline. No longer
+                optional: a complete account is what lets the checkout skip its
+                Details step. */}
+            <Field label="Mobile number" id={`${ids}-tel`} error={errors.phone}>
               <PhoneInput
                 surface="auth"
                 id={`${ids}-tel`}

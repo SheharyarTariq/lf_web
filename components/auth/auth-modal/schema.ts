@@ -33,14 +33,17 @@ export { UK_MOBILE_RE } from "@/utils/auth/model";
 
 export const signupSchema = yup.object({
   name: yup.string().trim().required("Tell us your name."),
-  /* Optional, so an empty field passes; anything actually typed must be a UK
-     mobile. Spaces are stripped first — the field itself no longer lets any
+  /* Required, because the checkout now trusts it. An account that carries a
+     valid mobile skips the Details step entirely — see utils/booking/flow.ts —
+     so the number has to be collected at the one moment we are certainly
+     asking. Spaces are stripped first: the field itself no longer lets any
      through, but a schema that only holds for values its own input produced is
      not a rule, it is a coincidence. */
   phone: yup
     .string()
     .transform((v) => (typeof v === "string" ? v.replace(/\s/g, "") : v))
-    .test("uk-mobile", UK_MOBILE_MESSAGE, (v) => !v || UK_MOBILE_RE.test(v)),
+    .required("Enter your mobile number.")
+    .test("uk-mobile", UK_MOBILE_MESSAGE, (v) => UK_MOBILE_RE.test(v || "")),
   email: yup.string().trim().matches(EMAIL_RE, "Enter a valid email address."),
   password: yup.string().matches(PASSWORD_RE, `${PASSWORD_RULE}.`),
 });
