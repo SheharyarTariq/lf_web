@@ -58,3 +58,44 @@ export const UK_MOBILE_RE = /^(?:0|\+?44)?7\d{9}$/;
 /** Shown against the field, which sits behind a fixed +44 — hence no leading
  *  zero in the example. */
 export const UK_MOBILE_MESSAGE = "Enter a UK mobile, for example 7700 900123.";
+
+export const NAME_MIN = 3;
+
+/** Letters, plus the three separators real names carry: a space, a hyphen, an
+ *  apostrophe — straight or curly, because iOS substitutes U+2019 as you type and
+ *  a customer whose keyboard "helped" is exactly who must not be told their own
+ *  name is wrong. Unicode letters rather than A–Z: "Renée", "Ruairí" and
+ *  "Владимир" are names, and a rule that refuses them is a bug that only ever
+ *  appears in front of the person it refuses.
+ *
+ *  Every segment starts on a letter, so a separator cannot lead, trail or repeat
+ *  — " John", "John " and "John  Smith" fail on shape rather than on length.
+ *  \p{M} carries the combining marks of decomposed input but is deliberately not
+ *  allowed to open a segment, or " " + U+0301 would pass and render as an accent
+ *  floating on nothing. */
+export const NAME_RE = /^\p{L}[\p{L}\p{M}]*(?:[ '’‐-]\p{L}[\p{L}\p{M}]*)*$/u;
+
+/** Says what is allowed rather than what is banned. "Letters only" is a lie the
+ *  moment somebody types the space in "John Smith" and it is accepted. */
+export const NAME_CHARS_MESSAGE = "Use letters, spaces, hyphens and apostrophes only.";
+
+/** Not "your full name" — the rule never demands a surname, and Ali passes. */
+export const NAME_MIN_MESSAGE = `Enter at least ${NAME_MIN} letters.`;
+
+/** The one name rule, for the two name fields, for the same reason UK_MOBILE_RE
+ *  is one constant: the checkout and the auth modal collect the same name for
+ *  the same account, and two copies is how they end up disagreeing about it in
+ *  front of somebody.
+ *
+ *  `unknown` rather than `string` because yup hands a test `undefined` for an
+ *  empty optional field, and a signature promising otherwise is a lie that
+ *  throws rather than returns false.
+ *
+ *  The letters are counted over [\p{L}\p{M}], not \p{L}: in Devanagari and Thai
+ *  the vowel signs are marks, so "राम" is a whole name that would otherwise be
+ *  told it is two letters short of being one. */
+export function isValidName(v: unknown): boolean {
+  if (typeof v !== "string") return false;
+  const s = v.normalize("NFC").trim();
+  return NAME_RE.test(s) && (s.match(/[\p{L}\p{M}]/gu)?.length ?? 0) >= NAME_MIN;
+}

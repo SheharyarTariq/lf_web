@@ -41,6 +41,7 @@ import {
   PASSWORD_RULE,
   signupSchema,
   UK_MOBILE_RE,
+  isValidName,
 } from "./schema";
 import { cn } from "@/utils/cn";
 import { AUTH_CODE_INPUT } from "@/utils/auth/styles";
@@ -489,8 +490,11 @@ export default function AuthModal({
   };
 
   /* ── Sign up ── */
+  /* Every field here is tested against its own rule, the name included — a
+     button that goes live on a value the schema will refuse a moment later is
+     just a slower way of showing the same error. */
   const signupReady = Boolean(
-    form.name.trim() &&
+    isValidName(form.name) &&
       UK_MOBILE_RE.test(form.phone.trim()) &&
       EMAIL_RE.test(form.email.trim()) &&
       PASSWORD_RE.test(form.password),

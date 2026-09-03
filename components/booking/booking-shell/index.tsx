@@ -20,7 +20,7 @@ import {
 } from "@/utils/booking/flow";
 import { createOrder, updateAddress } from "@/utils/booking/api";
 import { toNationalUk } from "@/utils/api";
-import { UK_MOBILE_RE } from "@/utils/auth/model";
+import { UK_MOBILE_RE, isValidName } from "@/utils/auth/model";
 import { EMPTY, type BookingData, type BookingPatch, type Leg } from "@/utils/booking/model";
 import type { MyStatus } from "@/utils/auth";
 import { INHERIT_FONT } from "@/utils/booking/styles";
@@ -127,15 +127,19 @@ export default function BookingShell({ children }: { children: React.ReactNode }
      holds. Recomputed on every seed, so signing in mid-checkout starts skipping
      from that point rather than at the next reload.
 
-     The mobile is regex-tested, not merely truthy: a malformed number on an
-     older account is exactly the case that still needs the step. */
+     The mobile and the name are both rule-tested, not merely truthy: a
+     malformed number or a name of "3" on an older account is exactly the case
+     that still needs the step. The name only became truthiness-proof when it
+     got a rule of its own — before that, any non-empty string skipped Details,
+     and whatever the account held went to Stripe as the billing name without
+     anybody being shown it. */
   const [skipContact, setSkipContact] = useState(false);
   const seedFor = loading ? null : (status?.user?.email ?? "");
   if (seedFor !== null && seedFor !== seed) {
     setSeed(seedFor);
     const who = status?.user;
     setSkipContact(
-      Boolean(who?.name && who?.email && UK_MOBILE_RE.test(toNationalUk(who?.phone))),
+      Boolean(isValidName(who?.name) && who?.email && UK_MOBILE_RE.test(toNationalUk(who?.phone))),
     );
     if (status?.user) setData((d) => ({ ...d, ...seedFromStatus(status, d) }));
   }

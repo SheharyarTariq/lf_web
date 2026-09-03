@@ -26,6 +26,7 @@
    ══════════════════════════════════════════════════════════════════ */
 
 import type { BookingData } from "@/utils/booking/model";
+import { isValidName } from "@/utils/auth/model";
 
 export type Route = "address" | "time" | "contact" | "review" | "payment" | "confirmed";
 
@@ -113,7 +114,10 @@ export function stepOf(route: Route, wide: boolean): string {
 export function furthestAllowed(d: BookingData, signedIn = false): Route {
   if (!(d.postcode && d.line1 && d.town)) return "address";
   if (!(d.collectionDay && d.collectionSlot && d.deliveryDay && d.deliverySlot)) return "time";
-  if (!(d.fullName && d.mobile && d.email)) return "contact";
+  /* The name against its rule rather than its truthiness — the same test
+     skipContact uses, because the same completeness decides both and a name
+     the Details step would refuse must not be a name that walks past it. */
+  if (!(isValidName(d.fullName) && d.mobile && d.email)) return "contact";
   /* No account yet — the card and the order both need one. */
   if (!signedIn && !d.verified) return "contact";
   return "payment";

@@ -2,10 +2,14 @@ import * as yup from "yup";
 import {
   CODE_LENGTH,
   EMAIL_RE,
+  NAME_CHARS_MESSAGE,
+  NAME_MIN_MESSAGE,
+  NAME_RE,
   PASSWORD_RE,
   PASSWORD_RULE,
   UK_MOBILE_MESSAGE,
   UK_MOBILE_RE,
+  isValidName,
 } from "@/utils/auth/model";
 
 /* ══════════════════════════════════════════════════════════════════
@@ -31,8 +35,26 @@ export { EMAIL_RE, PASSWORD_RE, PASSWORD_RULE } from "@/utils/auth/model";
    has always read its rules from. */
 export { UK_MOBILE_RE } from "@/utils/auth/model";
 
+/* Same story as the mobile: the checkout and this form collect the same name
+   for the same account, so the shape lives in utils/auth/model beside the other
+   field rules and both read it from there. Re-exported for the same reason as
+   the constants above — this is where the modal has always looked. */
+export { NAME_RE, isValidName } from "@/utils/auth/model";
+
 export const signupSchema = yup.object({
-  name: yup.string().trim().required("Tell us your name."),
+  /* The checkout's rule, verbatim — see contactSchema for why it is one test
+     that picks its own message rather than two chained ones. */
+  name: yup
+    .string()
+    .trim()
+    .required("Tell us your name.")
+    .test("name-shape", NAME_CHARS_MESSAGE, (v, ctx) => {
+      if (!v) return true;
+      if (!NAME_RE.test(v.normalize("NFC")))
+        return ctx.createError({ message: NAME_CHARS_MESSAGE });
+      if (!isValidName(v)) return ctx.createError({ message: NAME_MIN_MESSAGE });
+      return true;
+    }),
   /* Required, because the checkout now trusts it. An account that carries a
      valid mobile skips the Details step entirely — see utils/booking/flow.ts —
      so the number has to be collected at the one moment we are certainly

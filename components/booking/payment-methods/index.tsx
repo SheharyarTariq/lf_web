@@ -52,13 +52,17 @@ const ROW_OFF = "border-bk-line-2 bg-white hover:border-bk-ink-3";
    one, and no hover. */
 const ROW_ONLY = "border-bk-line bg-white";
 
-/* The dot is always drawn and always the same size; only its fill changes, so
-   nothing shifts as the selection moves. */
+/* The mark is always drawn and always the same size; only its colours change, so
+   nothing shifts as the selection moves. It is a tick in a filled circle rather
+   than the lime dot this started as: brand on white is 1.35:1, so that dot was
+   drawn and invisible, and the row's green got read as decoration instead of as
+   state — somebody reported the row "was green" without knowing it was chosen.
+   bk-ink on brand is ~13:1. Same trick as the terms checkbox. */
 const DOT =
   "flex h-[18px] w-[18px] flex-none items-center justify-center rounded-[50%] border-[1.5px] " +
-  "border-bk-line-2 bg-white transition-[border-color] duration-150 ease-[ease] " +
-  "peer-checked:border-brand";
-const DOT_IN = "h-2.5 w-2.5 rounded-[50%] bg-transparent peer-checked:bg-brand";
+  "border-bk-line-2 bg-white text-transparent " +
+  "transition-[background-color,border-color,color] duration-150 ease-[ease] " +
+  "peer-checked:border-brand peer-checked:bg-brand peer-checked:text-bk-ink";
 
 const REMOVE =
   "-my-1.5 -mr-1.5 flex min-h-11 flex-none cursor-pointer items-center justify-center " +
@@ -70,16 +74,33 @@ const REMOVE =
 const brandName = (b?: string | null) =>
   b ? b.charAt(0).toUpperCase() + b.slice(1) : "Card";
 
-function CardFace({ card }: { card: PaymentMethod }) {
+function CardFace({ card, selected }: { card: PaymentMethod; selected: boolean }) {
+  const expiry =
+    card.expiryMonth && card.expiryYear
+      ? `Expires ${String(card.expiryMonth).padStart(2, "0")}/${String(card.expiryYear).slice(-2)}`
+      : "";
   return (
     <span className="min-w-0 flex-auto">
       <b className="block text-[14.5px] font-bold">
         {brandName(card.brand)} ending {card.last4 ?? "••••"}
       </b>
-      {card.expiryMonth && card.expiryYear && (
+      {/* "Selected" rides the expiry line rather than taking one of its own, so
+          the row does not change height as the selection moves. */}
+      {(selected || expiry) && (
         <span className="block text-[13px] text-bk-ink-3">
-          Expires {String(card.expiryMonth).padStart(2, "0")}/
-          {String(card.expiryYear).slice(-2)}
+          {/* aria-hidden deliberately: the radio already announces "selected",
+              and a screen reader saying it twice is worse than the word being
+              sighted-only. This is the visible half of that same state. */}
+          {selected && (
+            /* Hidden, not shrunk, under 481px: the face column is ~113px at
+               375px and "Selected · Expires 03/33" wraps there, which would
+               make the selected row taller than the others and move them as
+               the choice moved. The tick is 12.45:1 and says the same thing. */
+            <b className="font-semibold text-bk-ink to-480:hidden" aria-hidden="true">
+              Selected{expiry && " · "}
+            </b>
+          )}
+          {expiry}
         </span>
       )}
     </span>
@@ -176,7 +197,7 @@ export default function PaymentMethods({
                         onChange={() => choose(card)}
                       />
                       <span className={DOT} aria-hidden="true">
-                        <span className={DOT_IN} />
+                        <Icon icon={P.tick} size={11} strokeWidth={3.25} />
                       </span>
                     </>
                   )}
@@ -186,7 +207,9 @@ export default function PaymentMethods({
                   >
                     <Icon icon={P.card} size={18} />
                   </span>
-                  <CardFace card={card} />
+                  {/* A list of one is a statement, not a choice, so it gets no
+                      "Selected" — the word would imply an alternative. */}
+                  <CardFace card={card} selected={!single && on} />
                 </label>
                 {busy && <Loader className="h-4 w-4 flex-none" />}
                 <Button

@@ -19,7 +19,7 @@ import ActionBar from "@/components/booking/common/ActionBar";
 import Field from "@/components/booking/common/Field";
 import { useBooking } from "@/utils/booking/context";
 import { EMAIL_RE, domainSuggestions } from "@/utils/booking/model";
-import { UK_MOBILE_RE } from "@/utils/auth/model";
+import { UK_MOBILE_RE, isValidName } from "@/utils/auth/model";
 import {
   BTN_LINK,
   H1,
@@ -65,17 +65,17 @@ export default function ContactScreen() {
 
   const emailValid = EMAIL_RE.test(data.email.trim());
 
-  /* One schema drives both the message and the rule. Still gated on `touched`,
-     so nothing is flagged before it has been filled in and left — the field
-     order of the form is not the order people fill it in. */
+  /* One schema drives both the message and the rule. The messages themselves
+     are assembled below, after the identity hook, because the server can name
+     these same fields and its answer belongs under the same boxes. */
   const failed = validateFormSync(contactSchema, data);
-  const errors = {
-    fullName: touched.fullName ? failed.fullName || "" : "",
-    mobile: touched.mobile ? failed.mobile || "" : "",
-    email: touched.email ? failed.email || "" : "",
-  };
 
-  const restValid = Boolean(data.fullName.trim() && UK_MOBILE_RE.test(data.mobile.trim()));
+  /* The name is rule-tested rather than merely non-empty, the same way the
+     mobile beside it is. It used to be a `.trim()` truthiness check, which is
+     how "3" got as far as lighting up the Next button and being sent to Stripe
+     as a billing name — the schema knew it was wrong, but nothing that could
+     stop anybody was asking the schema. */
+  const restValid = Boolean(isValidName(data.fullName) && UK_MOBILE_RE.test(data.mobile.trim()));
   const valid = restValid && emailValid;
 
   /* Everything the panel needs to be worth showing: an address to register,
@@ -193,14 +193,44 @@ export default function ContactScreen() {
       advanceTimer.current = setTimeout(next, 400);
       return;
     }
-    const gap = data.fullName.trim() ? mobileRef : nameRef;
+    const gap = isValidName(data.fullName) ? mobileRef : nameRef;
     gap.current?.focus();
+  };
+
+  /* The panel's button is a submit of the two fields above it, so it reveals
+     their gaps the way any submit does, and refuses rather than sending a name
+     or a number the API will only refuse itself.
+
+     Marking them touched is the point of it. A mobile seeded from /my-status
+     has never been blurred, so a bad one that arrived with the session had
+     never had cause to render its error — the field looked accepted, and the
+     only sign anything was wrong came back from the server, in the wrong words
+     and under the wrong control. */
+  const guard = () => {
+    setTouched((t) => ({ ...t, fullName: true, mobile: true }));
+    if (restValid) return true;
+    /* Same first-gap idiom as `onResolved`: land in the field that is wrong
+       rather than at the top of the form. */
+    const gap = isValidName(data.fullName) ? mobileRef : nameRef;
+    gap.current?.focus();
+    return false;
   };
 
   /* Held here rather than in the panel because the code is submitted by the
      Next button below, not by anything inside the panel. Declared after
      `onResolved` for the plain reason that it takes it. */
-  const identity = useIdentity({ data, patch, onResolved });
+  const identity = useIdentity({ data, patch, onResolved, guard });
+
+  /* Still gated on `touched`, so nothing is flagged before it has been filled
+     in and left — the field order of the form is not the order people fill it
+     in. The server's answer needs no such gate: it is only ever the reply to a
+     button somebody pressed. The live rule wins where both have something to
+     say, being the more current statement about what is in the box. */
+  const errors = {
+    fullName: (touched.fullName ? failed.fullName : "") || identity.fieldErrors.fullName || "",
+    mobile: (touched.mobile ? failed.mobile : "") || identity.fieldErrors.mobile || "",
+    email: touched.email ? failed.email || "" : "",
+  };
 
   /* Waiting on the six digits: Next redeems them instead of moving on, and
      only moves on if they are right. `data.verified` is the far side of that —
