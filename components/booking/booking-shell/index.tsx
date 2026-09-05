@@ -171,22 +171,35 @@ export default function BookingShell({
      seed, so a different account starts from its own answer. */
   const [editAddress, setEditAddress] = useState(false);
   const [editContact, setEditContact] = useState(false);
+  /* Whether an account was already signed in the moment this shell first
+     mounted, frozen at that first seed and never re-read after. Without this,
+     a guest who converts to an existing account mid-checkout (the Details
+     step's code turning out to belong to somebody with a saved address, a
+     default card and a running subscription) has the three skips flip true
+     the instant that account is discovered — shrinking the walk out from
+     under the step they are standing on and sending the guard's redirect to
+     whatever is left, which reads as the checkout breaking rather than
+     recognising them. Someone signed in before they ever opened the
+     checkout still gets today's reduced flow immediately, because this is
+     already true on the very first seed for them. */
+  const signedInAtLoad = useRef<boolean | null>(null);
   const seedFor = loading ? null : (status?.user?.email ?? "");
   if (seedFor !== null && seedFor !== seed) {
+    if (seed === null) signedInAtLoad.current = Boolean(status?.user);
     setSeed(seedFor);
     const who = status?.user;
     setSavedContact(
       Boolean(isValidName(who?.name) && who?.email && UK_MOBILE_RE.test(toNationalUk(who?.phone))),
     );
     setSavedAddress(savedAddressUsable(status?.address));
-    setSkipPayment(hasDefaultCard(status));
+    setSkipPayment(Boolean(signedInAtLoad.current) && hasDefaultCard(status));
     setEditAddress(false);
     setEditContact(false);
     if (status?.user) setData((d) => ({ ...d, ...seedFromStatus(status, d) }));
   }
 
-  const skipAddress = savedAddress && !editAddress;
-  const skipContact = savedContact && !editContact;
+  const skipAddress = Boolean(signedInAtLoad.current) && savedAddress && !editAddress;
+  const skipContact = Boolean(signedInAtLoad.current) && savedContact && !editContact;
 
   const flow = useMemo<Flow>(
     () => ({ wide, skipContact, skipAddress, skipPayment }),
