@@ -521,13 +521,14 @@ export default function ContactScreen() {
           Back
         </Button>
         {/* Four jobs, one button. On the send step it asks for the code — the
-            same call the arrow in the email field makes, because the arrow is
-            easy to miss and a Next that is dead with every box filled in is
-            worse than one that says what it wants. On the code step it is the
-            submit: it redeems the six digits and the screen moves on by itself
-            when they are accepted (onResolved, above), or shows the refusal in
-            the panel when they are not. At the tail of the walk it places the
-            order. Everywhere else it is just Next.
+            same call the arrow in the email field makes; the button still
+            reads Next since sending the code is just what standing on this
+            screen requires before moving on, not a distinct action of its
+            own. On the code step it is the submit: it redeems the six digits
+            and the screen moves on by itself when they are accepted
+            (onResolved, above), or shows the refusal in the panel when they
+            are not. At the tail of the walk it places the order. Everywhere
+            else it is just Next.
 
             The label names where the press lands, the same rule Time and
             Review follow: nothing may promise a screen the walk does not
@@ -562,7 +563,7 @@ export default function ContactScreen() {
             next();
           }}
         >
-          {sendStep ? "Send code" : placing ? "Confirm order" : "Next"}
+          {placing ? "Confirm order" : "Next"}
         </Button>
       </ActionBar>
     </>

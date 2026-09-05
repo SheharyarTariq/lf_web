@@ -11,6 +11,8 @@
 
 import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
+import Wordmark from "@/components/common/Wordmark";
+import { WORDMARK, WRAP } from "@/utils/styles";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
@@ -29,17 +31,22 @@ const HELP_BASE =
   "hover:text-bk-ink hover:underline hover:underline-offset-[3px] " +
   "to-834:ml-auto to-400:text-[13px]";
 
-/** The mark is 28px but the tap area must not be. Padding takes the link
- *  to 44px without moving the logo. */
-function Wordmark() {
+/** The shared lockup, at the shared size — this was a local copy at 28px with
+ *  no baseline correction, which is what made the logo shrink and drop on the
+ *  way in from the landing page. As an <img> it could not take its colour from
+ *  the link either: an external SVG is its own document, so the file's
+ *  `fill="currentColor"` resolved to black rather than to bk-ink.
+ *
+ *  min-h-11 alone gives the 44px tap area — the mark is shorter than that, so
+ *  no padding is needed, and the translate moves only the artwork. */
+function BrandLink() {
   return (
     <Link
-      className="inline-flex min-h-11 flex-none items-center py-2 text-bk-ink no-underline"
+      className="inline-flex min-h-11 flex-none items-center text-bk-ink no-underline"
       href="/"
       aria-label={`${BRAND.name} home`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/assets/logo-primary.svg" alt="" className="h-7 w-auto" />
+      <Wordmark className={WORDMARK} title={BRAND.name} />
     </Link>
   );
 }
@@ -74,17 +81,22 @@ export function Header({
       }
     >
       {/* Two widths, on purpose. The chrome spans the page like the landing
-          page header does (max-w-wrap matches it exactly), while the form
-          stays at --bk-col, because a 1180px-wide input is unreadable.
-          Running the header at --bk-col too is what made the logo look like
-          it was floating in the middle of the screen. */}
-      <div className="mx-auto flex min-h-16 max-w-wrap flex-wrap items-center gap-x-[14px] gap-y-0 px-6 to-720:min-h-14 to-400:px-4">
+          page header does — WRAP, so the cap and the gutters both match and
+          the logo lands on the same left edge across the navigation — while
+          the form stays at --bk-col, because a 1180px-wide input is
+          unreadable. Running the header at --bk-col too is what made the logo
+          look like it was floating in the middle of the screen.
+
+          The extra to-400 step is the checkout's own: WRAP stops at 20px, and
+          below 400 the form body drops to 16px, so the header follows it down
+          rather than sitting proud of the fields it sits above. */}
+      <div className={cn(WRAP, "flex min-h-16 flex-wrap items-center gap-x-[14px] gap-y-0 to-720:min-h-14 to-400:px-4")}>
         {/* No back arrow here. Stepping backward is a flow action and lives
             beside Continue in the sticky ActionBar, where the decision to go
             back is actually made; on the first screen it would have meant the
             same thing as the X two icons along. That leaves the header saying
             one thing about leaving: this booking, all of it, via Close. */}
-        <Wordmark />
+        <BrandLink />
         {/* Answers open in place rather than sending people to an inbox
             or off to another page — during checkout every outbound link
             is a way to lose someone mid-form. */}
@@ -278,7 +290,9 @@ export function Steps({
 export function Footer() {
   return (
     <footer className="bg-white to-720:hidden">
-      <div className="mx-auto flex max-w-wrap flex-wrap items-center gap-x-[18px] gap-y-2 px-6 py-5 text-[13px] text-bk-ink-3 to-400:px-4">
+      {/* Same gutters as the header above it, or the two ends of the checkout
+          would not line up with each other. */}
+      <div className={cn(WRAP, "flex flex-wrap items-center gap-x-[18px] gap-y-2 py-5 text-[13px] text-bk-ink-3 to-400:px-4")}>
         <span>
           © {new Date().getFullYear()} {BRAND.legal}
         </span>

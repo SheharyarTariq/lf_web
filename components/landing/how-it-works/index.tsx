@@ -1,33 +1,10 @@
 import { cn } from "@/utils/cn";
-import Link from "next/link";
 import { StepIcon, TrustIcon } from "@/components/icons";
 import { PANEL_TRUST, STEPS } from "@/utils/content";
-import { btn } from "@/utils/button";
 import { SECTION_H2_MARGIN, WRAP } from "@/utils/styles";
 
-const LearnMore = ({ display, className = "" }: { display: string; className?: string }) => (
-  <Link className={btn({ variant: "ink", display, className: `group ${className}` })} href="/how-it-works">
-    Learn more
-    <svg
-      className="transition-transform duration-[160ms] ease-[ease] group-hover:translate-x-[3px]"
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </svg>
-  </Link>
-);
-
 /**
- * Condensed version of the process. The full breakdown lives on its own page
- * — this is the taster that sits directly under the hero.
+ * Condensed version of the process, sitting directly under the hero.
  */
 export default function HowItWorks() {
   return (
@@ -38,22 +15,16 @@ export default function HowItWorks() {
     >
       <div className={WRAP}>
         <div className="relative overflow-hidden rounded-card-xl bg-panel px-10 pb-[34px] pt-11 to-1280:px-[34px] to-1280:pb-[30px] to-1280:pt-9 to-1024:px-[26px] to-1024:pb-[26px] to-1024:pt-[30px] to-720:px-6 to-720:pb-7 to-720:pt-8">
-          {/* Headline left, Learn more right — keeps the button clear of the
-              cards instead of wedged into the trust row beneath them. */}
-          <div className="mb-[30px] flex flex-wrap items-end justify-between gap-x-7 gap-y-5">
-            <div>
-              <p className="mb-4 inline-block rounded-[6px] bg-brand px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[1.5px] text-ink">
-                How it works
-              </p>
-              <h2
-                id="lf-how"
-                className={cn("mb-1.5 text-[clamp(28px,3.1vw,40px)] font-extrabold leading-[1.1] tracking-[-1.2px]", SECTION_H2_MARGIN)}
-              >
-                How to live laundry-free
-              </h2>
-            </div>
-            {/* Hidden on phones, where the invitation moves below the steps. */}
-            <LearnMore display="inline-flex to-720:hidden" />
+          <div className="mb-[30px]">
+            <p className="mb-4 inline-block rounded-[6px] bg-brand px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[1.5px] text-ink">
+              How it works
+            </p>
+            <h2
+              id="lf-how"
+              className={cn("mb-1.5 text-[clamp(28px,3.1vw,40px)] font-extrabold leading-[1.1] tracking-[-1.2px]", SECTION_H2_MARGIN)}
+            >
+              How to live laundry-free
+            </h2>
           </div>
 
           <ol className="mb-[30px] grid grid-cols-[repeat(4,1fr)] gap-3.5 to-1024:grid-cols-[repeat(2,1fr)] to-1024:gap-3 to-720:grid-cols-[1fr] to-720:gap-2.5">
@@ -105,16 +76,11 @@ export default function HowItWorks() {
             ))}
           </ol>
 
-          {/* Phones only: the invitation belongs after the process, not
-              before it. */}
-          <LearnMore display="hidden to-720:inline-flex" className="to-720:mt-[18px]" />
-
           {/* Centred summary band. Kept together rather than split
               one-per-card: "No service fees" applies to the whole service,
               not to any one step. On phones it stacks left-aligned —
               centred, they wrap into a ragged block with the icons
-              scattered, and they disagree with the left-aligned button
-              above. */}
+              scattered. */}
           <ul className="flex flex-wrap justify-center gap-x-11 gap-y-4 pt-1 to-1024:gap-x-[30px] to-1024:gap-y-3.5 to-1024:pt-[26px] to-720:flex-col to-720:items-start to-720:justify-start to-720:gap-3.5 to-720:pt-[30px]">
             {PANEL_TRUST.map((t) => (
               <li key={t.label} className="flex items-center gap-[9px] text-[14.5px] font-bold">

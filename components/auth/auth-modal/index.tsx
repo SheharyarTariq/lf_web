@@ -31,7 +31,7 @@ import {
   TriangleAlert,
   X,
 } from "lucide-react";
-import { validateAndSetErrors } from "@/utils/validation";
+import { validateAndSetErrors, validateFormSync } from "@/utils/validation";
 import {
   changeEmailSchema,
   codeSchema,
@@ -197,6 +197,7 @@ function Password({
   autoComplete,
   invalid,
   onKeyDown,
+  onBlur,
 }: {
   id: string;
   value: string;
@@ -205,6 +206,7 @@ function Password({
   autoComplete?: string;
   invalid?: boolean;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
 }) {
   const [show, setShow] = useState(false);
   return (
@@ -216,6 +218,7 @@ function Password({
         value={value}
         onChange={onChange}
         onKeyDown={onKeyDown}
+        onBlur={onBlur}
         placeholder={placeholder}
         autoComplete={autoComplete}
         aria-invalid={invalid ? "true" : undefined}
@@ -305,6 +308,12 @@ export default function AuthModal({
   const [busy, setBusy] = useState(false);
   const [alert, setAlert] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  /* Which fields have been left once. A live rule shown before that would
+     flag "3" the moment the box gets focus, before anyone has had a chance
+     to type the rest of a name — see the same gate on the checkout's
+     contact screen (components/booking/screens/contact), which this
+     mirrors. */
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   /* `email` is the address the account currently has; `newEmail` is the draft
      on the change-email pane. Separate keys, so typing a correction does not
@@ -409,6 +418,7 @@ export default function AuthModal({
     setView(next);
     setAlert("");
     setErrors({});
+    setTouched({});
   }, []);
 
   /* Only ever called once a session cookie exists — see the header note. */
@@ -498,6 +508,21 @@ export default function AuthModal({
       EMAIL_RE.test(form.email.trim()) &&
       PASSWORD_RE.test(form.password),
   );
+  /* The same schema `signupReady` is tested against, run synchronously so a
+     field's message can appear before anyone has pressed Sign up — otherwise
+     a bad phone number or a one-letter name just leaves the button grey with
+     no way to tell why. Gated on `touched` for the same reason the contact
+     screen's does: flagging a field the instant it gets focus, before there
+     has been a chance to finish typing it, reads as a rejection of nothing.
+     `errors` still wins where it has something to say — that is the server's
+     or a submit attempt's answer, and it is more specific than a shape check. */
+  const signupFailed = validateFormSync(signupSchema, form);
+  const signupErrors = {
+    name: (touched.name ? signupFailed.name : "") || errors.name || "",
+    phone: (touched.phone ? signupFailed.phone : "") || errors.phone || "",
+    email: (touched.email ? signupFailed.email : "") || errors.email || "",
+    password: (touched.password ? signupFailed.password : "") || errors.password || "",
+  };
   const submitSignup = async () => {
     /* The schema is the only place the rules and the copy live now. */
     if (!(await validateAndSetErrors(signupSchema, form, setErrors))) return;
@@ -786,15 +811,16 @@ export default function AuthModal({
             </h2>
             <p className="text-[15px] text-bk-ink-2">Enter your details to get started</p>
 
-            <Field label="Full name" id={`${ids}-n`} error={errors.name}>
+            <Field label="Full name" id={`${ids}-n`} error={signupErrors.name}>
               <Input surface="auth"
                 id={`${ids}-n`}
                 ref={firstField}
                 value={form.name}
                 onChange={set("name")}
+                onBlur={() => setTouched((t) => ({ ...t, name: true }))}
                 placeholder="Enter your full name"
                 autoComplete="name"
-                aria-invalid={errors.name ? "true" : undefined}
+                aria-invalid={signupErrors.name ? "true" : undefined}
               />
             </Field>
 
@@ -802,38 +828,41 @@ export default function AuthModal({
                 rule is a UK mobile and "Phone" invites a landline. No longer
                 optional: a complete account is what lets the checkout skip its
                 Details step. */}
-            <Field label="Mobile number" id={`${ids}-tel`} error={errors.phone}>
+            <Field label="Mobile number" id={`${ids}-tel`} error={signupErrors.phone}>
               <PhoneInput
                 surface="auth"
                 id={`${ids}-tel`}
                 value={form.phone}
                 onChange={setPhone}
+                onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
                 placeholder="7700 900000"
-                error={errors.phone}
+                error={signupErrors.phone}
               />
             </Field>
 
-            <Field label="Email" id={`${ids}-se`} error={errors.email}>
+            <Field label="Email" id={`${ids}-se`} error={signupErrors.email}>
               <Input surface="auth"
                 id={`${ids}-se`}
                 type="email"
                 value={form.email}
                 onChange={set("email")}
+                onBlur={() => setTouched((t) => ({ ...t, email: true }))}
                 placeholder="Enter your email address"
                 autoComplete="email"
-                aria-invalid={errors.email ? "true" : undefined}
+                aria-invalid={signupErrors.email ? "true" : undefined}
               />
             </Field>
 
-            <Field label="Password" id={`${ids}-sp`} error={errors.password} hint={PASSWORD_RULE}>
+            <Field label="Password" id={`${ids}-sp`} error={signupErrors.password} hint={PASSWORD_RULE}>
               <Password
                 id={`${ids}-sp`}
                 value={form.password}
                 onChange={set("password")}
                 onKeyDown={onEnter(submitSignup)}
+                onBlur={() => setTouched((t) => ({ ...t, password: true }))}
                 placeholder="Enter your password"
                 autoComplete="new-password"
-                invalid={Boolean(errors.password)}
+                invalid={Boolean(signupErrors.password)}
               />
             </Field>
 

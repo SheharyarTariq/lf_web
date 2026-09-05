@@ -330,12 +330,22 @@ options, all now set explicitly.
 - **Link was rendering a second copy of the details step.** A "Secure, fast checkout with Link"
   row plus an "Optional · Save my information" block asking for the email, mobile and name we
   were already holding. The lever is **`wallets: { link: "never" }`** on the Payment Element.
-  Two things worth writing down, both established by trying them against a real key rather than
-  reasoned: `paymentMethodTypes: ["card"]` does **not** remove Link — Link is a card-type
-  method, not a separate one — and `link: { display: "never" }` on either the group or the
-  Element is rejected by Stripe.js as an unrecognised parameter. Apple Pay and Google Pay are
-  off alongside it: this flow stores a card to charge off-session, and a wallet returns a
-  device-bound token that makes that later charge harder.
+  Three things worth writing down, all established against a real key rather than reasoned:
+  `paymentMethodTypes: ["card"]` does **not** remove Link — Link is a card-type method, not a
+  separate one; `link: { display: "never" }` on either the group or the Element is rejected by
+  Stripe.js as an unrecognised parameter; and `paymentMethodTypes` is not merely useless here
+  but **breaks confirmation outright**, which cost a round of "we could not save that card"
+  before it was found. Our `POST /payment-methods/setup-intent` returns an intent built with
+  automatic payment methods (`automatic_payment_methods.enabled: true`, a
+  `payment_method_configuration`, types `card` and `link`), and Stripe refuses to confirm an
+  Element that named its own types against such an intent — *"Payment details were collected
+  through Stripe Elements using payment_method_types and cannot be confirmed through the API
+  configured with automatic payment methods"*, an `invalid_request_error` at `confirmSetup`,
+  after the cardholder has typed the card. The Element therefore names no types and is card-only
+  by way of the account's method configuration plus `wallets`. Putting the option back means
+  changing how the backend creates the intent first. Apple Pay and Google Pay are off alongside
+  Link: this flow stores a card to charge off-session, and a wallet returns a device-bound token
+  that makes that later charge harder.
 - **The mandate named the Stripe account, not the company** — *"you allow **lf-sandbox** to
   charge your card…"*. `terms: { card: "never" }` now suppresses it and the screen states the
   mandate itself, in `BRAND.trading` and in our own typeface, under the terms checkbox. **That

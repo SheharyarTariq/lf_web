@@ -14,7 +14,7 @@ import { BRAND, NAV } from "@/utils/content";
 import { displayName } from "@/utils/auth";
 import { btn } from "@/utils/button";
 import { useEscapeKey, useScrollLock, useStartBooking } from "@/utils/hooks";
-import { WRAP } from "@/utils/styles";
+import { WORDMARK, WRAP } from "@/utils/styles";
 import { routes } from "@/utils/routes";
 
 /** How long the drawer takes to leave. Must match the slide-out animation. */
@@ -120,24 +120,9 @@ export default function SiteHeader() {
             href="/"
             className="inline-flex flex-none items-center whitespace-nowrap text-[20px] font-extrabold tracking-[-.5px] text-ink no-underline to-900:absolute to-900:left-1/2 to-900:top-1/2 to-900:-translate-x-1/2 to-900:-translate-y-1/2"
           >
-            {/* The leaf sits above the wordmark, so centring the lockup's box
-                leaves the wordmark hanging below the nav. Shift up so the two
-                baselines meet:
-                  nav baseline  = (72 - 15*1.6)/2 + (24 - 15*1.4)/2 + 15*1.05 = 41.25px
-                  logo baseline = (72 - 34)/2 + (359/423 * 34)               = 47.85px
-                Difference 6.6px. Recalculate if the header height, logo
-                height or nav font size changes.
-
-                Below 900px the logo is centred in the bar rather than
-                aligned to a baseline, and the correction becomes the
-                wordmark's own offset within the artwork: the letters' middle
-                sits 88 of 423 user units — 20.8% of the height — below the
-                box's middle. 30px * 0.208 = 6.24px. Re-derive if the asset
-                changes: it is (lettersMid - boxMid) / height. */}
-            <Wordmark
-              className="block h-[34px] w-auto -translate-y-[6.6px] to-900:h-[30px] to-900:-translate-y-[6.24px]"
-              title={BRAND.name}
-            />
+            {/* Size and baseline correction live in WORDMARK, shared with the
+                checkout header — see the derivations there. */}
+            <Wordmark className={WORDMARK} title={BRAND.name} />
           </Link>
 
           {/* Nav links stay in the header on desktop; only tablet and phone

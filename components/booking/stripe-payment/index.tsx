@@ -135,11 +135,12 @@ function stripeAppearance() {
   const ink = v("--color-bk-ink", "#1F1F1F");
   const line2 = v("--color-bk-line-2", "#DCDCDC");
   const danger = v("--color-danger", "#B3261E");
-  /* `.Tab` and `.Tab--selected` rules used to sit in here. The Element is
-     card-only now — see paymentMethodTypes below — so there is no method
-     picker left to style, and rules for a component that cannot render are
-     the kind of thing a later reader spends an afternoon trying to find on
-     screen. */
+  /* `.Tab` and `.Tab--selected` rules used to sit in here. The Element renders
+     card only — the account's method configuration offers card and Link, and
+     `wallets` below switches Link off — so there is no method picker left to
+     style, and rules for a component that cannot render are the kind of thing
+     a later reader spends an afternoon trying to find on screen. Put them back
+     if a second method is ever enabled on the account. */
   return {
     theme: "stripe",
     variables: {
@@ -377,12 +378,20 @@ export default function StripePayment({
           mode: "setup",
           currency: STRIPE_CURRENCY,
           setupFutureUsage: "off_session",
-          /* Card only, and stated rather than left to the account's enabled
-             methods. Unset, automatic payment methods decide what appears, and
-             this Element has exactly one job. Note it does **not** by itself
-             remove Link — that is `wallets.link` below, established by trying
-             both against a real key. */
-          paymentMethodTypes: ["card"],
+          /* There is deliberately no `paymentMethodTypes: ["card"]` here, and
+             it must not come back. Our backend builds the SetupIntent with
+             **automatic payment methods** (`automatic_payment_methods.enabled`,
+             a `payment_method_configuration` and no explicit types), and naming
+             types here puts the Element in the other mode. The two are not
+             allowed to meet: `confirmSetup` is refused by the API with
+             "Payment details were collected through Stripe Elements using
+             payment_method_types and cannot be confirmed through the API
+             configured with automatic payment methods", which reaches the
+             cardholder as a card that will not save however many times they
+             retype it. It also bought nothing — what appears is card only
+             either way, from the account's method configuration and the
+             `wallets` lines below. Reversing it means changing how the intent
+             is created first. */
           appearance: stripeAppearance(),
           fonts: STRIPE_FONTS,
         });
@@ -412,9 +421,9 @@ export default function StripePayment({
              renders only inside this mandate and the wallet sheets, both of
              which are off, so it would be a setting with nowhere to appear. */
           terms: { card: "never" },
-          /* Off, and each said explicitly, because all three survive
-             `paymentMethodTypes: ["card"]` — they are card-type methods rather
-             than separate ones, so naming card does not exclude them.
+          /* Off, and each said explicitly, because all three are card-type
+             methods rather than separate ones: nothing that restricts the
+             Element to cards excludes them, so each has to be named here.
 
              `link` is the one that mattered here and the one that is easy to
              get wrong. It is what rendered the "Secure, fast checkout with

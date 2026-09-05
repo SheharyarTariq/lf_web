@@ -9,6 +9,31 @@
 /** The page container: 1180px cap with gutters that step down at 1024 and 720. */
 export const WRAP = "mx-auto max-w-wrap px-8 to-1024:px-6 to-720:px-5";
 
+/**
+ * The header lockup: 34px, stepping to 30px at 900.
+ *
+ * Shared because the site header and the checkout header are one product and
+ * had already drifted apart once — the checkout was carrying its own 28px copy
+ * with no baseline correction, which is what made the logo visibly change size
+ * on the way into the booking flow.
+ *
+ * The leaf sits above the wordmark, so centring the lockup's box leaves the
+ * letters hanging low. The translate corrects that, and it is a property of the
+ * artwork rather than of any one bar: the letters' middle sits 88 of 423 user
+ * units — 20.8% of the height — below the box's middle, so 34 * 0.208 = 7.07px.
+ *
+ * The site header arrived at 6.6px from the other direction, matching its nav
+ * text baseline in a 72px bar:
+ *   nav baseline  = (72 - 15*1.6)/2 + (24 - 15*1.4)/2 + 15*1.05 = 41.25px
+ *   logo baseline = (72 - 34)/2 + (359/423 * 34)               = 47.85px
+ * The two derivations agree to within half a pixel, which is why one value can
+ * optically centre the lockup in the 72px site bar and the 64px checkout bar
+ * alike. Re-derive as (lettersMid - boxMid) / height if the asset changes, or
+ * from the baselines above if the header height or nav font size changes.
+ */
+export const WORDMARK =
+  "block h-[34px] w-auto -translate-y-[6.6px] to-900:h-[30px] to-900:-translate-y-[6.24px]";
+
 /** A standard section: 64px block padding with a hairline rule beneath,
  *  stepping down at 1280 and 1024. */
 export const SECTION =
