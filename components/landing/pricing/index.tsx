@@ -288,7 +288,7 @@ export default function Pricing() {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search for an item"
                 autoComplete="off"
-                className="h-[42px] w-full rounded-pill border-[1.5px] border-line-dark bg-surface-dark px-[42px] text-[15px] text-white transition-[border-color,box-shadow] duration-150 placeholder:text-on-dark-2 focus:border-brand focus:outline-none focus:shadow-[0_0_0_3px_rgba(193,241,29,.25)]"
+                className="h-[42px] w-full rounded-pill border-[1.5px] border-line-dark bg-surface-dark px-[42px] text-[15px] text-white transition-[border-color,box-shadow] duration-150 placeholder:text-on-dark-2 focus:border-brand focus:outline-none focus:shadow-[0_0_0_3px_rgba(193,241,29,.25)] [&::-webkit-search-cancel-button]:appearance-none"
               />
               {searching && (
                 <Button

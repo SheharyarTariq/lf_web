@@ -250,10 +250,6 @@ function Social({ onPick, busy }: { onPick: (id: "google" | "apple") => void; bu
   );
 }
 
-const Spinner = () => (
-  <span className="inline-block h-[17px] w-[17px] animate-spin-fast rounded-full border-2 border-[rgba(20,20,15,.25)] border-t-bk-ink motion-reduce:animate-none motion-reduce:border-t-[rgba(20,20,15,.25)] motion-reduce:border-r-bk-ink" />
-);
-
 const Divider = () => (
   <p className="flex items-center gap-3.5 text-[13.5px] text-bk-ink-3 before:h-px before:flex-auto before:bg-bk-line-2 before:content-[''] after:h-px after:flex-auto after:bg-bk-line-2 after:content-['']">
     <span>or</span>
@@ -756,11 +752,11 @@ export default function AuthModal({
 
             <Button variant="bare"
               className={BTN_LIME}
-              disabled={!loginReady || busy}
+              disabled={!loginReady}
+              isLoading={busy}
               onClick={submitLogin}
             >
-              {busy ? <Spinner /> : null}
-              {busy ? "Logging in" : "Log in"}
+              Log in
             </Button>
 
             {SOCIAL_AUTH_ENABLED && (
@@ -843,11 +839,11 @@ export default function AuthModal({
 
             <Button variant="bare"
               className={cn(BTN_LIME, "mt-1.5")}
-              disabled={!signupReady || busy}
+              disabled={!signupReady}
+              isLoading={busy}
               onClick={submitSignup}
             >
-              {busy ? <Spinner /> : null}
-              {busy ? "Creating your account" : "Sign up"}
+              Sign up
             </Button>
 
             {SOCIAL_AUTH_ENABLED && (
@@ -920,11 +916,11 @@ export default function AuthModal({
 
             <Button variant="bare"
               className={cn(BTN_LIME, "mt-1.5")}
-              disabled={!EMAIL_RE.test(form.email.trim()) || busy}
+              disabled={!EMAIL_RE.test(form.email.trim())}
+              isLoading={busy}
               onClick={submitForgot}
             >
-              {busy ? <Spinner /> : null}
-              {busy ? "Sending" : "Send reset link"}
+              Send reset link
             </Button>
 
             <p className="text-center text-[14px] text-bk-ink-2">
@@ -1062,11 +1058,11 @@ export default function AuthModal({
 
             <Button variant="bare"
               className={cn(BTN_LIME, "mt-1.5")}
-              disabled={form.code.length !== CODE_LENGTH || busy}
+              disabled={form.code.length !== CODE_LENGTH}
+              isLoading={busy}
               onClick={submitCode}
             >
-              {busy ? <Spinner /> : null}
-              {busy ? "Verifying" : "Verify"}
+              Verify
             </Button>
 
             <p className="text-center text-[14px] text-bk-ink-2">
@@ -1114,11 +1110,11 @@ export default function AuthModal({
                 nothing, which is the worst answer available. */}
             <Button variant="bare"
               className={cn(BTN_LIME, "mt-1.5")}
-              disabled={!changeReady || busy}
+              disabled={!changeReady}
+              isLoading={busy}
               onClick={submitChangeEmail}
             >
-              {busy ? <Spinner /> : null}
-              {busy ? "Updating" : "Update & resend code"}
+              Update & resend code
             </Button>
 
             <p className="text-center text-[14px] text-bk-ink-2">

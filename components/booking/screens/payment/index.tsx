@@ -21,7 +21,6 @@
 import { cn } from "@/utils/cn";
 import { useRef, useState } from "react";
 import Button from "@/components/common/Button";
-import Loader from "@/components/common/Loader";
 import { Icon, P } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
 import StripePayment, { type StripePaymentHandle } from "@/components/booking/stripe-payment";
@@ -312,12 +311,11 @@ export default function PaymentScreen() {
           Back
         </Button>
         <Button
-          surface="booking" size="lg" className={cn(NAV_FORWARD, "gap-2")}
+          surface="booking" size="lg" className={NAV_FORWARD}
           disabled={!ready}
           isLoading={busy}
           onClick={submit}
         >
-          {busy && <Loader className="h-4 w-4" />}
           Confirm order
         </Button>
       </ActionBar>

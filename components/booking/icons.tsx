@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Check,
-  ChevronLeft,
   ChevronRight,
   Clock,
   CreditCard,
@@ -36,7 +35,6 @@ import type { ProviderId } from "@/utils/booking/model";
  * at 1.7, so the rendered box is unchanged and only the artwork differs.
  */
 export const P = {
-  back: ChevronLeft,
   chevron: ChevronRight,
   tick: Check,
   info: Info,

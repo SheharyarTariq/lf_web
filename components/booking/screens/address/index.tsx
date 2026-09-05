@@ -9,7 +9,6 @@ import { useId, useRef, useState } from "react";
 import ActionBar from "@/components/booking/common/ActionBar";
 import Field from "@/components/booking/common/Field";
 import Notice from "@/components/booking/common/Notice";
-import Loader from "@/components/common/Loader";
 import { Icon, P } from "@/components/booking/icons";
 import { useBooking } from "@/utils/booking/context";
 import { WaitlistModal } from "@/components/booking/overlays";
@@ -307,16 +306,15 @@ export default function AddressScreen() {
               aria-invalid={error ? "true" : undefined}
               aria-describedby={error ? `${ids}-pc-err` : undefined}
             />
-            {/* The label stays put and the spinner joins it, rather than
-                replacing it — this button is flex-none, so a swap would
-                resize it mid-search. */}
+            {/* Button owns the busy treatment. It matters most here: this
+                button is flex-none beside a flex-auto input, so anything that
+                changed its width would drag the field with it. */}
             <Button
               surface="booking" variant="ink"
-              className="flex-none gap-2"
+              className="flex-none"
               isLoading={searching}
               onClick={search}
             >
-              {searching && <Loader className="h-4 w-4" />}
               Find address
             </Button>
           </div>
@@ -500,12 +498,10 @@ export default function AddressScreen() {
       <ActionBar more={moreBelow}>
         <Button
           surface="booking" size="lg" block
-          className="gap-2"
           disabled={!ready}
           isLoading={saving}
           onClick={continueToTime}
         >
-          {saving && <Loader className="h-4 w-4" />}
           Continue to times
         </Button>
       </ActionBar>

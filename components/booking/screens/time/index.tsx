@@ -548,7 +548,7 @@ export default function TimeScreen() {
           Back
         </Button>
         <Button
-          surface="booking" size="lg" className={cn(NAV_FORWARD, isLast && "gap-2")}
+          surface="booking" size="lg" className={NAV_FORWARD}
           disabled={!ready}
           isLoading={isLast ? busy : undefined}
           onClick={isLast ? submit : forward}
@@ -558,7 +558,6 @@ export default function TimeScreen() {
               see — nor a payment step that a returning customer skips, where
               this press is the order. `forward` works out the route; this only
               has to match it. */}
-          {isLast && busy && <Loader className="h-4 w-4" />}
           {isLast
             ? "Confirm order"
             : skipContact

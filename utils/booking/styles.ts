@@ -192,9 +192,11 @@ export const ACTIONS =
  *  the page is reached the bar is just the last thing on it. */
 export const ACTIONS_MORE = "before:shadow-[0_-8px_22px_-14px_rgba(20,20,15,.55)]";
 
-/* The header arrow is easy to miss once you have scrolled to the bottom
-   of a long screen, which is exactly where the decision to go back gets
-   made. Back sits beside Continue as well, never instead of it.
+/* Back sits beside Continue, and this is now the only place it appears —
+   the header used to carry an arrow too, which was the same action twice on
+   every screen but the first, where it was Close under another glyph. The
+   bar is sticky, so unlike that arrow it is on screen at every width and
+   every scroll position, which is what makes it enough on its own.
    Below 360, "Continue to your details" loses its fight with Back and
    clips inside the button's overflow:hidden — so stack, forward action
    first, since that is the one being reached for. */

@@ -10,7 +10,6 @@ import { cn } from "@/utils/cn";
 import Input from "@/components/common/Input";
 import PhoneInput from "@/components/common/PhoneInput";
 import Button from "@/components/common/Button";
-import Loader from "@/components/common/Loader";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import IdentityPanel from "@/components/booking/identity-panel";
 import { useIdentity } from "@/components/booking/identity-panel/use-identity";
@@ -100,22 +99,11 @@ export default function ContactScreen() {
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(advanceTimer.current), []);
 
-  /* The panel opens below the fold on a phone, so the spinner finishes
-     and the thing it was fetching is off screen. "nearest" scrolls the
-     least it can, and does nothing at all when the panel is already in
-     view — which is most of the time on a desktop. */
   const reducedMotion = () =>
     typeof window !== "undefined" &&
     window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
   const panelRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!showPanel || !panelRef.current) return;
-    panelRef.current.scrollIntoView({
-      block: "nearest",
-      behavior: reducedMotion() ? "auto" : "smooth",
-    });
-  }, [showPanel]);
 
   const onEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     patch({ email: e.target.value, verified: false, identity: "" });
@@ -127,12 +115,6 @@ export default function ContactScreen() {
      is the fast path, the timers are the safety net under it. */
   const suggestions = useMemo(() => domainSuggestions(data.email), [data.email]);
   const sugOpen = emailFocus && !sugDismissed && !data.verified && suggestions.length > 0;
-
-  const chooseSuggestion = (addr: string) => {
-    patch({ email: addr, verified: false, identity: "" });
-    setSugDismissed(true);
-    setSugIndex(-1);
-  };
 
   /* Same problem as the panel, worse: the email field sits low, so the
      list opened below the fold and behind the action bar — four options
@@ -146,23 +128,6 @@ export default function ContactScreen() {
       behavior: reducedMotion() ? "auto" : "smooth",
     });
   }, [sugOpen, suggestions.length]);
-
-  const onEmailKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!sugOpen) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSugIndex((i) => (i + 1) % suggestions.length);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSugIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
-    } else if (e.key === "Enter" && sugIndex >= 0) {
-      e.preventDefault();
-      chooseSuggestion(suggestions[sugIndex]);
-    } else if (e.key === "Escape") {
-      setSugDismissed(true);
-      setSugIndex(-1);
-    }
-  };
 
   /* Wide drops the review screen, so Next lands on payment there — but that is
      the shell's answer to give, not this screen's. `forward` walks the route
@@ -230,6 +195,29 @@ export default function ContactScreen() {
      `onResolved` for the plain reason that it takes it. */
   const identity = useIdentity({ data, patch, onResolved, guard });
 
+  /* Waiting on the six digits: Next redeems them instead of moving on, and
+     only moves on if they are right. `data.verified` is the far side of that —
+     once it is set there is nothing left for this screen to settle. */
+  const codeStep = !data.verified && showPanel && identity.phase === "code";
+
+  /* The address is good, nobody is signed in, and no code has gone out yet:
+     the one state in which something still has to ask for one. Both doors that
+     do so — the arrow in the field and the Next button — read this. */
+  const sendStep = showPanel && identity.phase === "create";
+
+  /* The code card opens below the fold on a phone, so the send finishes and
+     the box it was asking for is off screen. "nearest" scrolls the least it
+     can, and does nothing at all when the card is already in view — which is
+     most of the time on a desktop. Keyed on the code step rather than on the
+     panel's old visibility: it is the one moment the card appears. */
+  useEffect(() => {
+    if (!codeStep || !panelRef.current) return;
+    panelRef.current.scrollIntoView({
+      block: "nearest",
+      behavior: reducedMotion() ? "auto" : "smooth",
+    });
+  }, [codeStep]);
+
   /* Still gated on `touched`, so nothing is flagged before it has been filled
      in and left — the field order of the form is not the order people fill it
      in. The server's answer needs no such gate: it is only ever the reply to a
@@ -238,20 +226,60 @@ export default function ContactScreen() {
   const errors = {
     fullName: (touched.fullName ? failed.fullName : "") || identity.fieldErrors.fullName || "",
     mobile: (touched.mobile ? failed.mobile : "") || identity.fieldErrors.mobile || "",
-    email: touched.email ? failed.email || "" : "",
+    /* A refusal the server pinned on no field used to have the panel's own
+       line to live on, under the button that caused it. That button is in the
+       email field now, so its answer belongs under the email field — but only
+       while we are still asking for a code. In the code phase this same string
+       is the wrong-code message, and it belongs in the panel beside the box it
+       is about, not up here against an address that is fine. */
+    email:
+      (touched.email ? failed.email || "" : "") ||
+      (identity.phase === "create" ? identity.error : "") ||
+      "",
   };
 
-  /* Waiting on the six digits: Next redeems them instead of moving on, and
-     only moves on if they are right. `data.verified` is the far side of that —
-     once it is set there is nothing left for this screen to settle. */
-  const codeStep = !data.verified && showPanel && identity.phase === "code";
+  /* Whether this press places the order. Neither of the other two can overlap
+     with it in practice — the walk only ends here for a signed-in account with
+     a card on file, and `showPanel` is false for exactly those — but the
+     button reads this once rather than asking three times, so each step keeps
+     its own answer whatever the walk is doing. */
+  const placing = isLast && !codeStep && !sendStep;
 
-  /* Whether this press places the order. The two cannot overlap in practice —
-     the walk only ends here for a signed-in account with a card on file, and
-     `data.verified` is set for exactly those — but the button reads this once
-     rather than asking twice, so the code step keeps its own answer whatever
-     the walk is doing. */
-  const placing = isLast && !codeStep;
+  const chooseSuggestion = (addr: string) => {
+    patch({ email: addr, verified: false, identity: "" });
+    setSugDismissed(true);
+    setSugIndex(-1);
+    /* The tap is the send. Picking a domain settles the address, and there is
+       nothing further to ask about it, so the code goes out on the tap rather
+       than behind a card that would only have restated what was just chosen.
+
+       Only when the two fields `register` guards on are already good, which is
+       the ordinary case since email sits last. Answering a tap on a domain by
+       throwing the focus out of the address just chosen reads as a rejection
+       of the tap; leave the arrow in the field instead and let them press it
+       once the gap above is filled.
+
+       The address goes with the call because `patch` is a render behind — see
+       the note on `register`. */
+    if (restValid) void identity.register(addr);
+  };
+
+  const onEmailKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!sugOpen) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSugIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSugIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === "Enter" && sugIndex >= 0) {
+      e.preventDefault();
+      chooseSuggestion(suggestions[sugIndex]);
+    } else if (e.key === "Escape") {
+      setSugDismissed(true);
+      setSugIndex(-1);
+    }
+  };
 
   /* Changing the address un-verifies it, so the card and the panel swap
      back automatically. Pressing Change alone does not — someone who
@@ -357,10 +385,10 @@ export default function ContactScreen() {
         />
       </Field>
       <Field label="Email address" id={`${ids}-em`} error={errors.email}>
-        {/* The spinner sits in the field rather than under it, so the
-            wait is attached to the thing being waited on and nothing
-            below moves while it runs. Block, not inline, or the
-            label-to-field rhythm shifts by the line-height. */}
+        {/* The send button sits in the field rather than under it, so the
+            action is attached to the thing it acts on and nothing below
+            moves when it appears. Block, not inline, or the label-to-field
+            rhythm shifts by the line-height. */}
         <span className="relative block">
           <Input
             id={`${ids}-em`}
@@ -378,6 +406,10 @@ export default function ContactScreen() {
             placeholder="you@example.com"
             autoComplete="email"
             readOnly={data.verified && !editingEmail}
+            /* INPUT already carries px-[15px]; a single-side utility sorts
+               after it, so this is what clears the button. Same trick
+               TEXTAREA documents in utils/booking/styles.ts. */
+            className={cn(sendStep && "pr-[52px]")}
             role="combobox"
             aria-expanded={sugOpen}
             aria-controls={`${ids}-sug`}
@@ -386,6 +418,37 @@ export default function ContactScreen() {
             aria-invalid={errors.email ? "true" : undefined}
             aria-describedby={errors.email ? `${ids}-em-err` : undefined}
           />
+          {/* For the address typed out in full, which never touches the
+              suggestion list and so never gets the tap that would have sent
+              the code. A sibling of the field rather than a child, so it
+              stays outside the combobox wiring above.
+
+              Deliberately no tabIndex={-1}, unlike the password eye this
+              borrows its shape from: that toggle only restates what is
+              already on screen, while this is the action the screen is
+              waiting for, and a keyboard has to be able to reach it. */}
+          {sendStep && (
+            <Button
+              variant="bare"
+              className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer
+                         items-center justify-center rounded-[50%] border-none bg-brand
+                         text-bk-ink hover:bg-brand-hover"
+              /* Not a hand-rolled spinner: <Button> owns that treatment, and
+                 the last time this screen assembled its own the button grew by
+                 the spinner's width mid-press. It also disables itself while
+                 busy, so the double-send guard is not this call site's to
+                 write. */
+              isLoading={identity.busy}
+              aria-label="Send verification code"
+              /* Same reason the suggestion options do it: without the
+                 preventDefault the field blurs first and the click lands on
+                 nothing. */
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => void identity.register()}
+            >
+              <Icon icon={P.chevron} size={18} />
+            </Button>
+          )}
         </span>
         {sugOpen && (
           <ul className={SUG} id={`${ids}-sug`} ref={sugRef} role="listbox" aria-label="Email suggestions">
@@ -413,7 +476,18 @@ export default function ContactScreen() {
       </Field>
 
 
-      {showPanel && (
+      {/* Only once a code is actually in the post. The "Create your account"
+          card that used to stand here is gone — the field above sends the
+          code, so a panel whose whole content was a button to send one had
+          nothing left to say.
+
+          Its terms-and-privacy line went with it, and is not missed: the
+          Payment step carries a required "I agree to the terms and privacy
+          policy" box that gates Confirm order, and `skipPayment` is only ever
+          set for an account with a saved card — which nobody registering here
+          for the first time has. So every new account still passes that box
+          before an order is placed, and one tick is enough. */}
+      {codeStep && (
         /* The scroll target. These margins are what stop scrollIntoView
            tucking the panel under the sticky header or behind the action
            bar. */
@@ -446,22 +520,36 @@ export default function ContactScreen() {
         >
           Back
         </Button>
-        {/* Three jobs, one button. On the code step it is the submit — it
-            redeems the six digits and the screen moves on by itself when they
-            are accepted (onResolved, above), or shows the refusal in the panel
-            when they are not. At the tail of the walk it places the order.
-            Everywhere else it is just Next.
+        {/* Four jobs, one button. On the send step it asks for the code — the
+            same call the arrow in the email field makes, because the arrow is
+            easy to miss and a Next that is dead with every box filled in is
+            worse than one that says what it wants. On the code step it is the
+            submit: it redeems the six digits and the screen moves on by itself
+            when they are accepted (onResolved, above), or shows the refusal in
+            the panel when they are not. At the tail of the walk it places the
+            order. Everywhere else it is just Next.
 
             The label names where the press lands, the same rule Time and
             Review follow: nothing may promise a screen the walk does not
             contain. */}
         <Button
-          surface="booking" size="lg" className={cn(NAV_FORWARD, placing && "gap-2")}
-          disabled={!valid || (codeStep ? !identity.canSubmitCode : !data.verified)}
-          isLoading={codeStep ? identity.busy : placing ? busy : undefined}
+          surface="booking" size="lg" className={NAV_FORWARD}
+          disabled={
+            !valid ||
+            (codeStep ? !identity.canSubmitCode : sendStep ? identity.busy : !data.verified)
+          }
+          isLoading={codeStep || sendStep ? identity.busy : placing ? busy : undefined}
           onClick={() => {
             setTouched({ fullName: true, mobile: true, email: true });
             if (!valid) return;
+            /* Before the code step, and they cannot both be true — they are
+               the two halves of `phase`. `valid` implies the name and mobile
+               `register` guards on are good, so this door and the arrow can
+               never disagree about whether the send is allowed. */
+            if (sendStep) {
+              void identity.register();
+              return;
+            }
             if (codeStep) {
               void identity.submitCode();
               return;
@@ -474,8 +562,7 @@ export default function ContactScreen() {
             next();
           }}
         >
-          {placing && busy && <Loader className="h-4 w-4" />}
-          {placing ? "Confirm order" : "Next"}
+          {sendStep ? "Send code" : placing ? "Confirm order" : "Next"}
         </Button>
       </ActionBar>
     </>

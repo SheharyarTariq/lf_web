@@ -1,6 +1,7 @@
 import { cn } from "@/utils/cn";
 import { btn } from "@/utils/button";
 import { bkBtn } from "@/utils/booking/styles";
+import Loader from "@/components/common/Loader";
 
 /**
  * Every button on the site.
@@ -36,9 +37,18 @@ interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>
   /** Only meaningful on the site recipe, where two buttons swap at a
    *  breakpoint — see the note in utils/button. */
   display?: string;
-  /** Disables the control and sets `aria-busy`. It does **not** render a
-   *  spinner — callers that want one pass `<Loader/>` alongside their label,
-   *  which keeps the label in place and avoids the width jump a swap causes. */
+  /** Disables the control, sets `aria-busy`, and renders the spinner.
+   *
+   *  Never put a `<Loader/>` inside a `<Button>` — this is the one place that
+   *  treatment lives. Call sites used to assemble it themselves, which cost us
+   *  three separate bugs: every such button grew by the spinner's width mid-
+   *  press (an additive child sizes the button, it does not leave it alone),
+   *  and Contact's spinner was gated on a different condition than its own
+   *  `isLoading`, so that button went busy showing nothing at all.
+   *
+   *  The label is kept in flow but `invisible`, so it goes on reserving exactly
+   *  its own width and the spinner is centred over it. The button's box is
+   *  therefore identical loading and idle — no jump, and no min-width guess. */
   isLoading?: boolean;
   /** Defaults to "button". A submit has to ask for it, because a stray submit
    *  inside a form is a page reload nobody intended. */
@@ -81,13 +91,36 @@ export default function Button({
       type={type}
       /* cn() last, so a caller's class wins any conflict outright rather than
          leaving it to Tailwind's sort order — the exact trap that produced
-         four separate bugs during the design port. */
-      className={cn(recipe, className)}
+         four separate bugs during the design port.
+
+         The one thing a caller does not get to win is the busy dim, so it goes
+         after `className`: `disabled:opacity-100` is deduped by twMerge against
+         whichever `disabled:opacity-45` came before — BTN_BASE's, or the auth
+         modal's, which brings its own. A *busy* button keeps full contrast; a
+         genuinely *disabled* one still dims. It has to carry the `disabled:`
+         variant to do it, since a bare `opacity-100` loses on specificity to a
+         pseudo-class. `relative` stays ahead of `className`, so a caller that
+         positions its own button still wins that. */
+      className={cn(
+        recipe,
+        isLoading && "relative",
+        className,
+        isLoading && "disabled:opacity-100",
+      )}
       disabled={disabled || isLoading}
       aria-busy={isLoading || undefined}
       {...props}
     >
-      {children}
+      {isLoading ? (
+        <>
+          {/* `gap-[inherit]` so the size recipe's gap survives the wrapper —
+              the provider buttons are an icon plus a label, not one string. */}
+          <span className="invisible inline-flex items-center gap-[inherit]">{children}</span>
+          <Loader className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2" />
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
 }

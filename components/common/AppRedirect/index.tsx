@@ -2,6 +2,7 @@
 
 import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
+import Loader from "@/components/common/Loader";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -93,10 +94,7 @@ export default function AppRedirect({ platform }: { platform: Platform }) {
   return (
     <main className="flex-1 w-full flex flex-col items-center justify-center px-6 py-20 text-center">
       <div className="w-full max-w-[380px] flex flex-col items-center">
-        <div
-          className="mb-7 h-10 w-10 animate-spin rounded-full border-[3px] border-lf-border border-t-dark"
-          aria-hidden="true"
-        />
+        <Loader className="mb-7 h-10 w-10 border-[3px] text-dark" />
 
         <h1 className="text-[22px] font-semibold text-dark" aria-live="polite">
           Opening the Laundry Free app…

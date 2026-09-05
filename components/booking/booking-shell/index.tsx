@@ -475,12 +475,7 @@ export default function BookingShell({
         className={cn("lf-controls lf-book", INHERIT_FONT, "flex min-h-screen flex-1 flex-col bg-bk-paper text-bk-ink")}
       >
         <Header
-          onBack={back}
-          /* Back is on every screen but the confirmation, including the
-             first: there it walks out of the flow, which is exactly what
-             the arrow means everywhere else. */
-          canGoBack={step !== "confirmed"}
-          /* And no way to close it once it is placed — the X means "abandon
+          /* No way to close it once it is placed — the X means "abandon
              this booking", which stops being a thing that can happen the
              moment the order exists. */
           onClose={

@@ -258,6 +258,13 @@ Multiple form fields are grouped in `<div className="space-y-5">`.
 
 Never write raw `<button>` tags in feature components (only in `common/` internals). Always use `<Button>` from `common/Button`. If `common/Button` doesn't exist yet in this project, create it first (to the contract in §4, with `variant` and `isLoading` support), then use it everywhere.
 
+**Never put a `<Loader />` inside a `<Button>`.** `isLoading` is the whole contract: it
+disables the button, sets `aria-busy`, hides the label while keeping it in flow, and centres
+the spinner over it — so the button's box is identical busy and idle. Hand-assembling
+`isLoading` + `gap-2` + `{busy && <Loader/>}` at the call site is what this replaces, and it
+cost three bugs: an additive spinner *widens* the button mid-press (dragging any flex sibling
+with it), and a spinner gated on a different condition than `isLoading` shows nothing at all.
+
 ```tsx
 import Button from '@/components/common/Button';
 
@@ -294,5 +301,5 @@ import Button from '@/components/common/Button';
 - **Server Components** (no directive) for data-fetching pages; they call `apiRequest` from `@/utils/api-request`
 - **Client Components** for interactive UI; they call `apiCall` from `@/utils/api-call`
 - **Icons** always come from `lucide-react` — not emoji, not custom SVG, not other icon libraries
-- **Loading states** always use `<Loader />` from `common/Loader` — never custom spinners (create `common/Loader` if it doesn't exist yet)
+- **Loading states** always use `<Loader />` from `common/Loader` — never custom spinners (create `common/Loader` if it doesn't exist yet). `Loader` draws itself in `currentColor`, so it is legible on any surface; a caller only has to get the text colour right. **Inside a button, never render it yourself — pass `isLoading` (see §5).**
 - **Path alias** — always use `@/` not relative imports that climb more than one directory

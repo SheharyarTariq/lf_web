@@ -45,8 +45,6 @@ function Wordmark() {
 }
 
 export function Header({
-  onBack,
-  canGoBack,
   onClose,
   onFaq,
   onLogin,
@@ -54,8 +52,6 @@ export function Header({
   scrolled,
   children,
 }: {
-  onBack: () => void;
-  canGoBack: boolean;
   /** Null on the confirmation, where there is no longer a booking to leave. */
   onClose: (() => void) | null;
   onFaq: () => void;
@@ -83,15 +79,11 @@ export function Header({
           Running the header at --bk-col too is what made the logo look like
           it was floating in the middle of the screen. */}
       <div className="mx-auto flex min-h-16 max-w-wrap flex-wrap items-center gap-x-[14px] gap-y-0 px-6 to-720:min-h-14 to-400:px-4">
-        {canGoBack && (
-          <Button variant="bare"
-            className="-ml-2.5 flex h-11 w-11 flex-none cursor-pointer items-center justify-center py-px px-1.5 rounded-ctl-lg border-none bg-transparent text-bk-ink transition-[background-color] duration-150 ease-[ease] hover:bg-bk-paper-2"
-            onClick={onBack}
-            aria-label="Go back"
-          >
-            <Icon icon={P.back} size={22} />
-          </Button>
-        )}
+        {/* No back arrow here. Stepping backward is a flow action and lives
+            beside Continue in the sticky ActionBar, where the decision to go
+            back is actually made; on the first screen it would have meant the
+            same thing as the X two icons along. That leaves the header saying
+            one thing about leaving: this booking, all of it, via Close. */}
         <Wordmark />
         {/* Answers open in place rather than sending people to an inbox
             or off to another page — during checkout every outbound link

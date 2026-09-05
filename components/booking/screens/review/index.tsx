@@ -9,7 +9,6 @@
 
 import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
-import Loader from "@/components/common/Loader";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
@@ -215,11 +214,10 @@ export default function ReviewScreen() {
             the card step for somebody who still needs it and nothing at all for
             somebody who does not, and only the shell knows which. */}
         <Button
-          surface="booking" size="lg" className={cn(NAV_FORWARD, isLast && "gap-2")}
+          surface="booking" size="lg" className={NAV_FORWARD}
           isLoading={isLast ? busy : undefined}
           onClick={isLast ? submit : forward}
         >
-          {isLast && busy && <Loader className="h-4 w-4" />}
           {isLast ? "Confirm order" : "Next"}
         </Button>
       </ActionBar>

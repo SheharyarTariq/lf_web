@@ -24,7 +24,6 @@ import { Icon, P } from "@/components/booking/icons";
 import Field from "@/components/booking/common/Field";
 import Modal from "@/components/common/Modal";
 import { ERR, MODAL_FOOT, MODAL_NAV, MODAL_NAV_BTN } from "@/utils/booking/styles";
-import Loader from "@/components/common/Loader";
 import { login, loginWithCode, requestVerificationCode } from "@/utils/auth";
 import { joinPostcodeWaitlist } from "@/utils/booking/api";
 import { CODE_LENGTH, EMAIL_RE, RESEND_SECONDS } from "@/utils/booking/model";
@@ -172,12 +171,11 @@ export function WaitlistModal({
             />
           </Field>
           <Button
-            surface="booking" variant="lime" size="lg" block className="gap-2"
+            surface="booking" variant="lime" size="lg" block
             disabled={!valid || busy}
             isLoading={busy}
             onClick={() => void join()}
           >
-            {busy && <Loader className="h-4 w-4" />}
             Tell me when you arrive
           </Button>
         </>
@@ -492,12 +490,11 @@ export function LoginSheet({
             />
           </Field>
           <Button
-            surface="booking" variant="lime" size="lg" block className="gap-2"
+            surface="booking" variant="lime" size="lg" block
             disabled={!EMAIL_RE.test(addr) || busy}
             isLoading={busy}
             onClick={() => void sendCode(addr)}
           >
-            {busy && <Loader className="h-4 w-4" />}
             Send me a code
           </Button>
           {alert}
@@ -528,12 +525,11 @@ export function LoginSheet({
             />
           </Field>
           <Button
-            surface="booking" variant="lime" size="lg" block className="gap-2"
+            surface="booking" variant="lime" size="lg" block
             disabled={!EMAIL_RE.test(addr) || !password || busy}
             isLoading={busy}
             onClick={() => void submitPassword()}
           >
-            {busy && <Loader className="h-4 w-4" />}
             Log in
           </Button>
           {alert}
@@ -570,12 +566,11 @@ export function LoginSheet({
             />
           </Field>
           <Button
-            surface="booking" variant="lime" size="lg" block className="gap-2"
+            surface="booking" variant="lime" size="lg" block
             disabled={code.length !== CODE_LENGTH || busy}
             isLoading={busy}
             onClick={() => void submitCode()}
           >
-            {busy && <Loader className="h-4 w-4" />}
             Log in
           </Button>
           <p className="mt-[14px] text-center">
