@@ -14,6 +14,7 @@ import { Icon, P } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
 import Field from "@/components/booking/common/Field";
 import Notice from "@/components/booking/common/Notice";
+import { ConfirmOrderModal } from "@/components/booking/overlays";
 import { useAuth } from "@/components/common/AuthProvider";
 import { useBooking } from "@/utils/booking/context";
 import { useConfirmSubmit } from "@/utils/booking/use-confirm";
@@ -113,7 +114,8 @@ export default function TimeScreen() {
      address and the card are already on the account, the pinned summary is the
      review, and so the order is placed from here. `isLast` is derived from the
      walk rather than asserted, so this screen never has to know why. */
-  const { busy, error: orderError, submit } = useConfirmSubmit();
+  const { busy, error: orderError, submit, confirming, confirmPlacement, cancelConfirm } =
+    useConfirmSubmit();
   /* Non-null is the whole test — the brief defines `recurring` as the active
      subscription or null, and documents no fields inside it. */
   const { status } = useAuth();
@@ -567,6 +569,14 @@ export default function TimeScreen() {
               : "Continue to your details"}
         </Button>
       </ActionBar>
+
+      {confirming && (
+        <ConfirmOrderModal
+          busy={busy}
+          onCancel={cancelConfirm}
+          onConfirm={() => void confirmPlacement()}
+        />
+      )}
     </>
   );
 }

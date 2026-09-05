@@ -16,10 +16,21 @@
    capture first, and a failure there has to stop the run rather than place an
    order that cannot be charged. Everything after it is identical, so it is
    here rather than copied.
+
+   ── The confirm dialog ────────────────────────────────────────────
+   Only on the wide layout. A phone reaches this button after a dedicated
+   Review screen it has just read top to bottom, so a second "are you sure"
+   on top of that would be confirming the confirmation. Wide never shows that
+   screen — the summary sits pinned beside the form instead — so its Confirm
+   order button is the one place nothing stands between a tap and the order
+   going in, and that is the gap this dialog closes. `wide` is read from the
+   same breakpoint the walk itself is built from, so this cannot disagree
+   with which screen the button says it is on.
    ══════════════════════════════════════════════════════════════════ */
 
 import { useState } from "react";
 import { useBooking } from "@/utils/booking/context";
+import { useWide } from "@/utils/hooks";
 
 export type ConfirmStep = { ok: true } | { ok: false; message: string };
 
@@ -27,11 +38,12 @@ const FAILED = "We could not place your order. Please try again.";
 
 export function useConfirmSubmit(before?: () => Promise<ConfirmStep>) {
   const { confirmOrder } = useBooking();
+  const wide = useWide();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [confirming, setConfirming] = useState(false);
 
-  const submit = async () => {
-    if (busy) return;
+  const place = async () => {
     setBusy(true);
     setError("");
 
@@ -58,5 +70,21 @@ export function useConfirmSubmit(before?: () => Promise<ConfirmStep>) {
     }
   };
 
-  return { busy, error, submit, setError };
+  const submit = async () => {
+    if (busy) return;
+    if (wide) {
+      setConfirming(true);
+      return;
+    }
+    await place();
+  };
+
+  const confirmPlacement = async () => {
+    setConfirming(false);
+    await place();
+  };
+
+  const cancelConfirm = () => setConfirming(false);
+
+  return { busy, error, submit, setError, confirming, confirmPlacement, cancelConfirm };
 }
