@@ -25,6 +25,7 @@ import { Icon, P } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
 import StripePayment, { type StripePaymentHandle } from "@/components/booking/stripe-payment";
 import PaymentMethods from "@/components/booking/payment-methods";
+import { ConfirmOrderModal } from "@/components/booking/overlays";
 import { useAuth } from "@/components/common/AuthProvider";
 import { useBooking } from "@/utils/booking/context";
 import { useConfirmSubmit, type ConfirmStep } from "@/utils/booking/use-confirm";
@@ -122,7 +123,15 @@ export default function PaymentScreen() {
 
      The card is the whole of this screen's difference from the other two that
      can carry Confirm order; everything after it lives in useConfirmSubmit. */
-  const { busy, error, submit: confirm, setError } = useConfirmSubmit(async () => {
+  const {
+    busy,
+    error,
+    submit: confirm,
+    setError,
+    confirming,
+    confirmPlacement,
+    cancelConfirm,
+  } = useConfirmSubmit(async () => {
     /* Skipped entirely when the account already has a default and nothing new
        is being added. A failure here stops the run: creating an order that
        cannot be charged is worse than making somebody press the button
@@ -319,6 +328,14 @@ export default function PaymentScreen() {
           Confirm order
         </Button>
       </ActionBar>
+
+      {confirming && (
+        <ConfirmOrderModal
+          busy={busy}
+          onCancel={cancelConfirm}
+          onConfirm={() => void confirmPlacement()}
+        />
+      )}
     </>
   );
 }
