@@ -93,6 +93,22 @@ export const routes = {
        would have a way to send a code and no way to redeem one. */
     loginWithCode: "/login-with-code",
     systemStatus: "/system-status",
+
+    /* The whole price list, grouped by category — and **absent from the brief
+       entirely**, like `/login-with-code` above. Probed unauthenticated on
+       05/09/26: 200 `application/ld+json` with no token at all, nine
+       categories, 38 items. Already consumed by the sibling mobile app.
+
+       Four things about the payload that the shape does not announce:
+       money is **integer pence** per the ground rule; **both prices are
+       nullable** and every item carries at least one; the per-category
+       `washingLabel` / `dryCleaningLabel` are **also nullable and vary**
+       ("Wash & Press", "Wash & Dry", "Wash & Iron"), so nothing may recover
+       which service a row is by comparing its label to a constant; and
+       `totalItems` counts **categories**, not items. Empty categories are
+       excluded server-side. The collection envelope is `member` under
+       ld+json — `hydra:member` is read as a fallback. */
+    priceCombined: "/price-combined",
     resetPasswordRequest: "/reset-password/request",
     resetPasswordConfirm: "/reset-password/confirm",
 
@@ -122,9 +138,18 @@ export const routes = {
        district table in lib/booking/model.ts. */
     findAddresses: "/find-addresses",
     postcodeActivationNotifications: "/postcode-activation-notifications",
-    /* PATCH, and the only endpoint needing
+    /* PATCH, and one of the two endpoints needing
        `Content-Type: application/merge-patch+json`. */
     updateAddress: (userId: string | number) => `/users/${userId}/update-address`,
+
+    /* The other merge-patch PATCH, and the write half of the confirmation
+       screen's three preference toggles. Absent from the brief — found in the
+       live OpenAPI spec (`GET /docs?showdocs=1`) and already shipping in the
+       sibling mobile app, which is why STATUS.md used to say there was no way
+       to save them. Accepts `priceReviewRequired`, `stainTreatmentEnabled`,
+       `shirtHandling` ("hang" | "fold"), plus `name` and `phone`; a partial
+       body is fine, which is what lets one toggle write one field. */
+    updateMe: (userId: string | number) => `/users/${userId}/me`,
 
     /* `days` is optional on pickup, max 28. Dropoff needs both
        ?pickupSlot=<IRI>&pickupDate=YYYY-MM-DD.

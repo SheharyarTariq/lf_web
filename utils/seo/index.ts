@@ -1,4 +1,4 @@
-import { FAQ } from "@/utils/content";
+import type { FaqItem } from "@/utils/faq";
 
 /**
  * Structured data for the home page.
@@ -11,8 +11,13 @@ import { FAQ } from "@/utils/content";
  * The prototype set these from a useEffect, which is too late for crawlers
  * and link previewers. Emitted server-side here.
  *
- * The FAQ entities are generated from the same FAQ array the accordion
- * renders, so the two can never disagree.
+ * The FAQ entities are generated from the same questions the accordion
+ * renders, so the two can never disagree. That invariant survived the move
+ * to backend-owned copy, but its mechanism changed: the page makes one
+ * `getFaqs()` call and hands the result to both this function and <Faq />,
+ * rather than both importing one array. Google compares the schema against
+ * the visible text, so the two agreeing is the whole point of fetching on
+ * the server.
  */
 
 export const localBusinessSchema = {
@@ -85,12 +90,34 @@ export const websiteSchema = {
   },
 };
 
-export const faqSchema = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: FAQ.map(([q, a]) => ({
-    "@type": "Question",
-    name: q,
-    acceptedAnswer: { "@type": "Answer", text: a },
-  })),
-};
+/* A function now, not a const: the questions arrive per render from
+   /system-status. The answer goes in exactly as served, blank lines and all —
+   it is the text on the page, which is what a crawler checks it against. */
+export function faqSchema(faqs: FaqItem[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map(({ question, answer }) => ({
+      "@type": "Question",
+      name: question,
+      acceptedAnswer: { "@type": "Answer", text: answer },
+    })),
+  };
+}
+
+/**
+ * Serialise a schema for `dangerouslySetInnerHTML`.
+ *
+ * `JSON.stringify` escapes nothing that matters inside a <script> tag, and
+ * the FAQ text is no longer ours — an answer containing "</script>" would
+ * close the tag early and put the rest of the payload into the document as
+ * markup. Escaping "<" is what Next's own JSON-LD guide prescribes
+ * (node_modules/next/dist/docs/01-app/02-guides/json-ld.md). A JSON parser
+ * reads the escape back as "<", so the structured data itself is unchanged.
+ *
+ * Used for all three schemas, not just the FAQ one. Two spellings of the same
+ * thing on one page is how the unescaped one survives a later edit.
+ */
+export function jsonLd(schema: unknown): string {
+  return JSON.stringify(schema).replace(/</g, "\\u003c");
+}

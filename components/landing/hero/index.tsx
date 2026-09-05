@@ -4,6 +4,7 @@ import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
 import { useEffect, useState } from "react";
 import Stars from "@/components/common/StarsRating";
+import { useAuth } from "@/components/common/AuthProvider";
 import { AppleGlyph, PlayGlyph } from "@/components/icons";
 import { ASSETS, BRAND, HERO_SLOTS, RATING, TOWNS } from "@/utils/content";
 import { usePrefersReducedMotion, useStartBooking, useTypewriter } from "@/utils/hooks";
@@ -89,7 +90,12 @@ function BeforeAfter() {
 
 export default function Hero() {
   const town = useTypewriter(TOWNS);
-  const onSubmit = useStartBooking();
+  /* Signed out is the default and renders straight away, so the server HTML is
+     never missing a call to action; only a returning customer sees one frame of
+     "Check availability" before their own wording replaces it. The same rule
+     the site header follows for "Log in". */
+  const { user, status } = useAuth();
+  const onSubmit = useStartBooking(status);
 
   return (
     /* Once the hero stacks there is no second column to balance against, so
@@ -185,8 +191,12 @@ export default function Hero() {
             </div>
 
             <div className="flex gap-2.5 to-720:flex-col">
+              {/* "Check availability" is the question somebody asks before they
+                  have an account. A returning customer has already had it
+                  answered — we hold an address we serve — so the button says
+                  what it now actually does. */}
               <Button type="submit" block>
-                Check availability
+                {user ? "Book now" : "Check availability"}
               </Button>
             </div>
           </form>

@@ -16,6 +16,7 @@ import Field from "@/components/booking/common/Field";
 import Notice from "@/components/booking/common/Notice";
 import { useAuth } from "@/components/common/AuthProvider";
 import { useBooking } from "@/utils/booking/context";
+import { useConfirmSubmit } from "@/utils/booking/use-confirm";
 import { fetchDropoffSlots, fetchPickupSlots } from "@/utils/booking/api";
 import {
   DAY_FULL,
@@ -103,10 +104,16 @@ export default function TimeScreen() {
     back,
     wide,
     skipContact,
+    isLast,
     moreBelow,
     timeLeg: legWanted,
     setTimeLeg: setLeg,
   } = useBooking();
+  /* For a returning customer on a desktop this is the whole checkout: the
+     address and the card are already on the account, the pinned summary is the
+     review, and so the order is placed from here. `isLast` is derived from the
+     walk rather than asserted, so this screen never has to know why. */
+  const { busy, error: orderError, submit } = useConfirmSubmit();
   /* Non-null is the whole test — the brief defines `recurring` as the active
      subscription or null, and documents no fields inside it. */
   const { status } = useAuth();
@@ -317,7 +324,7 @@ export default function TimeScreen() {
   return (
     <>
       <h1 className={H1} tabIndex={-1}>
-        When shall we collect?
+        {isCollection ? "When shall we collect?" : "When shall we return?"}
       </h1>
       <p className={LEDE_MD}>Free to change up to two hours before.</p>
 
@@ -525,26 +532,40 @@ export default function TimeScreen() {
         </>
       )}
 
+      {orderError && (
+        <p className={cn(ERR, "mt-3")} role="alert">
+          <Icon icon={P.alert} size={15} className="mt-0.5 flex-none" />
+          {orderError}
+        </p>
+      )}
+
       <ActionBar more={moreBelow} nav>
         <Button
           surface="booking" variant="ghost" size="lg" className={NAV_BACK}
           onClick={back}
+          disabled={busy}
         >
           Back
         </Button>
         <Button
-          surface="booking" size="lg" className={NAV_FORWARD}
+          surface="booking" size="lg" className={cn(NAV_FORWARD, isLast && "gap-2")}
           disabled={!ready}
-          onClick={forward}
+          isLoading={isLast ? busy : undefined}
+          onClick={isLast ? submit : forward}
         >
           {/* The button names where it lands, so it cannot promise a details
               step that an account with its details already on file will never
-              see. `forward` works out the route; this only has to match it. */}
-          {skipContact
-            ? wide
-              ? "Continue to payment"
-              : "Continue to review"
-            : "Continue to your details"}
+              see — nor a payment step that a returning customer skips, where
+              this press is the order. `forward` works out the route; this only
+              has to match it. */}
+          {isLast && busy && <Loader className="h-4 w-4" />}
+          {isLast
+            ? "Confirm order"
+            : skipContact
+              ? wide
+                ? "Continue to payment"
+                : "Continue to review"
+              : "Continue to your details"}
         </Button>
       </ActionBar>
     </>

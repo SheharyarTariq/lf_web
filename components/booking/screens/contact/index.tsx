@@ -10,6 +10,7 @@ import { cn } from "@/utils/cn";
 import Input from "@/components/common/Input";
 import PhoneInput from "@/components/common/PhoneInput";
 import Button from "@/components/common/Button";
+import Loader from "@/components/common/Loader";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import IdentityPanel from "@/components/booking/identity-panel";
 import { useIdentity } from "@/components/booking/identity-panel/use-identity";
@@ -18,10 +19,12 @@ import { Icon, P, ProviderMark } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
 import Field from "@/components/booking/common/Field";
 import { useBooking } from "@/utils/booking/context";
+import { useConfirmSubmit } from "@/utils/booking/use-confirm";
 import { EMAIL_RE, domainSuggestions } from "@/utils/booking/model";
 import { UK_MOBILE_RE, isValidName } from "@/utils/auth/model";
 import {
   BTN_LINK,
+  ERR,
   H1,
   LEDE,
   NAV_BACK,
@@ -46,7 +49,13 @@ const SUG_BTN =
 
 
 export default function ContactScreen() {
-  const { data, patch, forward, back, moreBelow, openLogin } = useBooking();
+  const { data, patch, forward, back, isLast, moreBelow, openLogin } = useBooking();
+  /* This screen can be the last one in the walk, which it never used to be:
+     a returning customer whose card is on file skips Payment, and on a wide
+     window that leaves Details at the tail whenever its Edit link has put the
+     step back. Then this press places the order rather than moving on — the
+     same rule, and the same hook, as Time and Review. */
+  const { busy, error: confirmError, submit } = useConfirmSubmit();
   /* A session settles the address. The panel below exists to establish who
      somebody is, and there is nothing left to establish — so for a signed-in
      customer the address is shown rather than asked for, and the panel never
@@ -237,6 +246,13 @@ export default function ContactScreen() {
      once it is set there is nothing left for this screen to settle. */
   const codeStep = !data.verified && showPanel && identity.phase === "code";
 
+  /* Whether this press places the order. The two cannot overlap in practice —
+     the walk only ends here for a signed-in account with a card on file, and
+     `data.verified` is set for exactly those — but the button reads this once
+     rather than asking twice, so the code step keeps its own answer whatever
+     the walk is doing. */
+  const placing = isLast && !codeStep;
+
   /* Changing the address un-verifies it, so the card and the panel swap
      back automatically. Pressing Change alone does not — someone who
      opens the field, reads it and leaves it alone is still signed in. */
@@ -295,6 +311,19 @@ export default function ContactScreen() {
             </Button>
           )}
         </div>
+      )}
+
+      {/* Said out loud, because the fields below look like account settings and
+          are not. Nothing here is saved to the account: POST /orders carries no
+          contact fields, and there is no endpoint to update a name or a number
+          — see docs/ENDPOINTS.md. An edit lasts as long as this booking and is
+          replaced by /my-status on the next load. Only for a signed-in
+          customer, who is the only one with an account to be confused about;
+          for a guest these fields are the whole record. */}
+      {signedIn && (
+        <p className="-mt-2 mb-4 text-[12.5px] leading-[1.5] text-bk-ink-3">
+          Changes here apply to this order only — your account details stay as they are.
+        </p>
       )}
 
       <Field label="Full name" id={`${ids}-fn`} error={errors.fullName}>
@@ -399,21 +428,37 @@ export default function ContactScreen() {
         </div>
       )}
 
+      {/* The order's own failure, not a field's, so it sits with the button
+          that caused it rather than under any box. Only ever reachable when
+          this screen is the last one. */}
+      {confirmError && (
+        <p className={cn(ERR, "mt-3")} role="alert">
+          <Icon icon={P.alert} size={15} className="mt-0.5 flex-none" />
+          {confirmError}
+        </p>
+      )}
+
       <ActionBar more={moreBelow} nav>
         <Button
           surface="booking" variant="ghost" size="lg" className={NAV_BACK}
           onClick={back}
+          disabled={busy}
         >
           Back
         </Button>
-        {/* Two jobs, one button. On the code step it is the submit — it
+        {/* Three jobs, one button. On the code step it is the submit — it
             redeems the six digits and the screen moves on by itself when they
             are accepted (onResolved, above), or shows the refusal in the panel
-            when they are not. Everywhere else it is just Next. */}
+            when they are not. At the tail of the walk it places the order.
+            Everywhere else it is just Next.
+
+            The label names where the press lands, the same rule Time and
+            Review follow: nothing may promise a screen the walk does not
+            contain. */}
         <Button
-          surface="booking" size="lg" className={NAV_FORWARD}
+          surface="booking" size="lg" className={cn(NAV_FORWARD, placing && "gap-2")}
           disabled={!valid || (codeStep ? !identity.canSubmitCode : !data.verified)}
-          isLoading={codeStep && identity.busy}
+          isLoading={codeStep ? identity.busy : placing ? busy : undefined}
           onClick={() => {
             setTouched({ fullName: true, mobile: true, email: true });
             if (!valid) return;
@@ -421,10 +466,16 @@ export default function ContactScreen() {
               void identity.submitCode();
               return;
             }
-            if (data.verified) next();
+            if (!data.verified) return;
+            if (placing) {
+              void submit();
+              return;
+            }
+            next();
           }}
         >
-          Next
+          {placing && busy && <Loader className="h-4 w-4" />}
+          {placing ? "Confirm order" : "Next"}
         </Button>
       </ActionBar>
     </>

@@ -9,14 +9,26 @@
 
 import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
+import Loader from "@/components/common/Loader";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
+import { useAuth } from "@/components/common/AuthProvider";
 import { useBooking } from "@/utils/booking/context";
-import { REPEAT_EVERY, formatUkMobile, longDate, parseDay, type Leg } from "@/utils/booking/model";
+import { useConfirmSubmit } from "@/utils/booking/use-confirm";
+import {
+  REPEAT_EVERY,
+  cardLabel,
+  formatUkMobile,
+  longDate,
+  parseDay,
+  type Leg,
+  formatPostcode,
+} from "@/utils/booking/model";
 import {
   BTN_LINK,
   DISC,
+  ERR,
   H1,
   LEDE,
   NAV_BACK,
@@ -79,8 +91,23 @@ function SummaryRow({
 }
 
 export default function ReviewScreen() {
-  const { data, discount, go, back, moreBelow, openBilling, skipContact, setTimeLeg } =
-    useBooking();
+  const {
+    data,
+    discount,
+    go,
+    back,
+    forward,
+    isLast,
+    moreBelow,
+    openBilling,
+    skipPayment,
+    setTimeLeg,
+  } = useBooking();
+  const { status } = useAuth();
+  /* On a phone with a card already on the account this is the last screen, so
+     the Next below places the order instead of moving on. */
+  const { busy, error, submit } = useConfirmSubmit();
+  const savedCard = status?.paymentMethods?.find((m) => m.isDefault);
   const collection = parseDay(data.collectionDay);
   const delivery = parseDay(data.deliveryDay);
   const every = REPEAT_EVERY.find(([id]) => id === data.repeatEvery);
@@ -139,38 +166,61 @@ export default function ReviewScreen() {
         <SummaryRow label="Address" onEdit={() => go("address")} editLabel="address">
           {[data.line1, data.line2, data.line3].filter(Boolean).join(", ")}
           <span className={SUM_LINE}>
-            {[data.town, data.county, data.postcode].filter(Boolean).join(", ")}
+            {[data.town, data.county, formatPostcode(data.postcode)].filter(Boolean).join(", ")}
           </span>
         </SummaryRow>
-        {/* The narrow flow's half of the same rule as the pinned panel: no
-            Details step, no Contact row. */}
-        {!skipContact && (
-          <SummaryRow label="Contact" onEdit={() => go("contact")} editLabel="contact details">
-            {data.fullName}
-            {/* One line each. Run together they read as one string, and the
-                email is the thing most worth checking here — it is the only
-                address the order confirmation goes to. */}
-            <span className={SUM_LINE}>{formatUkMobile(data.mobile)}</span>
-            <span className={SUM_LINE}>{data.email}</span>
-          </SummaryRow>
-        )}
+        {/* Shown whether or not the Details step is in the walk. An order
+            summary that leaves out who the order is for is not a summary, and
+            the values are there either way — typed on the step, or seeded from
+            the account. Its Edit puts the step back in the walk for an account
+            that had skipped it; see `go` in booking-shell. */}
+        <SummaryRow label="Contact" onEdit={() => go("contact")} editLabel="contact details">
+          {data.fullName}
+          {/* One line each. Run together they read as one string, and the
+              email is the thing most worth checking here — it is the only
+              address the order confirmation goes to. */}
+          <span className={SUM_LINE}>{formatUkMobile(data.mobile)}</span>
+          <span className={SUM_LINE}>{data.email}</span>
+        </SummaryRow>
+        {/* With the card step skipped this is the only place a returning
+            customer is told which card the order will be charged to, so it
+            names it rather than pointing at a screen they will never see.
+            Deliberately no Edit: choosing a card is `mark-as-default`, and
+            there is no screen for that yet. */}
         <SummaryRow label="Payment">
-          <span className={SUM_LINE}>Added on the next screen to confirm your order.</span>
+          <span className={SUM_LINE}>
+            {skipPayment && savedCard
+              ? cardLabel(savedCard)
+              : "Added on the next screen to confirm your order."}
+          </span>
         </SummaryRow>
       </div>
+
+      {error && (
+        <p className={cn(ERR, "mt-3")} role="alert">
+          <Icon icon={P.alert} size={15} className="mt-0.5 flex-none" />
+          {error}
+        </p>
+      )}
 
       <ActionBar more={moreBelow} nav>
         <Button
           surface="booking" variant="ghost" size="lg" className={NAV_BACK}
           onClick={back}
+          disabled={busy}
         >
           Back
         </Button>
+        {/* `forward()` rather than go("payment"): the screen after this one is
+            the card step for somebody who still needs it and nothing at all for
+            somebody who does not, and only the shell knows which. */}
         <Button
-          surface="booking" size="lg" className={NAV_FORWARD}
-          onClick={() => go("payment")}
+          surface="booking" size="lg" className={cn(NAV_FORWARD, isLast && "gap-2")}
+          isLoading={isLast ? busy : undefined}
+          onClick={isLast ? submit : forward}
         >
-          Next
+          {isLast && busy && <Loader className="h-4 w-4" />}
+          {isLast ? "Confirm order" : "Next"}
         </Button>
       </ActionBar>
     </>

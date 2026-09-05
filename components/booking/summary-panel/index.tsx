@@ -26,8 +26,17 @@ import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
+import { useAuth } from "@/components/common/AuthProvider";
 import { useBooking } from "@/utils/booking/context";
-import { REPEAT_EVERY, formatUkMobile, longDate, parseDay, type Leg } from "@/utils/booking/model";
+import {
+  REPEAT_EVERY,
+  cardLabel,
+  formatUkMobile,
+  longDate,
+  parseDay,
+  type Leg,
+  formatPostcode,
+} from "@/utils/booking/model";
 import { ECO_TAG } from "@/utils/booking/styles";
 import type { Route } from "@/utils/booking/flow";
 
@@ -107,7 +116,13 @@ const oneLine = (day: Date | null, slot: string) =>
   [day ? longDate(day) : "", slot].filter(Boolean).join(" · ");
 
 export default function SummaryPanel() {
-  const { data, discount, go, skipContact, setTimeLeg } = useBooking();
+  const { data, discount, go, skipPayment, setTimeLeg } = useBooking();
+  const { status } = useAuth();
+  /* Only when the card step is out of the walk. On the way to that step the
+     row would be repeating what the next screen is about to show in full;
+     without that step it is the one place the card is ever named, and this
+     panel is beside the button that places the order. */
+  const savedCard = skipPayment ? status?.paymentMethods?.find((m) => m.isDefault) : undefined;
   const collection = parseDay(data.collectionDay);
   const delivery = parseDay(data.deliveryDay);
   const every = REPEAT_EVERY.find(([id]) => id === data.repeatEvery);
@@ -142,7 +157,7 @@ export default function SummaryPanel() {
             onEdit={onEdit("address")}
             lines={[
               [data.line1, data.line2, data.line3].filter(Boolean).join(", "),
-              [data.town, data.county, data.postcode].filter(Boolean).join(", "),
+              [data.town, data.county, formatPostcode(data.postcode)].filter(Boolean).join(", "),
             ]}
           />
           {/* Day and window on one line. Two lines each for collection and
@@ -166,18 +181,24 @@ export default function SummaryPanel() {
               ) : null
             }
           />
-          {/* Gone entirely when the Details step is, rather than kept without
-              its Edit link. AsideRow drops itself when every line is empty, but
-              these lines are full — they are seeded from the account — so the
-              condition has to be said out loud. */}
-          {!skipContact && (
-            <AsideRow
-              label="Contact"
-              editLabel="contact details"
-              onEdit={onEdit("contact")}
-              lines={[data.fullName, formatUkMobile(data.mobile), data.email]}
-            />
-          )}
+          {/* Kept when the Details step is skipped, rather than going with it:
+              the panel is the whole summary in the wide layout, and one that
+              omits who the order is for is not one. The lines are seeded from
+              the account in that case, so there is something to show; for a
+              guest who has not reached the step yet they are all empty and
+              AsideRow drops the row itself. Its Edit puts the step back in the
+              walk — see `go` in booking-shell. */}
+          <AsideRow
+            label="Contact"
+            editLabel="contact details"
+            onEdit={onEdit("contact")}
+            lines={[data.fullName, formatUkMobile(data.mobile), data.email]}
+          />
+          {/* No Edit link: choosing a card is `mark-as-default` on the server
+              and there is no screen for it yet, so a link here would be a
+              control that cannot do what it says. It reports, it does not
+              offer. */}
+          {savedCard && <AsideRow label="Payment" lines={[cardLabel(savedCard)]} />}
         </div>
 
         {discount && (

@@ -101,6 +101,69 @@ export async function findAddresses(postcode: string): Promise<FindAddressesResu
   };
 }
 
+/* ── The other half of that answer ────────────────────────────────── */
+
+export type WaitlistResult =
+  | { ok: true }
+  | { ok: false; message: string; fields: Record<string, string> };
+
+/**
+ * POST /postcode-activation-notifications { email, postcodeString } → 201
+ *
+ * What to do with somebody `findAddresses` turns away. Confirmed against the
+ * live OpenAPI spec (`GET /docs?showdocs=1`): both fields required, and
+ * `postcodeString` is validated against the full UK postcode regex — so the
+ * district on its own ("KT21") is refused, it has to be the searched postcode.
+ * The 201 body is an empty object, so success is the status and nothing else.
+ *
+ * **It needs a token, where `findAddresses` does not.** Probed: a valid body
+ * with no Authorization header is `401 {"code":401,"message":"JWT Token not
+ * found"}`, where the identical probe against `/find-addresses` reaches
+ * validation and answers 422. The sibling mobile app never met this because its
+ * find-address screen sits behind login and inherits a sticky header; our
+ * address step runs signed-out, and somebody whose postcode we do not serve has
+ * never had a reason to hold an account. So today the people most likely to see
+ * this form are the ones it cannot work for — a backend change is open to make
+ * the endpoint public the way `/find-addresses` already is, and the 401 branch
+ * below should become unreachable when it lands.
+ */
+export async function joinPostcodeWaitlist(
+  email: string,
+  postcode: string,
+): Promise<WaitlistResult> {
+  const res = await apiCall({
+    endpoint: routes.api.postcodeActivationNotifications,
+    method: "POST",
+    data: { email: email.trim(), postcodeString: postcode.trim() },
+    headers: JSON_HEADERS,
+    showErrorToast: false,
+  });
+
+  if (res.success) return { ok: true };
+
+  /* Both of the readers below would surface the server's own words here, and
+     neither set is fit to show: the body says "JWT Token not found" and
+     apiCall's generic 401 copy is "Session expired. Please login again." — an
+     instruction to re-authenticate, given to somebody who never claimed to have
+     an account and does not need one to join a waiting list. */
+  if (res.status === 401) {
+    return {
+      ok: false,
+      message: "We could not add you to the list just now. Please try again shortly.",
+      fields: {},
+    };
+  }
+
+  /* 422 names the property, and `email` is the field on this form, so the
+     message belongs under the input rather than in a banner above it. */
+  const body = (res.data ?? null) as ErrorBody | null;
+  return {
+    ok: false,
+    message: readHumanMessage(body, res.status) ?? res.message,
+    fields: readViolations(body),
+  };
+}
+
 /* ── Saving it on the account ─────────────────────────────────────── */
 
 export interface AddressPayload {
@@ -162,6 +225,20 @@ export async function updateAddress(
     fields: readViolations(body),
   };
 }
+
+/* ── Preferences ──────────────────────────────────────────────────
+   `updatePreferences`, `PrefKey` and the `PREF_FIELD` map were here: one
+   merge-patch per toggle against PATCH /users/{id}/me, translating our three
+   booleans onto the server's `priceReviewRequired`, `shirtHandling`
+   ("hang" | "fold") and `stainTreatmentEnabled`.
+
+   They went with the confirmation screen's switches, which were their only
+   caller — see the header of components/booking/screens/confirmed. `prefs` is
+   not part of POST /orders, so there is now no way to set these from the web
+   at all; the endpoint is live and the mobile app still writes it. Putting
+   them back is this block plus a caller, and `MERGE_PATCH_HEADERS` above is
+   the part that is easy to get wrong (plain application/json is a 415).
+   ───────────────────────────────────────────────────────────────── */
 
 /* ── Collection and delivery windows ──────────────────────────────
    Both endpoints answer with the same shape — an array of day groups —

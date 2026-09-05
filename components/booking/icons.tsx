@@ -11,9 +11,11 @@ import {
   Lock,
   Mail,
   MapPin,
+  Plus,
   Repeat,
   ShoppingBag,
   Sparkles,
+  Tag,
   TriangleAlert,
   X,
 } from "lucide-react";
@@ -44,8 +46,13 @@ export const P = {
   clock: Clock,
   pin: MapPin,
   close: X,
+  plus: Plus,
   mail: Mail,
   bag: ShoppingBag,
+  /* No archived original: the confirmation's care-label tip is new to the
+     checkout. Same substitution the landing page's `TrustIcon tag` already
+     makes, so the two read as one shape. */
+  tag: Tag,
   list: List,
   repeat: Repeat,
   spark: Sparkles,

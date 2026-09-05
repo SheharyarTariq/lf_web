@@ -5,8 +5,12 @@
  * the design prototype's CONTENT block.
  *
  * Several of these are placeholders the prototype flagged and the backend
- * has not replaced yet — RATING, the last ten PRICING categories, and
- * HERO_SLOTS. Each is marked. They must not ship unreplaced.
+ * has not replaced yet — RATING and HERO_SLOTS. Each is marked. They must not
+ * ship unreplaced.
+ *
+ * The price list used to be here too, and is not any more: it comes from
+ * `GET /price-combined` through utils/pricing. Nothing in this file carries a
+ * money figure.
  */
 
 import { routes } from "@/utils/routes";
@@ -31,6 +35,12 @@ export const RATING = { score: 4.9, count: 63 } as const;
 
 export const BRAND = {
   name: "LaundryFree",
+  /* The spaced form, for prose that has to name the company rather than
+     render the wordmark — the payment mandate, and the metadata in
+     app/layout.tsx that already inlines it. `name` above is solid because
+     that is how the logo is drawn; a mandate written that way reads as a
+     brand asset dropped into a sentence rather than as a company. */
+  trading: "Laundry Free",
   legal: "HQR LTD",
   email: "hello@laundryfree.co.uk",
   ios: "https://apps.apple.com/gb/app/laundryfree-dry-cleaners/id6763839907",
@@ -105,8 +115,12 @@ export const STEPS: {
     icon: "list",
   },
   {
-    /* "Price Review" is the feature name used in the app and the FAQ —
-       keeping it consistent so people recognise it later. */
+    /* "Price Review" is the name this site has always used, and the rest of
+       it still does — the checkout, the confirmation screen and the service
+       pages all say it. The FAQ no longer agrees: the backend copy now
+       served at /system-status calls the same feature "Hold order for my
+       approval". Left as it is deliberately; reconciling the two names is a
+       copy decision for the backend, not something to fix in one file. */
     title: "You approve & pay",
     note: "optional",
     /* Deliberately says we notify you, not that we hold indefinitely —
@@ -131,117 +145,6 @@ export const PANEL_TRUST: { label: string; icon: TrustIconName }[] = [
   { label: "No service fees, ever", icon: "tag" },
   { label: "Every item priced upfront", icon: "list" },
 ];
-
-/* Same shape as the app's pricing screen: category → garment → the
-   services available for it. "wash" renders a lime dot, "dry" a grey
-   one, matching the app.
-   TODO: replace with the real price list from the API. */
-export const WASH = "Wash & Press";
-export const DRY = "Dry Clean & Press";
-
-export type Garment = [name: string, services: [service: string, price: string][]];
-
-export const PRICING: Record<string, Garment[]> = {
-  Shirt: [
-    ["Shirt", [[WASH, "£3.50"], [DRY, "£4.50"]]],
-    ["T-Shirt", [[WASH, "£2.50"]]],
-    ["Polo Shirt", [[WASH, "£3.00"], [DRY, "£4.00"]]],
-    ["Blouse", [[WASH, "£4.00"], [DRY, "£5.00"]]],
-    ["School Shirt", [[WASH, "£2.50"]]],
-  ],
-  Suit: [
-    ["2-Piece Suit", [[DRY, "£14.00"]]],
-    ["3-Piece Suit", [[DRY, "£18.00"]]],
-    ["Suit Jacket", [[DRY, "£9.00"]]],
-    ["Suit Trousers", [[DRY, "£6.00"]]],
-  ],
-  Trouser: [
-    ["Trousers", [[WASH, "£5.00"], [DRY, "£6.00"]]],
-    ["Jeans", [[WASH, "£5.50"]]],
-    ["Shorts", [[WASH, "£3.50"], [DRY, "£4.50"]]],
-    ["Skirt", [[WASH, "£5.00"], [DRY, "£6.00"]]],
-  ],
-  Jacket: [
-    ["Bomber Jacket", [[DRY, "£8.00"]]],
-    ["Leather Jacket", [[DRY, "£25.00"]]],
-    ["Blazer", [[DRY, "£9.00"]]],
-    ["Waistcoat", [[DRY, "£6.00"]]],
-    ["Coat", [[DRY, "£15.00"]]],
-    ["Trench Coat", [[DRY, "£18.00"]]],
-  ],
-  Dress: [
-    ["Day Dress", [[WASH, "£7.00"], [DRY, "£8.00"]]],
-    ["Cocktail Dress", [[DRY, "£9.00"]]],
-    ["Evening Dress", [[DRY, "£12.00"]]],
-    ["Wedding Dress", [[DRY, "£45.00"]]],
-  ],
-  /* ── PLACEHOLDER CATEGORIES ──────────────────────────────────────
-     Added so the pill row overflows and the scrolling can be tested.
-     Names and prices are invented — replace with the real list. */
-  Knitwear: [
-    ["Jumper", [[WASH, "£6.00"], [DRY, "£7.50"]]],
-    ["Cardigan", [[WASH, "£6.00"], [DRY, "£7.50"]]],
-    ["Scarf", [[DRY, "£5.00"]]],
-    ["Gilet", [[DRY, "£8.00"]]],
-  ],
-  Bedding: [
-    ["Double Duvet", [[WASH, "£22.00"]]],
-    ["Single Duvet", [[WASH, "£18.00"]]],
-    ["Duvet Cover", [[WASH, "£8.00"]]],
-    ["Bed Sheet", [[WASH, "£7.00"]]],
-    ["Pillow", [[WASH, "£6.00"]]],
-    ["Pillowcase", [[WASH, "£2.50"]]],
-  ],
-  Curtains: [
-    ["Curtains (per metre)", [[DRY, "£14.00"]]],
-    ["Net Curtains", [[WASH, "£9.00"]]],
-    ["Voile Panel", [[WASH, "£7.00"]]],
-  ],
-  Household: [
-    ["Tablecloth", [[WASH, "£8.00"], [DRY, "£10.00"]]],
-    ["Cushion Cover", [[WASH, "£4.00"]]],
-    ["Throw", [[WASH, "£9.00"]]],
-    ["Towel", [[WASH, "£2.50"]]],
-    ["Tea Towel", [[WASH, "£1.50"]]],
-  ],
-  Workwear: [
-    ["Tunic", [[WASH, "£4.50"]]],
-    ["Overalls", [[WASH, "£9.00"]]],
-    ["Chef Whites", [[WASH, "£6.50"]]],
-    ["Hi-Vis Jacket", [[WASH, "£7.00"]]],
-  ],
-  Sportswear: [
-    ["Gym Top", [[WASH, "£3.00"]]],
-    ["Leggings", [[WASH, "£3.50"]]],
-    ["Tracksuit", [[WASH, "£8.00"]]],
-    ["Football Kit", [[WASH, "£7.50"]]],
-  ],
-  Kids: [
-    ["Kids Jumper", [[WASH, "£4.00"]]],
-    ["Kids Trousers", [[WASH, "£3.50"]]],
-    ["Baby Blanket", [[WASH, "£6.00"]]],
-    ["Pram Liner", [[WASH, "£7.00"]]],
-  ],
-  Footwear: [
-    ["Trainers", [[WASH, "£15.00"]]],
-    ["Boots", [[DRY, "£20.00"]]],
-    ["Suede Shoes", [[DRY, "£22.00"]]],
-  ],
-  Leather: [
-    ["Leather Coat", [[DRY, "£38.00"]]],
-    ["Suede Jacket", [[DRY, "£35.00"]]],
-    ["Leather Gloves", [[DRY, "£9.00"]]],
-    ["Sheepskin Coat", [[DRY, "£45.00"]]],
-  ],
-  Rugs: [
-    ["Small Rug", [[DRY, "£25.00"]]],
-    ["Medium Rug", [[DRY, "£40.00"]]],
-    ["Large Rug", [[DRY, "£60.00"]]],
-    ["Runner", [[DRY, "£30.00"]]],
-  ],
-};
-
-export const CATEGORIES = Object.keys(PRICING);
 
 /* Call-outs under the price list. "No service fees" matches the wording in
    the how-it-works trust strip so the same promise reads identically. */
@@ -294,55 +197,10 @@ export const REVIEWS: {
   },
 ];
 
-/* Wording is channel-neutral: "in the app" is avoided so these read
-   correctly for someone who booked on the website and has no app.
-   Q5 states the auto-approve fallback rather than promising an
-   indefinite hold.
-
-   Shared with the checkout's FAQ modal. Duplicating nine answers across
-   two files guarantees they drift, and the two would then contradict each
-   other in front of a customer. */
-export const FAQ: [question: string, answer: string][] = [
-  [
-    "Do I need to sort or count my laundry?",
-    "There is no sorting, counting, or preparation required on your end. Hand over your laundry however it is — mixed, unsorted, bagged or loose — and our team takes care of everything from there.",
-  ],
-  [
-    "What happens after pickup?",
-    "Your laundry is transported to our facility, where every item is identified, counted, and logged against your order — along with its price — before any cleaning begins. You will always have a full, itemised view of your order. If you'd like to review and approve items before payment is taken, you can enable Price Review in your preferences.",
-  ],
-  [
-    "How do you know how to handle my items?",
-    "Our team follows the care label on every individual item to determine the appropriate cleaning method. Where no label is present, our team uses their professional judgement and experience to treat the item appropriately. In addition, you can set your own preferences — such as how you'd like your shirts returned (folded or on a hanger) and whether you'd like deep stain treatment applied. These preferences are saved to your account and applied to every order.",
-  ],
-  [
-    "How do I know what I'll be charged?",
-    "Every item collected is added to your order with its individual price, based on our published price list. The full breakdown is visible before any payment is taken — there are no estimates or surprises after the fact.",
-  ],
-  [
-    "Can I approve charges before paying?",
-    "Yes. By enabling Price Review in your preferences, you will receive an email as soon as your items have been counted and added to your order — and an instant push notification too, if you have the app. You can review every item and its cost before approving payment. If we have not heard back by the time we need to begin cleaning, we will go ahead as normal so your delivery slot is not missed.",
-  ],
-  [
-    "Any hidden costs?",
-    "Collection and delivery are included in the service. You are charged only for the items we clean, at the prices listed in our price list — nothing more. There are no membership fees, minimum order requirements, or additional charges.",
-  ],
-  [
-    "What if I need to change my delivery time?",
-    "Delivery slots can be updated directly from your order at any point before it is out for delivery. Open the order, select Edit, and choose a new date and time that suits you.",
-  ],
-  [
-    "What if an item is missing or damaged?",
-    "Every item is individually logged when it arrives at our facility, so we always have a clear record of what was collected. In the rare event that something is not returned as expected, please contact us and our team will investigate and resolve the matter promptly.",
-  ],
-  [
-    "Can I set up regular pickups?",
-    "Recurring orders are available on a weekly, fortnightly, or every-four-weeks schedule. Once set up, your pickups and deliveries are handled automatically with no action required each time. You can pause or cancel your recurring schedule at any point from your account.",
-  ],
-];
-
-/* First five show by default; the rest sit behind "Show more questions". */
-export const FAQ_PREVIEW_COUNT = 5;
+/* The FAQs used to live here. They are the backend's now — `/system-status`
+   serves them — so both the landing accordion and the checkout modal read
+   them from utils/faq, which also keeps the last version of this copy as a
+   fallback. */
 
 /* Where each review came from. Add "google" here when those arrive. */
 export const REVIEW_SOURCES: Record<ReviewSource, { label: string }> = {

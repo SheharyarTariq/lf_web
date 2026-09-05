@@ -4,9 +4,15 @@
    Stripe
    ══════════════════════════════════════════════════════════════════
 
-   Card fields, Apple Pay, Google Pay, Link and the mandate wording all
-   come from Stripe. Nothing card-shaped is rebuilt here — the details
-   never touch our DOM, which is the whole point of the Element.
+   The card fields come from Stripe. Nothing card-shaped is rebuilt here —
+   the details never touch our DOM, which is the whole point of the Element.
+
+   What it is *not* asked for is the other half of the design. Link, Apple Pay,
+   Google Pay and Stripe's own mandate wording are all switched off explicitly
+   below, so this Element renders a card form and nothing else. The reasoning
+   sits beside each option; the short version is that everything removed either
+   asked again for something the details step already collected, or spoke about
+   us in wording and a typeface that were not ours.
 
    Stripe.js is loaded from js.stripe.com rather than bundled: Stripe
    require it to be served from their domain, and bundling it voids PCI
@@ -34,8 +40,31 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "reac
 import { config } from "@/config";
 import { Icon, P } from "@/components/booking/icons";
 import { createSetupIntent } from "@/utils/booking/api";
+import { formatPostcode } from "@/utils/booking/model";
 
 const STRIPE_CURRENCY = "gbp";
+
+/* Poppins, for the Element's own document.
+   ────────────────────────────────────────
+   This is not a duplicate of the site's font and must not be pruned as one.
+   `next/font/google` self-hosts Poppins under a hashed family name
+   (`__Poppins_<hash>`) — the literal string "Poppins" is never declared in the
+   served CSS — and the Element is a cross-origin iframe that cannot see our
+   @font-face rules whatever they are called. Passing `fontFamily` alone left
+   every Stripe field silently falling back to sans-serif next to a page set in
+   Poppins, which is most of why the panel read as bolted on.
+
+   `cssSrc` is the only way in: Stripe fetches the stylesheet from inside the
+   frame and takes its @font-face rules. Weights match what the appearance rules
+   below actually use — .Label is the heaviest at 600 — rather than the five the
+   site loads.
+
+   If a CSP is ever added, this needs `style-src https://fonts.googleapis.com`
+   and `font-src https://fonts.gstatic.com`, for the Stripe frame rather than
+   for our document. There is no CSP today. */
+const STRIPE_FONTS = [
+  { cssSrc: "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" },
+];
 
 /* The slice of Stripe.js this screen uses. Typed here rather than pulled
    from @stripe/stripe-js, which would be a dependency for a handful of call
@@ -105,16 +134,24 @@ function stripeAppearance() {
     (css.getPropertyValue(name) || fallback).trim();
   const ink = v("--color-bk-ink", "#1F1F1F");
   const line2 = v("--color-bk-line-2", "#DCDCDC");
+  const danger = v("--color-danger", "#B3261E");
+  /* `.Tab` and `.Tab--selected` rules used to sit in here. The Element is
+     card-only now — see paymentMethodTypes below — so there is no method
+     picker left to style, and rules for a component that cannot render are
+     the kind of thing a later reader spends an afternoon trying to find on
+     screen. */
   return {
     theme: "stripe",
     variables: {
-      fontFamily: "'Poppins', sans-serif",
+      /* Resolves because STRIPE_FONTS loads the family into the frame. Unquoted:
+         the name has no space, and Stripe passes this straight into CSS. */
+      fontFamily: "Poppins, sans-serif",
       colorPrimary: ink,
       colorText: ink,
       colorTextSecondary: v("--color-bk-ink-2", "#5A5A5A"),
       colorTextPlaceholder: v("--color-bk-ink-3", "#6D6D6D"),
       colorBackground: "#FFFFFF",
-      colorDanger: v("--color-danger", "#B3261E"),
+      colorDanger: danger,
       borderRadius: "16px",
       spacingUnit: "4px",
       fontSizeBase: "15px",
@@ -130,8 +167,11 @@ function stripeAppearance() {
         boxShadow: "0 0 0 3px rgba(20,20,15,.08)",
       },
       ".Label": { fontWeight: "600", fontSize: "14px", marginBottom: "7px" },
-      ".Tab": { border: `1.5px solid ${line2}`, boxShadow: "none" },
-      ".Tab--selected": { borderColor: ink, boxShadow: "none" },
+      /* Matched to ERR and the aria-invalid branch of INPUT in
+         utils/booking/styles.ts, so a declined card and a rejected postcode
+         are drawn the same way on both sides of the frame boundary. */
+      ".Input--invalid": { border: `1.5px solid ${danger}`, boxShadow: "none" },
+      ".Error": { fontSize: "13.5px", fontWeight: "500", marginTop: "7px" },
     },
   };
 }
@@ -164,13 +204,37 @@ function billingFor(b: BillingDetails): Record<string, string> {
 
 /** Only opt out of a field we can supply at confirm time. Claiming `never` for
  *  a phone number the account does not have would leave Stripe with no way to
- *  obtain one and no way for us to give it one. */
+ *  obtain one and no way for us to give it one.
+ *
+ *  `address` is deliberately absent, which leaves it `auto` — Stripe keeps
+ *  collecting country and postcode. See `prefillFor` for why those two are
+ *  prefilled rather than suppressed. */
 function skippableFields(b: BillingDetails): Record<string, string> {
   return {
     name: "never",
     email: "never",
     phone: b.phone?.trim() ? "never" : "auto",
   };
+}
+
+/** Country and postcode, filled in from the address the collection is booked
+ *  against.
+ *
+ *  Suppressing the pair outright was the other option and is the wrong one: the
+ *  postcode is what the bank's AVS check runs on, and a card registered to a
+ *  different address than the one we collect from would start failing with no
+ *  field on screen to correct it in. Prefilled, there is nothing to type and
+ *  the answer is still the cardholder's to change.
+ *
+ *  It also stays inside the `never`/supply rule this file is built on: we are
+ *  not opting out of collecting these, so `billingFor` owes Stripe nothing at
+ *  confirm time. Note the casing — `defaultValues` takes snake_case
+ *  `postal_code` where `fields` takes camelCase `postalCode`. */
+function prefillFor(b: BillingDetails): Record<string, unknown> {
+  const address: Record<string, string> = { country: "GB" };
+  const postcode = b.postcode?.trim();
+  if (postcode) address.postal_code = formatPostcode(postcode);
+  return { billingDetails: { address } };
 }
 
 export type ConfirmCardResult =
@@ -194,6 +258,11 @@ export interface BillingDetails {
    *  the Element collects one itself rather than being told to skip a field
    *  nobody can then fill in. */
   phone?: string;
+  /** The collection postcode, used to prefill the billing pair the Element
+   *  still collects — see `prefillFor`. Unlike the three above this is a
+   *  suggestion, not a promise: the field stays on screen and editable, so an
+   *  absent value costs nothing but a keystroke. */
+  postcode?: string;
 }
 
 export default function StripePayment({
@@ -308,19 +377,62 @@ export default function StripePayment({
           mode: "setup",
           currency: STRIPE_CURRENCY,
           setupFutureUsage: "off_session",
+          /* Card only, and stated rather than left to the account's enabled
+             methods. Unset, automatic payment methods decide what appears, and
+             this Element has exactly one job. Note it does **not** by itself
+             remove Link — that is `wallets.link` below, established by trying
+             both against a real key. */
+          paymentMethodTypes: ["card"],
           appearance: stripeAppearance(),
+          fonts: STRIPE_FONTS,
         });
         element = elements.current.create("payment", {
-          layout: {
-            type: "accordion",
-            defaultCollapsed: false,
-            radios: false,
-            spacedAccordionItems: true,
-          },
+          /* Tabs, for a form that has no tabs. With one payment method Stripe
+             renders no tab bar at all, so the fields start at "Card number" —
+             whereas the accordion this used to be drew a single always-open
+             "Card" panel: a header naming the only option there was, wrapped
+             in a white box, under an h1 that had just said the same thing.
+             That box was the "form inside a form" the note above warns about.
+             Verified against a real key; `auto` behaves the same today but
+             leaves the choice to Stripe. */
+          layout: "tabs",
           /* Billing details come from the details step, so Stripe does not
              ask for them again — which obliges us to pass them to
              confirmSetup. `never` is only claimed for fields we hold. */
           fields: { billingDetails: skippableFields(billingRef.current) },
+          defaultValues: prefillFor(billingRef.current),
+          /* Stripe's mandate is suppressed because the screen states it
+             itself, in our own words and our own typeface, next to the terms
+             checkbox that is the other half of the same act — see the note
+             above the mandate in screens/payment. Stripe allows `never` on
+             exactly that condition: the wording has to be displayed
+             somewhere, and it is. Deleting it there means putting this back.
+
+             `business: { name }` is deliberately not set alongside it. It
+             renders only inside this mandate and the wallet sheets, both of
+             which are off, so it would be a setting with nowhere to appear. */
+          terms: { card: "never" },
+          /* Off, and each said explicitly, because all three survive
+             `paymentMethodTypes: ["card"]` — they are card-type methods rather
+             than separate ones, so naming card does not exclude them.
+
+             `link` is the one that mattered here and the one that is easy to
+             get wrong. It is what rendered the "Secure, fast checkout with
+             Link" row and the "Optional · Save my information" block below the
+             card fields, asking for the email, mobile and name the details
+             step had already collected — three empty boxes for answers we were
+             holding. The options that look like they should govern it,
+             `link: { display: "never" }` on either the group or the Element,
+             are rejected by Stripe.js as unrecognised parameters; this is the
+             one that works.
+
+             Apple Pay and Google Pay are off for a different reason: this flow
+             stores a card to charge off-session once the items are counted,
+             and a wallet hands back a device-bound token that makes that later
+             charge harder. Apple Pay also needs a domain verification that is
+             not set up, so it renders nothing today regardless — Stripe.js
+             says as much in a console warning. One line each to reverse. */
+          wallets: { applePay: "never", googlePay: "never", link: "never" },
         });
         element.on("ready", () => !cancelled && setLoadState("ready"));
         element.on("change", (e) => !cancelled && onCompleteChange(Boolean(e.complete)));

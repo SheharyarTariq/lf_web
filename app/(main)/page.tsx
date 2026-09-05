@@ -7,7 +7,8 @@ import HowItWorks from "@/components/landing/how-it-works";
 import Pricing from "@/components/landing/pricing";
 import Reviews from "@/components/landing/reviews";
 import StatStrip from "@/components/landing/stat-strip";
-import { faqSchema, localBusinessSchema, websiteSchema } from "@/utils/seo";
+import { faqSchema, jsonLd, localBusinessSchema, websiteSchema } from "@/utils/seo";
+import { getFaqs } from "@/utils/faq/api";
 
 /**
  * The landing page.
@@ -19,22 +20,35 @@ import { faqSchema, localBusinessSchema, websiteSchema } from "@/utils/seo";
  * but set it from a useEffect, so it never reached a crawler and nothing
  * depends on it. Changing the served title is an SEO decision, not a design
  * one — deliberately left alone.
+ *
+ * Async since the FAQs moved to /system-status. This is still a prerendered
+ * page, now revalidating on the interval in utils/faq/api.ts rather than
+ * being baked at build — see the note there on what would turn it into a
+ * per-request render instead.
  */
-export default function Home() {
+export default async function Home() {
+  /* One call, two consumers: the accordion below and the FAQPage schema.
+     They have to carry the same text — see utils/seo. */
+  const faqs = await getFaqs();
+
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
+        dangerouslySetInnerHTML={{ __html: jsonLd(localBusinessSchema) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        dangerouslySetInnerHTML={{ __html: jsonLd(websiteSchema) }}
       />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
-      />
+      {/* An FAQPage with an empty mainEntity is invalid structured data, and
+          worse than not claiming to have questions at all. */}
+      {faqs.length > 0 && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLd(faqSchema(faqs)) }}
+        />
+      )}
 
       <main id="lf-main" className="lf-controls flex-1">
         <Hero />
@@ -43,7 +57,7 @@ export default function Home() {
         <Pricing />
         <Areas />
         <Reviews />
-        <Faq />
+        <Faq faqs={faqs} />
         <GetTheApp />
         <Cta />
       </main>

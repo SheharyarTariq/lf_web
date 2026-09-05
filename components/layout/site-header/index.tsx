@@ -42,8 +42,8 @@ export default function SiteHeader() {
   const exitTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const pathname = usePathname();
-  const { user, signOut, openAuth } = useAuth();
-  const startBooking = useStartBooking();
+  const { user, status, signOut, openAuth } = useAuth();
+  const startBooking = useStartBooking(status);
 
   /* routes.ui.home.* are root-relative ("/#faq") so they work from anywhere.
      On the home page itself the leading slash is dropped, leaving a pure

@@ -114,6 +114,12 @@ const BTN_BASE =
 const BTN_SIZE = {
   md: "min-h-11 gap-2 px-[18px] py-2 text-[15px] font-medium leading-5",
   lg: "min-h-12 gap-2 px-[22px] py-2 text-[15.5px] font-semibold leading-5",
+  /* The mobile app's button, to the pixel — 56px tall, 16px radius, Poppins
+     500 at 16/20, 12px of horizontal padding (its `spacing.sm`). Used by the
+     confirmation screen, which is drawn from the app rather than from the
+     prototype every other screen here follows. Not a bigger `lg`: sizes in
+     this map are exclusive, so a screen picks one and gets all of it. */
+  xl: "min-h-14 gap-2 px-3 py-3 text-[16px] font-medium leading-5",
   /* Provider buttons follow Apple's and Google's published specs, not
      our own button style — people recognise these by their own
      appearance, and both companies' guidelines constrain them.
@@ -243,6 +249,11 @@ export const SWITCH =
   "after:rounded-[50%] after:bg-white after:shadow-[0_1px_3px_rgba(20,20,15,.25)] " +
   "after:transition-transform after:duration-200 after:ease-[ease] after:content-[''] " +
   "peer-checked:after:translate-x-5 " +
+  /* In flight. The preference toggles on the confirmation screen save on the
+     flip, and the switch is disabled for as long as its own request is out —
+     so this is the only thing on screen saying why a second tap does nothing.
+     The repeat switch on the time screen is never disabled and never sees it. */
+  "peer-disabled:opacity-60 " +
   "peer-focus-visible:outline peer-focus-visible:outline-[3px] " +
   "peer-focus-visible:outline-offset-[3px] peer-focus-visible:outline-bk-ink";
 export const TOGGLE_TEXT = "order-1 min-w-0 flex-auto";

@@ -23,7 +23,7 @@ import { useOfferDiscount, useStartBooking } from "@/utils/hooks";
 export default function AnnounceBar() {
   const { status } = useAuth();
   const { discount, signedIn } = useOfferDiscount(status);
-  const startBooking = useStartBooking();
+  const startBooking = useStartBooking(status);
 
   /* Nothing to offer this account. No bar, rather than filler: a strip that
      advertises nothing is decoration, and the checkout already takes the same

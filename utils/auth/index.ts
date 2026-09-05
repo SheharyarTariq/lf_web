@@ -73,6 +73,20 @@ export interface AuthUser {
    *  than as "unverified"; see the `=== null` checks below. */
   emailVerifiedAt?: string | null;
   isAdmin?: boolean;
+
+  /* The confirmation screen's three preference toggles, as the account holds
+     them. /my-status has always sent all three — the brief's §4 field list
+     just never mentioned them — and they are the read half of
+     `routes.api.updateMe`. Optional because /login-check's smaller user object
+     omits them, so an undefined here means "this response did not say", not
+     "off"; the seeding in booking-shell reads them through Boolean() for
+     exactly that reason.
+
+     `shirtHandling` is the odd one: an enum on the wire where the other two
+     are booleans, and where our own BookingPrefs.hangers is a boolean too. */
+  shirtHandling?: "hang" | "fold";
+  priceReviewRequired?: boolean;
+  stainTreatmentEnabled?: boolean;
 }
 
 interface LoginBody {

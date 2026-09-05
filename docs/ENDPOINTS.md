@@ -8,15 +8,17 @@ code. Path constants live in [`utils/routes/index.tsx`](../utils/routes/index.ts
 
 **Both flows are complete end to end.** A signed-in customer and a visitor with no account
 can each book from an empty browser to a placed order, proven against staging. What is left
-is the account surface — order tracking, cancellation, preferences — which has no design yet.
+is the account surface — order tracking and cancellation — which has no design yet. The three
+preferences are done: they save from the confirmation screen (`PATCH /users/{id}/me`, below).
 
 ## Ground rules from the brief
 
 - `Content-Type: application/json` on POST. PATCH needs `application/merge-patch+json`
-  (only `/users/{id}/update-address` uses PATCH).
+  — two endpoints use PATCH, `/users/{id}/update-address` and `/users/{id}/me`, and both are
+  strict about it: sending either as plain `application/json` is a **415**.
 - `Authorization: Bearer <token>` on everything except the public endpoints below. The brief
-  says four; probed, it is **eight** — `/find-addresses` and both slot endpoints answer 200
-  with no token, and `/login-with-code` is not in the brief at all.
+  says four; probed, it is **nine** — `/find-addresses` and both slot endpoints answer 200
+  with no token, and neither `/login-with-code` nor `/price-combined` is in the brief at all.
 - **Money is integers in pennies** — `1295` = £12.95. Dates `YYYY-MM-DD`, times `HH:MM`.
 
 ---
@@ -34,6 +36,7 @@ is the account surface — order tracking, cancellation, preferences — which h
 | `POST /verification-code/request` | [`utils/auth`](../utils/auth/index.ts) `requestVerificationCode()` → the identity panel's **"Send a new code"** link only | **live** — `{ email, purpose }`, purpose ∈ `email_verification` \| `login` \| `password_reset`. Live on staging: 200 for an unknown address, 422 naming `purpose` for a bad one. Everywhere we hold a token, `emailVerificationResend` is preferred — it follows the account rather than an address in our state, and it can actually report a failure |
 | `POST /reset-password/request` | [`utils/auth`](../utils/auth/index.ts) `requestPasswordReset()` → [`AuthModal.tsx`](../components/auth/auth-modal/index.tsx) `forgot` pane | **live** — always answers 200, even for an address with no account, so the UI must never confirm that a message was sent |
 | `POST /reset-password/confirm` | [`utils/auth`](../utils/auth/index.ts) `confirmPasswordReset()` → [`components/reset-password`](../components/reset-password/index.tsx) | **live** — public, so the emailed link finishes on any device with no session. A successful reset also verifies the address, so the page logs them straight in |
+| `GET /price-combined` | [`utils/pricing`](../utils/pricing/index.ts) `readCategories()` → [`landing/pricing`](../components/landing/pricing/index.tsx) | **live, and absent from the brief entirely** — public, probed unauthenticated on 05/09/26: `200 application/ld+json` with no token at all. Nine categories, 38 items. Already consumed by the sibling mobile app, which is how we knew to look. Four things the shape does not announce, each of which cost a rendering rule: money is **integer pence** per the ground rule; **both prices are nullable** — every item carries at least one, 12 of 38 carry both; the per-category `washingLabel` / `dryCleaningLabel` are **also nullable and vary** ("Wash & Press", "Wash & Dry", "Wash & Iron"), which is why a row carries *which service it is* rather than leaving the label to be recognised later — the old `service === WASH` test painted every "Wash & Dry" row grey; and `priceType` is `fixed` **or `from`** — "Curtains (per pair)" is `from`, and the card's hardcoded "Per item" was quoting it as a fixed price. `totalItems` counts **categories** (9), not items (38). Empty categories are excluded server-side. Envelope is `member` under ld+json; `hydra:member` read as a fallback. **Fetched in the browser, not on the server**, so the price list is not in the served HTML — a deliberate call, and the one cost of it is that crawlers do not see the prices. CORS reflects any Origin (`vary: Origin`, no `allow-credentials`), so it works from localhost too |
 
 `/my-status`'s `recurring` is read by `TimeScreen` (to hide Repeat) and by `confirmOrder`.
 `nextOrderDiscount` is read by [`utils/discount`](../utils/discount/index.ts) via `useOfferDiscount()`
@@ -89,10 +92,39 @@ has nothing to authenticate with, so it asks for a login once and resumes by its
 |---|---|---|
 | `POST /find-addresses` | [`utils/booking/api.ts`](../utils/booking/api.ts) `findAddresses()` → [`AddressScreen.tsx`](../components/booking/screens/address/index.tsx) `search()` | **live** — replaced both the `lookupAddresses` mock and the hardcoded `SERVED` district table, so coverage is server-driven and adding a town no longer needs a frontend deploy. **Public** — 200 with no token, contradicting the brief's "only four are public", and the one checkout call a signed-out visitor can make. Note the rows carry no `id` (list is keyed by position) and each carries its own `postcodeString`, which is not always the one searched |
 | `PATCH /users/{id}/update-address` | [`utils/booking/api.ts`](../utils/booking/api.ts) `updateAddress()` → `AddressScreen.tsx` "Continue to times" | **live** — `line1`, `town`, `postcodeString` required, `merge-patch+json`, empty optionals sent as `null`. Saved on Continue, not on pick, since the lines stay editable after choosing. **Slots 500 until this has run** — undocumented, and the reason it comes first. Skipped for signed-out visitors until guest checkout is decided |
-| `POST /postcode-activation-notifications` | `AddressScreen.tsx` out-of-area waitlist | the local `setWaitlisted` state, which currently just flips a boolean |
+| `PATCH /users/{id}/me` | [`utils/booking/api.ts`](../utils/booking/api.ts) `updatePreferences()` → [`confirmed`](../components/booking/screens/confirmed/index.tsx) preference toggles | **live** — **absent from the brief**; found in the API's own OpenAPI spec (`GET /docs?showdocs=1`) and already shipping in the sibling mobile app. Takes `priceReviewRequired`, `stainTreatmentEnabled`, `shirtHandling` (`"hang"` | `"fold"` — an enum where our `BookingPrefs.hangers` is a boolean), plus `name` and `phone`. `merge-patch+json` or **415**. A partial body validates that field alone, so each toggle saves one field on the flip. The 200 carries the JSON-LD envelope and **no field values**, so there is nothing to read back — the optimistic value stands. Reads come from `/my-status`, which seeds the toggles in `booking-shell` |
+| `POST /postcode-activation-notifications` | [`utils/booking/api.ts`](../utils/booking/api.ts) `joinPostcodeWaitlist()` → [`WaitlistModal`](../components/booking/overlays/index.tsx) | **wired, and blocked on the backend — see below.** Replaced the local `setWaitlisted` boolean, which showed "You are on the list" while holding nothing. `{ email, postcodeString }`, both required, **201** with an empty body so success is the status alone. Confirmed against the OpenAPI spec, not the brief, which names the endpoint and no body at all |
 
 Response field is `postcodeString`, not `postcode`. The address fields (`line1`, `line2`,
 `line3`, `town`, `county`) already match what the form collects.
+
+**`/postcode-activation-notifications` requires a token and `/find-addresses` does not, which
+is backwards for where each one is used.** Probed with a valid body and no `Authorization`
+header:
+
+| Request | Answer |
+|---|---|
+| `POST /postcode-activation-notifications` `{email, postcodeString}` | **401** `{"code":401,"message":"JWT Token not found"}` |
+| `POST /postcode-activation-notifications` `{}` | **401** — rejected before validation |
+| `POST /find-addresses` `{}` *(control)* | 422 `postcodeString: This value should not be blank.` |
+
+The control is the proof: a public endpoint reaches validation, this one does not. So the
+address step can tell a signed-out visitor *"we do not collect from you"* and cannot let them
+ask to be told when we do — and somebody whose postcode we do not serve has never had a
+reason to hold an account, so that is nearly everyone who sees the form. The sibling mobile
+app never met this because its `FindAddressScreen` sits behind login
+(`getNavigationState.ts:21,41`) and inherits a sticky `Authorization` header.
+
+**Open with the backend:** make it public like `/find-addresses`, rate-limit it when they do
+(public and email-accepting), and say whether the same email + postcode twice is a 201, a
+409, or a silent upsert — the modal needs to know whether a double-tap is an error to show.
+`joinPostcodeWaitlist` has an explicit 401 branch until then, because both the body's own
+wording (*"JWT Token not found"*) and `apiCall`'s generic 401 copy (*"Session expired. Please
+login again."*) are the wrong thing to say to somebody joining a waiting list. **Delete that
+branch when the endpoint opens up.**
+
+The postcode sent is `formatPostcode(searched)` — the endpoint validates against the full UK
+regex, so the district shown in the heading would be refused.
 
 ### Slots
 
@@ -129,7 +161,7 @@ start being carried because `POST /orders` needs the IRI.
 
 | Endpoint | Call site | Replaces |
 |---|---|---|
-| `POST /payment-methods/setup-intent` | [`utils/booking/api.ts`](../utils/booking/api.ts) `createSetupIntent()` → [`StripePayment`](../components/booking/stripe-payment/index.tsx) `confirm()` | **live** — response field is `setupIntentClientSecret`. Called at confirm time, not on mount: the Element runs in deferred mode, so a mistyped card never costs an intent |
+| `POST /payment-methods/setup-intent` | [`utils/booking/api.ts`](../utils/booking/api.ts) `createSetupIntent()` → [`StripePayment`](../components/booking/stripe-payment/index.tsx) `confirm()` | **live** — response field is `setupIntentClientSecret`. Called at confirm time, not on mount: the Element runs in deferred mode, so a mistyped card never costs an intent. The Element is **card-only** — Link, Apple Pay and Google Pay are switched off in `stripe-payment`, which is where Link went |
 | `GET /payment-methods/check-status?setupIntentId=` | [`utils/booking/api.ts`](../utils/booking/api.ts) `checkSetupIntent()` / `awaitSetupIntent()` → [`PaymentScreen`](../components/booking/screens/payment/index.tsx) | **live** — polled. See the warning below about `false` |
 | `POST /payment-methods/{id}/mark-as-default` | [`utils/booking/api.ts`](../utils/booking/api.ts) `markCardDefault()` → [`payment-methods`](../components/booking/payment-methods/index.tsx) | **live** — this *is* how a card is chosen. `POST /orders` charges the default and has no card field, so selecting a radio in the list is a `mark-as-default` write |
 | `DELETE /payment-methods/{id}` | [`utils/booking/api.ts`](../utils/booking/api.ts) `deleteCard()` → the same list, behind a confirm dialog | **live** — see the 409 below |
@@ -211,9 +243,8 @@ Statuses: `created`, `awaiting_review`, `payment_pending`, `payment_failed`, `pr
 |---|---|---|
 | ~~Account-exists check~~ | ~~`checkAccount`, `accountExists`, `mobileHasAccount`~~ | **Gone, and deliberately not replaced.** An unauthenticated yes/no on any address typed into a box is an account enumeration oracle. Nothing needs the answer any more either: `POST /register-as-guest` recognises an address it already holds and emails it a code, so the checkout takes the same two steps for a new customer and a returning one and never learns, or reveals, which it is dealing with |
 | Set a password while signed in | the confirmation's "Keep your account" | **No endpoint.** `PATCH /users/{id}` is 405; `change-password` and `set-password` are 404. The block asks `POST /reset-password/request` to email a link instead, which lands on our own `/reset-password` page |
-| Apple / Google sign-in | [`AuthModal`](../components/auth/auth-modal/index.tsx) only | **Removed from the checkout.** The mock returned an account and no token, which was survivable while the checkout ran on mocks and is not now — every step past identity needs a real Bearer token, so a provider button waved somebody through to a payment step that answers 401. The header's copy of the mock is still there |
+| Apple / Google sign-in | nowhere — [`AuthModal`](../components/auth/auth-modal/index.tsx) still holds the markup, behind a flag | **The endpoints exist; the frontend half does not.** `POST /login/google` and `POST /login/apple` are live and already used by the mobile app (`lf-app/app/services/api/index.ts:276, :306`), so this row is about our integration, not a gap in the API. The mock returned an account and no token, which was survivable while the checkout ran on mocks and is not now — every step past identity needs a real Bearer token, so a provider button waved somebody through to a payment step that answers 401. It came out of the checkout first; the modal's copy is now gated behind `SOCIAL_AUTH_ENABLED` in `config.ts`, so nothing renders it anywhere. **Flipping that flag is not the integration** — it re-enables the mock. Wire the two endpoints, replace `signInWith`, then flip |
 | SMS / mobile verification | the tel row in `ContactScreen` | the brief covers email verification only |
-| Pricing | [`utils/content/index.ts`](../utils/content/index.ts) `PRICING`, ten categories | invented for the design |
 | Ratings | [`utils/content/index.ts`](../utils/content/index.ts) `RATING = { 4.9, 63 }` | invented for the design |
 | `POST /request-deletion` | [`request-deletion/page.tsx:24`](<../app/(legal)/request-deletion/page.tsx>) | in production use, URL hardcoded rather than `config.apiUrl`, and absent from the brief |
 
@@ -230,7 +261,7 @@ Statuses: `created`, `awaiting_review`, `payment_pending`, `payment_failed`, `pr
 | ~~`fetchDeliveryAvailability`~~ | **gone** — `fetchDropoffSlots`. The eco rule survived into `markEcoWindows`: the endpoints send no flag, and same-weekday-same-window is the real round schedule |
 | ~~`verifyCode`~~ | **gone** — `POST /login-with-code` for signing in, `POST /email-verification/verify` for confirming an address |
 | ~~`accountExists` / `checkAccount` / `mobileHasAccount`~~ | **deleted, not replaced** — see the row above |
-| ~~`signInWith`~~ | **gone from the checkout** — still mocked in `components/auth/auth-modal` |
+| ~~`signInWith`~~ | **gone from the checkout, and now unrendered anywhere** — the copy in `components/auth/auth-modal` is still a mock, but both call sites sit behind `SOCIAL_AUTH_ENABLED` (`config.ts`), which is `false`. It is the last mock in the tree, and the flag is deliberately a constant rather than an env var so no deploy can switch a mock on |
 
 [`utils/booking/mocks.ts`](../utils/booking/mocks.ts) is now only the record of where each one
 went, kept because three of them turned out to be the wrong question rather than a missing

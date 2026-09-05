@@ -42,6 +42,27 @@ export interface BookingContextValue {
    */
   skipContact: boolean;
   /**
+   * The card step is out of the walk, because the account already has a default
+   * card and POST /orders charges the default — see the header of
+   * utils/booking/flow.ts.
+   *
+   * The two summaries read it to decide whether to name the card at all: it is
+   * the only place a returning customer is shown what is about to be charged,
+   * since the screen that would otherwise have shown it is gone.
+   */
+  skipPayment: boolean;
+  /**
+   * This screen is the last in the walk, so its forward button places the order
+   * rather than moving on.
+   *
+   * Which screen that is depends on the account: Payment for anyone who still
+   * has to give us a card, Review on a phone without one, and the Time step
+   * itself for a returning customer on a desktop. Screens ask rather than
+   * assume, for the same reason they call `forward()` instead of naming a
+   * successor.
+   */
+  isLast: boolean;
+  /**
    * Which leg the time step has open.
    *
    * Held here rather than inside `TimeScreen` because two other screens write
@@ -61,7 +82,15 @@ export interface BookingContextValue {
   discount: Discount | null;
   /** The order number, once the server has minted one. Empty until then. */
   reference: string;
-  isNewAccount: boolean;
+  /**
+   * When the order was placed, as an ISO string. Empty until it is.
+   *
+   * Stamped in the shell at the moment POST /orders succeeds, rather than read
+   * from the clock on the confirmation screen: that route is prerendered, so a
+   * time taken during its render would differ between the served HTML and the
+   * hydrating client. The endpoint returns no `createdAt` of its own.
+   */
+  placedAt: string;
   /**
    * POST /orders, then move to the confirmation.
    *

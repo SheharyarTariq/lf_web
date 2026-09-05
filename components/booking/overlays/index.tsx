@@ -3,14 +3,22 @@
 /* ══════════════════════════════════════════════════════════════════
    Everything that opens over the flow
    ══════════════════════════════════════════════════════════════════
-   Exit confirmation · FAQs · How billing works · Log in
+   Exit confirmation · FAQs · How billing works · Log in ·
+   Out-of-area waitlist
+
+   The first four are mounted by the shell and opened through the
+   booking context. The waitlist is the exception: it is mounted by the
+   address screen, because the postcode it names and the "on the list"
+   state it produces both belong to that screen. Routing it through
+   BookingContextValue the way openBilling and openLogin are routed
+   would be plumbing for no gain.
    ══════════════════════════════════════════════════════════════════ */
 
 import { cn } from "@/utils/cn";
 import Input from "@/components/common/Input";
 import Button from "@/components/common/Button";
 import Link from "next/link";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Icon, P } from "@/components/booking/icons";
 import Field from "@/components/booking/common/Field";
@@ -18,10 +26,12 @@ import Modal from "@/components/common/Modal";
 import { ERR, MODAL_FOOT, MODAL_NAV, MODAL_NAV_BTN } from "@/utils/booking/styles";
 import Loader from "@/components/common/Loader";
 import { login, loginWithCode, requestVerificationCode } from "@/utils/auth";
+import { joinPostcodeWaitlist } from "@/utils/booking/api";
 import { CODE_LENGTH, EMAIL_RE, RESEND_SECONDS } from "@/utils/booking/model";
 import { BTN_LINK, SEC_H, SEC_P } from "@/utils/booking/styles";
 import { routes } from "@/utils/routes";
-import { BRAND, FAQ, FAQ_PREVIEW_COUNT } from "@/utils/content";
+import { BRAND } from "@/utils/content";
+import { FAQ_PREVIEW_COUNT, faqParagraphs, type FaqItem } from "@/utils/faq";
 
 /* Preflight hands anchors `text-decoration: inherit`, where the design
    kept the browser's underline. Said outright on the few plain links in
@@ -57,29 +67,151 @@ export function ExitConfirm({ onStay, onLeave }: { onStay: () => void; onLeave: 
   );
 }
 
+/* ── Out of area ──────────────────────────────────────────────────
+   Not a rejection — a lead. The only wrong move at this point is a dead
+   end that loses the address entirely, which is why the screen behind
+   keeps its own one-line answer and a way back in here.
+
+   The email goes to POST /postcode-activation-notifications, which is why
+   `postcode` has to be the searched one and not its district: the endpoint
+   validates it against the full UK regex, and "KT21" alone is refused.
+   "You are on the list" is shown only once the server has taken it — a
+   failure keeps the form up with the reason on it, because a promise to
+   email somebody is the one thing on this screen that must not be made
+   optimistically. */
+
+export function WaitlistModal({
+  postcode,
+  onClose,
+  onJoined,
+}: {
+  /* The postcode as searched, not its district. Naming the district here read
+     as a truncation — "we collect from KT21" against a typed KT211PV — because
+     the sentence was written for the town the deleted SERVED table supplied. */
+  postcode: string;
+  onClose: () => void;
+  /** Handed up so the screen can confirm on the page once this closes. */
+  onJoined: (email: string) => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  /* Guards the post, where `busy` only guards the button. Two clicks
+     dispatched in one tick both read `busy` from the render they were
+     queued in, so the second sails past a state-based check and posts
+     again — proven with two el.click() calls in the same task. A ref is
+     written synchronously, so the second call sees the first. */
+  const inFlight = useRef(false);
+  const ids = useId();
+
+  /* EMAIL_RE rather than a contains-"@" test — the card this replaced
+     enabled its button on a bare "@". Stricter than the sibling mobile
+     app, which posts anything non-empty and lets the 422 come back. */
+  const valid = EMAIL_RE.test(email);
+
+  const join = async () => {
+    if (!valid || inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError("");
+    const r = await joinPostcodeWaitlist(email, postcode);
+    inFlight.current = false;
+    setBusy(false);
+    if (!r.ok) {
+      /* One field on this form, so whatever the server pins to `email`
+         belongs under it and anything else is about the request as a
+         whole — the split AddressScreen already makes for updateAddress. */
+      setError(r.fields.email || r.message);
+      return;
+    }
+    setDone(true);
+    onJoined(email);
+  };
+
+  return (
+    <Modal onClose={onClose} labelledBy="lfb-wl-t">
+      {done ? (
+        <>
+          <h2 className={SEC_H} id="lfb-wl-t">
+            You are on the list
+          </h2>
+          <p className={SEC_P}>
+            We will email {email} as soon as we collect from {postcode}.
+          </p>
+          <Button surface="booking" variant="lime" size="lg" block onClick={onClose}>
+            Close
+          </Button>
+        </>
+      ) : (
+        <>
+          <h2 className={SEC_H} id="lfb-wl-t">
+            We are not in {postcode} yet
+          </h2>
+          <p className={SEC_P}>
+            We are expanding across Surrey. Leave your email and we will tell you the day we
+            reach you — no other mail, ever.
+          </p>
+          <Field label="Email address" id={`${ids}-wl`} error={error}>
+            <Input
+              id={`${ids}-wl`}
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                /* The complaint belonged to the address that caused it. */
+                if (error) setError("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void join();
+              }}
+              placeholder="you@example.com"
+              autoComplete="email"
+              aria-invalid={error ? "true" : undefined}
+              aria-describedby={error ? `${ids}-wl-err` : undefined}
+            />
+          </Field>
+          <Button
+            surface="booking" variant="lime" size="lg" block className="gap-2"
+            disabled={!valid || busy}
+            isLoading={busy}
+            onClick={() => void join()}
+          >
+            {busy && <Loader className="h-4 w-4" />}
+            Tell me when you arrive
+          </Button>
+        </>
+      )}
+    </Modal>
+  );
+}
+
 /* ── FAQs ─────────────────────────────────────────────────────────
-   The same questions and the same accordion as the landing page, pulled
-   from the same array in @/utils/content — nine answers duplicated across
-   two files is nine answers that drift. */
+   The same questions and the same accordion as the landing page, now from
+   the same /system-status payload — the copy is the backend's, and the
+   checkout gets it as a prop from app/book/layout.tsx so this modal makes
+   no request of its own. */
 
 const SIGN =
   "flex h-7 w-7 flex-none items-center justify-center rounded-pill text-[16px] leading-none " +
   "transition-[transform,background-color] duration-200 ease-[ease]";
 
-export function FaqModal({ onClose }: { onClose: () => void }) {
+export function FaqModal({ faqs, onClose }: { faqs: FaqItem[]; onClose: () => void }) {
   const [open, setOpen] = useState(-1);
   const [showAll, setShowAll] = useState(false);
-  const visible = showAll ? FAQ : FAQ.slice(0, FAQ_PREVIEW_COUNT);
-  const hidden = FAQ.length - FAQ_PREVIEW_COUNT;
+  const visible = showAll ? faqs : faqs.slice(0, FAQ_PREVIEW_COUNT);
+  /* How many there are is the backend's to decide, so a payload shorter than
+     the preview count must not offer to reveal nothing. */
+  const hidden = Math.max(0, faqs.length - FAQ_PREVIEW_COUNT);
   return (
     <Modal title="Frequently asked" labelledBy="lfb-faq-t" onClose={onClose} wide>
       <div>
-        {visible.map(([q, a], i) => {
+        {visible.map(({ question, answer }, i) => {
           const isOpen = open === i;
           return (
             <div
               className="mb-2 overflow-hidden rounded-card-md border border-bk-line bg-white transition-[border-color] duration-150 ease-[ease] hover:border-bk-line-2"
-              key={q}
+              key={`${i}-${question}`}
             >
               <h3>
                 <Button variant="bare"
@@ -88,7 +220,7 @@ export function FaqModal({ onClose }: { onClose: () => void }) {
                   aria-controls={`lfb-fp-${i}`}
                   onClick={() => setOpen(isOpen ? -1 : i)}
                 >
-                  {q}
+                  {question}
                   {/* Rotating a plus 45° is the cheapest close affordance
                       there is and needs no second glyph. The open state is
                       matched, not out-weighted: in the source both rules
@@ -106,7 +238,11 @@ export function FaqModal({ onClose }: { onClose: () => void }) {
                   className="px-4 pb-4 pt-0 text-[14.5px] leading-[1.65] text-bk-ink-2"
                   id={`lfb-fp-${i}`}
                 >
-                  {a}
+                  {faqParagraphs(answer).map((paragraph, pi) => (
+                    <p className={pi > 0 ? "mt-3" : undefined} key={pi}>
+                      {paragraph}
+                    </p>
+                  ))}
                 </div>
               )}
             </div>

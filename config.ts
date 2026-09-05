@@ -25,6 +25,25 @@ export const config = {
  */
 export const isStaging = process.env.NEXT_PUBLIC_SITE_ENV === "staging";
 
+/**
+ * Whether the auth modal offers Apple and Google sign-in. Off until real OAuth
+ * is wired.
+ *
+ * A plain constant rather than an environment variable, deliberately, and it is
+ * the one flag here that is not: `isStaging` is env-driven because ops must be
+ * able to set it per deployment, whereas what this one reveals is a **mock**.
+ * `signInWith` in the auth modal fabricates a name and an email and returns no
+ * token, so anything flipping this on hands somebody a signed-in header whose
+ * every subsequent call answers 401. That must take a code change and a review,
+ * not a variable in a dashboard.
+ *
+ * Flipping it to true is therefore not integration. The provider endpoints do
+ * exist — the mobile app already posts to `/login/google` and `/login/apple`
+ * (lf-app/app/services/api/index.ts:276, :306) — so what is missing is the
+ * frontend half. Wire those two, replace the mock, then flip this.
+ */
+export const SOCIAL_AUTH_ENABLED = false;
+
 // App store links — IDs sourced from the lf-app mobile project
 // (ascAppId in eas.json, android package in app.json).
 export const APP_STORE_URL = "https://apps.apple.com/app/id6763839907";

@@ -53,6 +53,71 @@ which would have prevented trap 4 — worth using as components are refactored.
 
 ---
 
+## Done — the real price list
+
+The landing page's price table was invented. Five categories were roughly right and ten were
+made up outright — added so the pill row would overflow far enough to test the scrolling — and
+both `STATUS.md` and `ENDPOINTS.md` recorded pricing as something the UI offered with no
+endpoint behind it. That was wrong: `GET /price-combined` exists, the mobile app has been
+using it all along, and on 05/09/26 the backend confirmed it is public. Probed unauthenticated
+the same day: `200 application/ld+json`, nine categories, 38 items.
+
+`utils/content` no longer holds a money figure. `utils/pricing` holds the wire types and every
+pure transform; the section fetches through `apiCall` on mount.
+
+**Four things about the payload that the shape does not announce**, each of which is a
+rendering rule rather than a detail:
+
+- **The wash/dry labels are per-category, nullable, and not one string.** "Wash & Press" in
+  five categories, "Wash & Dry" in Duvet, "Wash & Iron" in Beddings. The card decided its dot
+  colour with `service === WASH`, comparing the label to the literal `"Wash & Press"` — so
+  every Duvet and Beddings wash row would have rendered with the grey dry-cleaning dot. A row
+  now carries **which service it is**; the label is only ever displayed. That the old code had
+  to recover service identity from a display string is the bug, not the comparison.
+- **`priceType` is not always `fixed`.** "Curtains (per pair)" is `from`. The card hardcoded
+  "Per item", which quotes a starting price as a fixed one — on a section whose own subheading
+  promises "No estimates, no surprises". An unrecognised type renders **no** unit label rather
+  than one invented from the token.
+- **Both prices are nullable**, independently of the labels. 26 of 38 items offer one service.
+- **`totalItems` counts categories** (9), not items (38).
+
+**Failure is silence.** No fallback list: a dead request, or a body without a readable
+`member`, renders the section as `null`. The known cost, accepted deliberately: the header and
+footer "Pricing" links point at `#pricing`, so on that path they scroll nowhere.
+
+**It is fetched in the browser, not on the server** — a deliberate call, and the trade is that
+the price list is not in the served HTML, so crawlers do not see it. Worth revisiting if the
+section turns out to carry ranking weight; `utils/seo`'s `hasOfferCatalog` currently emits four
+generic services with no prices, and real per-item `Offer` data is the follow-up this unlocks.
+
+### Verified
+
+- 25 checks on the transforms against the live payload — the nullable-label and nullable-price
+  matrix, `from` vs `fixed`, `hydra:member` fallback, and every malformed body resolving to the
+  same "we do not know the prices" verdict.
+- Driven in Chromium against a production build: nine live pills and none of the invented ones;
+  Shirt's two rows with the wash dot measuring `rgb(193, 241, 29)` against dry's
+  `rgb(122, 119, 109)`; Single Duvet reading "Wash & Dry £15.00" with a **lime** dot — the row
+  the old comparison got wrong — where the invented table had said £18.00; Curtains reading
+  **FROM**; the description on "Duvet set - single"; search grouping across categories and
+  matching on description; and no console errors. Both auth-modal panes confirmed free of
+  provider buttons and the "or" divider.
+- CORS reflects any Origin (`vary: Origin`, no `allow-credentials`), so the browser call works
+  from localhost and from the deployed origins alike.
+
+### Not verified, and worth knowing
+
+- **Staging carries test data.** `Beddings / Pillowcase` currently has the description
+  *"description is very long here as we can see"*, and descriptions now render. Ask the backend
+  to clean it before this ships — the genuinely useful one ("1x duvet, 2x pillow cases, 1x bed
+  sheet") is why the field is worth rendering at all.
+- **Published prices are now editable from the database with no review step.** They used to be
+  underwritten by code review. That is a change in who can move a live price, not a bug.
+- **Production must point at the production API.** `NEXT_PUBLIC_API_URL` is inlined at build,
+  so staging prices on the live site would be a build-time mistake with a money consequence.
+
+---
+
 ## Done — this session
 
 - Imported the team's three skills from `frontend-starterkit-with-skills-16.2.7` into
@@ -211,8 +276,28 @@ There is no SetupIntent anywhere in it.
 - **`DELETE /payment-methods/{id}` answers 409 while an order is active.** Cancel first.
 - **`/my-status` carries the confirmation screen's three preferences** — `priceReviewRequired`,
   `shirtHandling` (`"hang"`), `stainTreatmentEnabled` — plus `laundryBagClaimedAt`,
-  `laundryBagDeliveredAt` and `registeredAt`, none of which §4 mentions. The toggles on the
-  confirmed screen are still local state; there is no documented endpoint to write them back.
+  `laundryBagDeliveredAt` and `registeredAt`, none of which §4 mentions.
+- **They are written back with `PATCH /users/{id}/me`**, and both halves are now wired — the
+  toggles hydrate from the account and save on the flip. This paragraph used to end *"there is
+  no documented endpoint to write them back"*, which was true of the brief and false of the
+  server: the endpoint is absent from §4 but present in the live OpenAPI spec and already
+  shipping in the sibling mobile app. Four things about it, all probed against staging:
+  - **`Content-Type: application/merge-patch+json` or nothing.** Plain `application/json` is a
+    **415**, not a tolerated variation — and `apiCall` defaults to `application/ld+json`, so the
+    header has to be passed explicitly. `MERGE_PATCH_HEADERS` in `utils/booking/api.ts` already
+    existed for `update-address`; this is its second caller, which makes the ground rule in
+    [`ENDPOINTS.md`](./ENDPOINTS.md) about "the only PATCH" out of date.
+  - **A 200 answers with the JSON-LD envelope alone** — `@context`, `@id`, `@type`, and not one
+    field value. There is nothing to read state back from, so the caller's own optimistic value
+    stands and the mobile app re-reads `/my-status` instead.
+  - **`shirtHandling` is an enum, not a boolean** — `"hang"` | `"fold"`, where our `BookingPrefs`
+    models all three as booleans. The translation lives beside the write.
+  - **A partial body is fine.** One field per request validates that field alone, which is what
+    lets one toggle save one preference rather than restating all three.
+- **The API's own OpenAPI spec is reachable, and it is the fastest way to settle questions like
+  the one above.** `GET /docs?showdocs=1` with `Accept: application/vnd.openapi+json` and a
+  bearer token. Without the query parameter it is a 403 whose body names the condition it wants
+  — *"Expression (request.query.has('showdocs')) is false"* — so the lock tells you the key.
 
 ### Two bugs found by running it, both pre-existing
 
@@ -227,6 +312,46 @@ There is no SetupIntent anywhere in it.
   collected them — but nothing passed them to `confirmSetup`. Opting out of collecting a field
   is a promise to supply it. `StripePayment` now takes a `billing` prop, and only claims
   `never` for a phone it actually has.
+
+### Since amended — what the Element is and is not asked for
+
+The step read as somebody else's form embedded in ours. Three causes, all in the Element's
+options, all now set explicitly.
+
+- **The Stripe fields were not in Poppins.** `stripeAppearance()` asked for
+  `fontFamily: "'Poppins', sans-serif"`, but `next/font/google` self-hosts under a hashed
+  family (`__Poppins_<hash>`) and the literal string `Poppins` is declared nowhere in the served
+  CSS — and the Element is a cross-origin iframe that could not read our `@font-face` rules
+  under any name. Every Stripe label and input was falling back to `sans-serif` beside a page
+  set in Poppins. Fixed with `fonts: [{ cssSrc }]`, which is the only way a family reaches the
+  frame. **If a CSP is ever added it needs `style-src fonts.googleapis.com` and `font-src
+  fonts.gstatic.com` for the Stripe frame, not for our document** — do not prune those as
+  duplicates of the self-hosted font.
+- **Link was rendering a second copy of the details step.** A "Secure, fast checkout with Link"
+  row plus an "Optional · Save my information" block asking for the email, mobile and name we
+  were already holding. The lever is **`wallets: { link: "never" }`** on the Payment Element.
+  Two things worth writing down, both established by trying them against a real key rather than
+  reasoned: `paymentMethodTypes: ["card"]` does **not** remove Link — Link is a card-type
+  method, not a separate one — and `link: { display: "never" }` on either the group or the
+  Element is rejected by Stripe.js as an unrecognised parameter. Apple Pay and Google Pay are
+  off alongside it: this flow stores a card to charge off-session, and a wallet returns a
+  device-bound token that makes that later charge harder.
+- **The mandate named the Stripe account, not the company** — *"you allow **lf-sandbox** to
+  charge your card…"*. `terms: { card: "never" }` now suppresses it and the screen states the
+  mandate itself, in `BRAND.trading` and in our own typeface, under the terms checkbox. **That
+  paragraph is load-bearing**: Stripe permits `never` only if the wording is displayed
+  somewhere. Deleting it means putting `terms` back. `business: { name }` is deliberately not
+  set — it renders only inside that mandate and the wallet sheets, all of which are off.
+
+Two smaller ones. `layout` is `"tabs"` rather than the accordion: at one payment method Stripe
+draws no tab bar, where the accordion drew an always-open **Card** panel — a header naming the
+only option there was, in a white box, under an `h1` that had just said the same thing.
+And the billing country and postcode are **prefilled** from the collection address rather than
+suppressed; suppressing them was the other option and is worse, because the postcode is what
+the bank's AVS check runs on and a card registered elsewhere would start failing with no field
+on screen to correct it in. Prefilling also keeps the `never`/supply rule above unengaged —
+`billingFor` owes Stripe nothing new. Note the casing trap: `defaultValues` takes snake_case
+`postal_code` where `fields` takes camelCase `postalCode`.
 
 ### Verified
 
@@ -414,8 +539,20 @@ what it says is worse than an absent one.
 In their place, the log-in sheet offers what people arrive at it wanting: a code, or their
 password. Both real. An unverified account that logs in with a password is handed to the code
 path rather than refused, because a code both proves the address and issues the session, which
-is exactly what such an account is missing. The header's `AuthModal` still has its own copy of
-the mock; that is listed in ENDPOINTS.md and is not on the checkout's path.
+is exactly what such an account is missing.
+
+**And now out of the header too.** The `AuthModal` copy was the last surface rendering the
+mock, and on 05/09/26 both of its call sites — the log-in pane and the sign-up pane — went
+behind `SOCIAL_AUTH_ENABLED` in `config.ts`. Gated rather than deleted, because the buttons
+are coming back once OAuth is real and the markup is the design.
+
+Two things about that flag are deliberate. It is a **plain constant, not an environment
+variable** — `isStaging` is env-driven because ops must set it per deployment, but what this
+one reveals is a mock, so switching it on must take a code change and a review rather than a
+dashboard. And **flipping it is not the integration**: `POST /login/google` and
+`POST /login/apple` exist and the mobile app already posts to them
+(`lf-app/app/services/api/index.ts:276, :306`), so the work is to wire those two and replace
+`signInWith` — flipping the flag alone just puts the fabricating mock back on screen.
 
 ### Verified
 
@@ -465,9 +602,10 @@ Three states, one button:
 - **No cards** — the Element is the step and Confirm order captures it.
 - **Cards, not adding** — the list. One card renders as a statement (a radio group of one is a
   control with no choice in it); two or more get radios.
-- **Cards, adding** — the Element opens below the list, with **Cancel** as its only button.
-  Confirm order captures the new card *and* uses it, because the server makes a freshly saved
-  card the default and that is what `POST /orders` charges — "saved" and "used" are one event.
+- **Cards, adding** — the Element opens below the list under a **New card** heading, with
+  **Cancel** as a link on that heading row. Confirm order captures the new card *and* uses it,
+  because the server makes a freshly saved card the default and that is what `POST /orders`
+  charges — "saved" and "used" are one event.
 
 An earlier build had a separate **Save card**, with Confirm order disabled while the panel was
 open, to stop somebody typing a new card and having the order charged to the old one. Making
@@ -475,6 +613,23 @@ Confirm order use the new card removes the hazard, so the second button went wit
 says *"We will save this card and use it for this order"*, because the row still highlighted
 above it would otherwise contradict what is about to happen, and the list is `disabled` while
 the panel is open so the default cannot be switched mid-compose.
+
+**Since amended — the shape of the adding state.** That sentence now sits **above** the Element
+rather than below it. Under ~600px of Stripe form it was answering a question at the point
+nobody still had it, which is the one place it could not do its job. Cancel moved with it, from
+a full-width ghost button under the form to a link on the **New card** heading row: Back already
+sits in the action bar, and two large buttons pointing backwards left the one going forwards as
+the third of three. The heading is also what stops the `h1` — still *"Confirm your order"* —
+from being left describing a card form; mutating the `h1` on a link click was the alternative
+and is worse.
+
+**"+ Add a new card" is a row of the list now**, not a bare text link under it. It was the only
+alternative action on the screen and looked like the least important thing on it. It lives
+inside `PaymentMethods` behind an optional `onAdd`, because the rounding and the -1.5px border
+overlap are applied per row: a row appended outside the `<ul>` sits detached under a doubled
+border, and the last-row test has to become the add row or the bottom corners stay on the card
+above it. It is withdrawn while the form is open. Its button is **not** inside a `<label>`, for
+the reason recorded above.
 
 Capture runs **before** the order and refreshes first: if `POST /orders` then fails, the person
 is looking at their new card sitting in the list as the default, and pressing Confirm order
@@ -514,6 +669,12 @@ order unchanged** across a default switch (`4444,4242 → 4444,4242`) while the 
 showing *"Your card has been declined."* with **no order created**. Earlier, 22/22 covered the
 removal path — the confirm dialog opening, **Escape cancelling**, and confirming firing
 `DELETE`. All test cards and orders were cleaned up afterwards.
+
+**Re-verified after the Element and layout changes below** against a stubbed `/my-status`
+locally, not staging: the add row appearing as the last row with the corners on it, Cancel
+restoring the list, and the accessible names holding — `Remove Visa ending 4242` and
+`Add a new card`. **Not** re-run against staging, so the 18/18 above still stands on the older
+markup; the card-capture path itself is untouched.
 
 **The 409 on DELETE is real and its wording is good** — *"You have pending orders that require a
 payment method. Add another card before removing this one, or cancel the outstanding orders
@@ -715,7 +876,9 @@ since keeping the label avoids a width jump.
 
 `POST /reset-password/request` and `/reset-password/confirm` are integrated, and
 `app/(main)/reset-password` is a real page instead of a DeepLinkFallback stub. That completes
-auth: the only mock left in the modal is social sign-in, which has no endpoint to call.
+auth: the only mock left in the modal is social sign-in — which does have endpoints to call
+(`/login/google`, `/login/apple`, both already used by the mobile app); what it has never had is
+our integration. It is now gated behind `SOCIAL_AUTH_ENABLED` and renders nowhere.
 
 Both endpoints are **public** — probed — which is what makes this simpler than email
 verification: no Bearer token, so no pending cookie, no login-then-resume. The link carries
@@ -893,6 +1056,151 @@ Not changed, deliberately: `seedFromStatus` itself. Skipping the *screen* must n
 the phone to Stripe, which `fields.billingDetails: never` depends on (see "Two bugs found by
 running it").
 
+### Amended — the Contact row is back on both summaries, with its Edit link
+
+Skipping the step took the Contact row out of the Review card and the pinned panel with it,
+on the argument that a row nobody can act on is a dead end. That was the wrong half to drop.
+An order summary that does not say who the order is for is not a summary — the name, the
+number and the email are the things worth checking before Confirm order, and the values are
+there either way, typed on the step or seeded from the account.
+
+So the row is unconditional on both surfaces now, and **Details joined Address as a skip that
+can be undone**: `savedContact` is what the account answers, `editContact` is what the Edit
+link asks for, and `skipContact = savedContact && !editContact` — the same shape as
+`skipAddress`, set in the same place, cleared by the same seed. `go("contact")` sets it, so no
+caller has to remember to.
+
+**What that broke, and the fix it forced.** `WALK_WIDE` ends at `payment`, so for a returning
+customer who skips it, un-skipping Details puts that step at the **tail of the walk**. Address
+could never do this — it is index 0 of both walks. `ContactScreen`'s Next was a bare
+`forward()`, which does nothing when `nextAfter` returns null: a live button that did nothing,
+and no Confirm order anywhere in the walk. It now asks `isLast` and uses `useConfirmSubmit`
+like Time and Review, error line included — the hook's header says four screens, not three,
+and that is the whole reason it exists.
+
+**What an edit actually does, said on the screen.** Nothing here reaches the account: POST
+/orders carries no contact fields, `PATCH /users/{id}` is 405, and email is refused once
+verified. An edit is the booking's copy only and `/my-status` replaces it on the next load.
+Rather than leave a form that looks like account settings, the Details step now says so in a
+line under the Signed in card, shown only when signed in. When there is a real profile screen
+to send people to, that line and this Edit link are what should point at it.
+
+## Done — the Address and card steps are conditional too
+
+**A returning customer books in one step.** For a signed-in account carrying an
+address we serve and a default card, the desktop walk is now **Time alone** — its
+button says *Confirm order* and places the order — and the phone walk is **Time →
+Review**. Everyone else sees exactly what they saw before. This finishes the
+argument the Details step started: a screen whose whole content is read back from
+`/my-status`, above a button that is already live, is a click for nothing.
+
+| | before | after |
+|---|---|---|
+| desktop | Address → Time → Payment | **Time** |
+| phone | Address → Time → Review → Payment | **Time → Review** |
+
+`Flow` grew from two axes to four — `{ wide, skipContact, skipAddress, skipPayment }` —
+and `routesFor`/`stepsFor` filter all three skips through one `Set`. Both new axes are
+decided at seed time from `/my-status`, never from `data`, for the reason `skipContact`
+already gave: `data` is the seed plus anything typed since, and the question is what the
+*account* holds. `savedAddressUsable` is deliberately character-for-character
+`furthestAllowed`'s `postcode && line1 && town` plus `seedFromStatus`'s `isActive !== false`;
+`hasDefaultCard` tests `isDefault` rather than a card merely being in the list, because
+`POST /orders` charges the default and a list without one is an account we cannot bill.
+
+**The landing page says what it now does.** The hero and the closing band read
+**Book now** for a signed-in customer, and `useStartBooking` pushes `/book/time`
+rather than `/book/address` when the account has a usable address — the guard would
+redirect anyway, but only after the address screen had mounted and been seen. It
+takes `status` as an argument the way `useOfferDiscount` does, so `utils/` stays out
+of `components/`. Signed out is still the default and still renders immediately, so
+the server HTML never has a hole where the call to action should be.
+
+### Four things this broke, and what each one taught
+
+- **`ROUTES` was doing two jobs.** It was both the URL parser's set and the walk, and
+  it contained `confirmed`. Harmless while only `PaymentScreen` could be last, since
+  that screen never calls `forward()`. With Time last, `nextAfter("time", flow)`
+  returned `"confirmed"` and the Continue button would have pushed a confirmation for
+  an order that was never placed. The walk arrays now stop at `payment`; `ROUTES` is
+  spelled out separately for `isRoute()` and `generateStaticParams`. The payoff is
+  that **`nextAfter(route, flow) === null` is now the honest test for "this screen
+  carries Confirm order"**, which is what the three screens ask via `isLast` rather
+  than each knowing why it is last.
+- **`indexOf(allowed)` is -1 for a skipped step, and -1 read as a position means the
+  start.** `furthestAllowed` answers `"payment"` for a complete account, which is the
+  right answer to *how far have they got* and not a route such an account can be on.
+  In the indicator that disabled every dot; in the guard it would have sent somebody
+  to a step that is not in the walk. `reachIndex` falls back to the **last** index,
+  and the implication is sound rather than convenient: a skipped step is one the
+  account has already answered, so an answer outside the walk can only mean the whole
+  walk is open. The guard also replaces to `routes[limit]` rather than to `allowed`.
+- **The `<ol>` of steps is the header's spacer.** It carries `flex-auto`, and the
+  account name, FAQs and Close are held on the right by it. Returning `null` for a
+  one-step walk slid all three back against the wordmark. `Steps` returns an empty
+  `flex-auto` div instead. Worth remembering before anything else in that row is made
+  conditional.
+- **A skipped step still needs an Edit link.** Both summaries offer *Edit* on the
+  address, and with the step out of the walk the guard's `here < 0` branch bounced it
+  straight back. Rather than teach the guard about "skipped but reachable", **asking
+  for the step is what puts it back in the walk**: `go("address")` sets `editAddress`,
+  the walk grows by one, and the guard, `back()`, `forward()` and the indicator all
+  follow with no special case anywhere. It stays in the walk afterwards, shown as a
+  step already done, which is the truth. There is no equivalent for payment, by
+  decision — see below.
+
+### Two decisions taken with the customer, not derived
+
+- **The terms tick is dropped for returning customers.** It lives on the payment
+  screen and stays there for everyone who still sees one. `data.terms` is client-side
+  only — `createOrder` has never sent it — so this is a product decision rather than a
+  technical one, and it is recorded here because nothing in the code says it.
+- **No way to choose a card.** The last card used is already the account's default and
+  that is what `POST /orders` charges, so the step is skipped however many cards are
+  on the account. Changing the default is later work, which is why the Payment row in
+  both summaries **names the card and offers no Edit** — a link to a screen that does
+  not exist yet would be a control that cannot do what it says. Naming it is not
+  optional though: confirming an order that charges a card nobody has been shown is
+  the one thing this change must not do. `brandName` moved to `utils/booking/model`
+  and gained `cardLabel` beside it so the two summaries and the card list cannot
+  disagree.
+
+`useConfirmSubmit` in `utils/booking/use-confirm.ts` now owns the busy flag, the error
+line and the rule that a failure must not navigate. `PaymentScreen` passes its card
+capture as the hook's `before`, so the three screens that can place an order cannot
+drift apart on any of it.
+
+### Verified
+
+**45/45 in a browser**, at 1440 and 390, with `/my-status` and the slot endpoints
+stubbed — the same technique the `recurring` runs used, and necessary here because an
+invalid JWT makes even the public endpoints fail at the firewall.
+
+- **Signed out, both widths** — unchanged. "Check availability", `/book/address`, four
+  steps, Address first. `curl -s localhost:3000/ | grep -c "Log in"` is still 1, and
+  the server HTML still carries "Check availability" twice and "Book now" not at all.
+- **Signed in, nothing saved** — three steps (Details skipped and nothing else),
+  Address first, Payment last.
+- **Saved address, no card** — "Book now", lands on `/book/time` and never on
+  `/book/address`, two steps, "Continue to payment", **no** Confirm order and no order
+  placed. Then: *Edit address* opens the step, **the indicator grows to three**,
+  Continue returns to Time and the slots survived the detour.
+- **Saved address + card, 1440** — **no step indicator**, FAQs still in the right half
+  of the header, Confirm order on the Time screen, no Continue to anything, the panel
+  reads "Visa ending 4242", no terms tick. The press fires **exactly one**
+  `update-address` and **exactly one** `POST /orders`, with **no** `setup-intent` and
+  **no** `check-status`, and the confirmation shows the server's own number.
+- **Saved address + card, 390** — Time → Review, Confirm order on Review, the card
+  named there, and "Added on the next screen" gone. Same network trace.
+
+`tsc --noEmit` clean, `next build` green at 33 pages with all six `/book/*` routes
+still generated, ESLint reporting only the two pre-existing
+`react/no-unescaped-entities` errors.
+
+**Not verified by me:** a real order from a real account. Every run above stubbed
+`/my-status`, so the flow is proven end to end but `POST /orders` was answered by the
+harness rather than by staging. The shapes are the ones staging sends.
+
 ## Pending — integration
 
 **Agreed order: the logged-in user flow first, guest checkout after.**
@@ -995,10 +1303,13 @@ contained.
 8. ~~**`login()` throws away the `user` object.**~~ **Fixed.** `utils/auth` reads
    `res.data.user` off `/login-check` and carries `emailVerifiedAt` into the session, which is
    what conflict 7's verification gate will read.
-9. **Money is in pennies.** Integers throughout. `utils/booking/model.ts` `Discount` and the
-   pricing tables need checking against that. Nothing on the checkout renders a money figure
-   yet, so this is still open rather than wrong — `POST /orders` returns `subtotal`,
-   `discountAmount` and `total`, all `0` until the items are counted.
+9. **Money is in pennies.** Integers throughout. **Settled for the price list**, which was the
+   half of this that rendered: `formatPrice` in [`utils/pricing`](../utils/pricing/index.ts) is
+   the one place pence become pounds, and `/price-combined` confirmed the rule holds on a
+   second endpoint (`1500` = £15.00). Still open for `utils/booking/model.ts` `Discount` —
+   nothing on the checkout renders a money figure yet, so it is unproven rather than wrong;
+   `POST /orders` returns `subtotal`, `discountAmount` and `total`, all `0` until the items
+   are counted.
 10. ~~**`toE164` does not enforce length.**~~ **Fixed**, and it mattered more than the length.
     Prefixing `+44` unconditionally meant a number that already carried one went up doubled:
     the checkout's mobile field was free text, and its regex explicitly *accepted* `+44 7700
@@ -1087,8 +1398,10 @@ a 401 page should be designed at the same time. `apiCall` (client) is unaffected
   in-memory cache dies on reload — but it becomes a real bug the moment something does. The
   fix is an exported cache-clear on `apiCall`; not worth a second change to a shared file
   until it is needed.
-- **No endpoint exists** for the account-exists check, Apple/Google sign-in, SMS verification,
-  pricing or ratings — all of which the UI offers. See ENDPOINTS.md.
+- **No endpoint exists** for the account-exists check, SMS verification or ratings — all of which
+  the UI offers. Pricing came off this list: `GET /price-combined` is live and wired. Apple/Google
+  came off it too, for a different reason — `/login/google` and `/login/apple` exist and the mobile
+  app uses them; what is missing there is our half. See ENDPOINTS.md.
 - **Conform existing code to the imported skills** — `cn()` instead of string concatenation,
   Yup schemas via `validateAndSetErrors`, shared `common/` components, `apiCall`/`apiRequest`
   instead of bare `fetch`. Deliberately deferred: the ported design's pixel accuracy depends
@@ -1106,7 +1419,7 @@ a 401 page should be designed at the same time. `apiCall` (client) is unaffected
 | Item | Where |
 |---|---|
 | Fabricated `RATING = { score: 4.9, count: 63 }` | `utils/content/index.ts` |
-| Ten invented `PRICING` categories | `utils/content/index.ts` |
+| ~~Ten invented `PRICING` categories~~ **Fixed.** The table is gone. The section reads `GET /price-combined` in the browser — nine real categories, 38 items — and renders **nothing at all** if that call fails, because a wrong price is worse than a missing one | `utils/pricing/index.ts` |
 | ~~Hardcoded 25% `DISCOUNT`, shown to returning customers too~~ **Fixed.** The const is gone; both the offer bar and the checkout read [`utils/discount`](../utils/discount/index.ts) through `useOfferDiscount()` — `/system-status` signed out, `nextOrderDiscount` signed in, nothing rendered when there is none. `nextOrderDiscount`'s field names still need confirming against a live session | `utils/discount/index.ts` |
 | Stripe key now read from `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — **the live key must be set in the deploy environment**; unset, the payment step says so instead of failing at confirm time | `config.ts` |
 | JWT in a script-readable `authtoken` cookie — only the server can set httpOnly, so the backend needs to set it instead of returning the token in the body | `utils/auth/index.ts` |

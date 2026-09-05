@@ -53,8 +53,10 @@ the call site rather than by scaling the artwork.
 | `clock` | `public/icons/checkout/clock.svg` | `Clock` |
 | `pin` | `public/icons/checkout/pin.svg` | `MapPin` |
 | `close` | `public/icons/checkout/close.svg` | `X` |
+| `plus` | — (no original; added for the payment step's add-a-card row) | `Plus` |
 | `mail` | `public/icons/checkout/mail.svg` | `Mail` |
 | `bag` | `public/icons/checkout/bag.svg` | `ShoppingBag` |
+| `tag` | — (no original; added for the confirmation's care-label tip) | `Tag` |
 | `list` | `public/icons/checkout/list.svg` | `List` |
 | `repeat` | `public/icons/checkout/repeat.svg` | `Repeat` |
 | `spark` | `public/icons/checkout/spark.svg` | `Sparkles` |

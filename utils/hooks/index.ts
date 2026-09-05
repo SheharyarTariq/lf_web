@@ -17,6 +17,7 @@ import {
 } from "react";
 import { DELETE_SPEED, HOLD_EMPTY, HOLD_FULL, TYPE_SPEED } from "@/utils/content";
 import { getBearerToken, subscribeToken, type MyStatus } from "@/utils/auth";
+import { savedAddressUsable } from "@/utils/booking/flow";
 import { firstOrderDiscount, nextOrderDiscount, type Discount } from "@/utils/discount";
 import apiCall from "@/utils/api-call";
 import { routes } from "@/utils/routes";
@@ -30,15 +31,22 @@ import { routes } from "@/utils/routes";
  *
  * Guarded against being wired straight to onClick, which would otherwise
  * pass a click event in as the slot.
+ *
+ * `status` decides where the flow starts. An account with an address we serve
+ * skips the address step, and the flow guard would eventually redirect anyway —
+ * but only after that screen had mounted and been seen. Taken as an argument
+ * rather than read from `useAuth()` here, the way `useOfferDiscount` already
+ * does it, so `utils/` keeps out of `components/`.
  */
-export function useStartBooking(): (slot?: string) => void {
+export function useStartBooking(status?: MyStatus | null): (slot?: string) => void {
   const router = useRouter();
+  const first = savedAddressUsable(status?.address) ? "time" : "address";
   return useCallback(
     (slot?: string) => {
       const preset = typeof slot === "string" ? slot : undefined;
-      router.push(`/book/address${preset ? `?slot=${encodeURIComponent(preset)}` : ""}`);
+      router.push(`/book/${first}${preset ? `?slot=${encodeURIComponent(preset)}` : ""}`);
     },
-    [router],
+    [router, first],
   );
 }
 

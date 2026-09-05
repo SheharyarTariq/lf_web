@@ -1,12 +1,18 @@
 "use client";
 
 import Button from "@/components/common/Button";
+import { useAuth } from "@/components/common/AuthProvider";
 import { BRAND } from "@/utils/content";
 import { useStartBooking } from "@/utils/hooks";
 import { WRAP } from "@/utils/styles";
 
 export default function Cta() {
-  const startBooking = useStartBooking();
+  /* Signed out is the default and renders straight away, so the server HTML is
+     never missing a call to action; only a returning customer sees one frame of
+     "Check availability" before their own wording replaces it. The same rule
+     the site header follows for "Log in". */
+  const { user, status } = useAuth();
+  const startBooking = useStartBooking(status);
 
   return (
     <section
@@ -26,8 +32,12 @@ export default function Cta() {
         <div className="flex flex-wrap justify-center gap-3">
           {/* No "Get the app" here — the section directly above is the app
               download. The page should close on booking. */}
+          {/* "Check availability" is the question somebody asks before they
+              have an account. A returning customer has already had it answered
+              — we hold an address we serve — so the button says what it now
+              actually does. */}
           <Button className="to-480:w-full" onClick={() => startBooking()}>
-            Check availability
+            {user ? "Book now" : "Check availability"}
           </Button>
         </div>
       </div>

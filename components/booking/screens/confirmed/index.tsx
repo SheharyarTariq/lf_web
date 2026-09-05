@@ -2,350 +2,132 @@
 
 /* ══════════════════════════════════════════════════════════════════
    5 · Confirmed
+   ══════════════════════════════════════════════════════════════════
+
+   This is the one screen in the checkout drawn from the mobile app rather
+   than from the React+Vite prototype every other screen here follows.
+   `lf-app/app/screens/OrderConfirmationScreen.tsx` is the source: a 64px
+   lime tick, "Order Confirmed", a plain order number, a Collection /
+   Delivery card carrying the placed-at stamp, and two tip rows.
+
+   Three blocks that used to live here went with the change, and all three
+   were the only caller of something:
+
+   • "What happens next" — four numbered steps. Content only.
+   • "Keep your account" — the six-digit code box and the set-a-password
+     link, shown when `isNewAccount`. The endpoints behind it
+     (resendVerification / verifyEmail / requestPasswordReset) are still
+     reached from the header's AuthModal and from /verify-email; only this
+     entry point is gone. `isNewAccount` itself left the context with it.
+   • "Set your preferences" — the three switches. `prefs` is not part of
+     POST /orders, so with `updatePreferences` unreferenced there is now
+     nowhere on the web to set them. Deliberate, and recorded here because
+     nothing else on screen shows that it happened.
+
+   The app's fourth element, an "Action Required" banner for an account
+   with no card, is not ported: the payment step captures a card before
+   POST /orders, so it could never render.
    ══════════════════════════════════════════════════════════════════ */
 
-import { cn } from "@/utils/cn";
-import Input from "@/components/common/Input";
-import Button from "@/components/common/Button";
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
-import Field from "@/components/booking/common/Field";
-import Notice from "@/components/booking/common/Notice";
 import { useBooking } from "@/utils/booking/context";
-import { useAuth } from "@/components/common/AuthProvider";
-import Loader from "@/components/common/Loader";
-import { requestPasswordReset, resendVerification, verifyEmail } from "@/utils/auth";
-import { CODE_LENGTH, RESEND_SECONDS } from "@/utils/auth/model";
-import { PREFERENCES, longDate, parseDay } from "@/utils/booking/model";
-import {
-  CARD,
-  CONTROL_PEER,
-  DIVIDER,
-  H1,
-  SEC_H,
-  SEC_P,
-  SWITCH,
-  TOGGLE,
-  TOGGLE_SUB,
-  TOGGLE_TEXT,
-  TOGGLE_TITLE,
-  ERR,
-  bkBtn,
-} from "@/utils/booking/styles";
+import { parseDay, placedStamp, shortDate } from "@/utils/booking/model";
+import { bkBtn } from "@/utils/booking/styles";
 
-const NEXT_STEPS: [title: string, body: string][] = [
-  ["Bag it up", "However it comes. No sorting, no counting, no lists."],
-  [
-    "We collect and count",
-    "Your driver texts you when they are close. Every item is logged against your order.",
-  ],
-  ["We price and charge", ""],
-  ["Back to your door", "Fresh and ready, in the delivery window you picked."],
+/* The app's own hexes, kept as literals rather than mapped onto the `bk-`
+   tokens. They are close to them and not the same: `--color-bk-ink-3` is
+   #6d6d6d precisely because the app's grey is too light to read at this
+   size, so borrowing the token here would be matching the design in the
+   places nobody looks and missing it in the places they do. The trade is
+   deliberate — swap these three for `text-bk-ink-3` if the contrast ever
+   matters more than the match. */
+const INK = "text-[#111]";
+const MUTED = "text-[#888]";
+const META = "text-[#bbb]";
+
+const CARD_APP = "rounded-ctl-lg border border-bk-line bg-white";
+
+const TIPS: [icon: (typeof P)[keyof typeof P], text: string][] = [
+  [P.tag, "All items are cleaned as per care label instructions."],
+  [P.bag, "Just bag your items and leave them ready — we'll handle the rest."],
 ];
 
-export default function ConfirmedScreen() {
-  const { data, patch, discount, reference, isNewAccount, moreBelow } = useBooking();
-  const { refreshSession } = useAuth();
-  const ids = useId();
-  const collection = parseDay(data.collectionDay);
-
-  /* ── Finishing the account ────────────────────────────────────────
-     The design put "Keep your account — set a password" here, on the theory
-     that the account had been created with one click and had no password on
-     it. Half of that is right: POST /register really does take no password,
-     so the recommended path in the identity panel really is one tap and the
-     account really does arrive with nothing on it but an address.
-
-     The other half had no endpoint. There is no way to set a password on an
-     account that is already signed in — probed: PATCH /users/{id} is a 405,
-     and change-password and set-password are both 404. What exists is the
-     reset flow, which is public, already wired, and ends on a page this site
-     already has. So the button asks for that email rather than pretending to
-     save a password inline.
-
-     Alongside it, the thing the account is actually missing: a proved
-     address. Nothing forced it earlier — an unverified account books quite
-     happily — so this is the first moment it costs nobody anything. Both are
-     offered because they answer different questions: the code is for this
-     order, the password is for the next one. */
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [verified, setVerified] = useState(false);
-  const [pwSent, setPwSent] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
-
-  useEffect(() => {
-    if (cooldown <= 0) return undefined;
-    const t = setInterval(() => setCooldown((n) => (n <= 1 ? 0 : n - 1)), 1000);
-    return () => clearInterval(t);
-  }, [cooldown]);
-
-  /* The clock starts as the consequence of a send, never as a claim about one.
-     Every other code screen in the app is written this way; this one was not,
-     and the difference mattered here more than anywhere. */
-  const sendCode = async () => {
-    setSending(true);
-    setError("");
-    const r = await resendVerification();
-    setSending(false);
-    if (!r.ok) {
-      /* Left pressable at 0s. A failed send is the one moment somebody needs
-         the button now rather than in sixty seconds. */
-      setError(r.message);
-      return;
-    }
-    setSent(true);
-    setCooldown(RESEND_SECONDS);
-  };
-
-  /* The send this screen was always missing. The header's sign-up can arrive
-     with the clock already running because /login-check has put the code in
-     the post by then — the comment in the auth modal says exactly that. The
-     booking flow only ever calls /register, which sends nothing, so the same
-     seeded cooldown here left the first code unsent and disabled the one
-     button that could send it for a minute.
-
-     Guarded by a ref because StrictMode mounts twice in dev. The server reuses
-     a code under an hour old, so a double fire would be harmless either way —
-     but two requests for one arrival is still two more than the truth.
-
-     Watching `isNewAccount` rather than firing on mount alone: confirmOrder
-     kicks off refreshSession and pushes here without waiting, so the flag is
-     still false for the first render or two. A mount-only effect would read it
-     before the session landed and send nothing — the same silence, arrived at
-     a different way. The ref is what makes the send once, not the deps, which
-     is why sendCode's identity is not among them. */
-  const sentRef = useRef(false);
-  useEffect(() => {
-    if (!isNewAccount || verified || sentRef.current) return;
-    sentRef.current = true;
-    void sendCode();
-  }, [isNewAccount, verified]);
-
-  const submitCode = async () => {
-    if (busy || code.length !== CODE_LENGTH) return;
-    setBusy(true);
-    setError("");
-    const r = await verifyEmail(code);
-    setBusy(false);
-    if (!r.ok) {
-      setError(r.message);
-      return;
-    }
-    setVerified(true);
-    void refreshSession();
-  };
-
-  /* Three states, because the hint used to assert the middle one from the
-     first paint. It now says what has actually happened — including the pause
-     before the request lands, and the failed send, where the error line below
-     carries the reason and this stays a promise rather than a lie. */
-  const codeHint = sending
-    ? `Sending a code to ${data.email}.`
-    : sent
-      ? `We have sent it to ${data.email}.`
-      : `We will send it to ${data.email}.`;
-
-  /* The discount only earns a mention here if there is one — a sentence
-     about a discount that does not exist is worse than no sentence. Worded
-     generically now the figure is the server's: this is a second-order
-     discount as often as a first-order one, and the card above already
-     names which. */
-  const steps = NEXT_STEPS.map(([title, body]) =>
-    title === "We price and charge"
-      ? ([
-          title,
-          `Each item is priced from our published list${
-            discount ? ", your discount comes off" : ""
-          }, then your saved card is charged. Full breakdown by email.`,
-        ] as [string, string])
-      : ([title, body] as [string, string]),
+/** One leg of the schedule card. Both are the same object. */
+function Leg({ label, day, slot }: { label: string; day: string; slot: string }) {
+  const date = parseDay(day);
+  return (
+    <div className="flex-1">
+      <p className={`mb-1 text-[12px] leading-[18px] tracking-[1px] ${MUTED}`}>{label}</p>
+      {/* An em dash rather than an empty line: /book/confirmed is a real URL
+          and can be opened with no booking behind it, and a card with a
+          missing row reads as a rendering fault where a placeholder reads as
+          "nothing to show". Same reasoning as the reference below. */}
+      <p className={`mb-0.5 text-[16px] font-bold leading-[24px] ${INK}`}>
+        {date ? shortDate(date) : "—"}
+      </p>
+      <p className={`text-[14px] leading-[21px] ${MUTED}`}>{slot || "—"}</p>
+    </div>
   );
+}
+
+export default function ConfirmedScreen() {
+  const { data, reference, placedAt, moreBelow } = useBooking();
+  const stamp = placedStamp(placedAt);
 
   return (
     <>
-      <div className="pt-2 text-center">
-        <div className="mx-auto mb-[22px] flex h-[76px] w-[76px] items-center justify-center rounded-[50%] bg-brand">
-          <Icon icon={P.tick} size={38} strokeWidth="2.4" />
+      {/* 48px from the top of the column, which is the app's paddingTop — the
+          <main> above already contributes 28 of it. */}
+      <div className="pt-5 pb-4 text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[50%] bg-brand">
+          {/* White on lime, where every other tick in the checkout is ink on
+              lime. The app's is a filled glyph; lucide's is a stroke, so the
+              weight is carried by strokeWidth rather than by the artwork. */}
+          <Icon icon={P.tick} size={28} strokeWidth="2.4" className="text-white" />
         </div>
-        <h1 className={H1} tabIndex={-1}>
-          You are booked in
+        <h1 className={`mb-1 text-[36px] font-bold leading-[44px] ${INK}`} tabIndex={-1}>
+          Order Confirmed
         </h1>
-        {/* The lede recipe with its bottom margin dropped: the reference
-            pill below carries its own top margin. */}
-        <p className="text-[15.5px] text-bk-ink-2">
-          We will collect from {data.line1} on {collection ? longDate(collection) : ""} between{" "}
-          {data.collectionSlot}.
-        </p>
-        <p className="mt-4 inline-flex items-baseline gap-2.5 rounded-pill bg-bk-paper-2 px-5 py-3 text-[13px] font-bold uppercase tracking-[.8px] text-bk-ink-3">
-          Order{" "}
-          {/* A deep link to /book/confirmed has no order behind it. The
-              source's container supplied the same placeholder rather
-              than printing "Order" with nothing after it. */}
-          <b className="text-[17px] normal-case tracking-normal text-bk-ink">
-            {reference || "LF-000000"}
-          </b>
-        </p>
+        {/* A deep link to /book/confirmed has no order behind it. The
+            placeholder is visibly fake on purpose: a plausible number is one
+            somebody would quote back to us. */}
+        <p className="text-[16px] leading-[24px] text-[#999]">Order #{reference || "LF-000000"}</p>
       </div>
 
-      <div className={DIVIDER} />
+      <div className={`mb-4 p-5 ${CARD_APP}`}>
+        <div className="flex">
+          <Leg label="COLLECTION" day={data.collectionDay} slot={data.collectionSlot} />
+          <div className="mx-4 w-px bg-bk-line" />
+          <Leg label="DELIVERY" day={data.deliveryDay} slot={data.deliverySlot} />
+        </div>
 
-      <h2 className={SEC_H}>What happens next</h2>
-      <ol className="mt-1.5">
-        {steps.map(([title, body], i) => (
-          <li
-            key={title}
-            className={cn("flex gap-[14px] py-[14px] text-left", i ? " border-t border-t-bk-line" : "")}
-          >
-            <span
-              className="flex h-7 w-7 flex-none items-center justify-center rounded-[50%] bg-bk-ink text-[13px] font-bold text-white"
-              aria-hidden="true"
-            >
-              {i + 1}
-            </span>
-            {/* Scoped to the text wrapper, never a bare element selector.
-                In the source a descendant rule like `.lfb-next span` scores
-                0,1,1 and beats the numbered circle's own class — which is
-                how those circles ended up grey-on-black the first time. */}
-            <span>
-              <b className="block text-[15px] font-semibold">{title}</b>
-              <span className="mt-0.5 block text-[14px] text-bk-ink-2">{body}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-
-      {isNewAccount && (
-        <>
-          <div className={DIVIDER} />
-          <h2 className={SEC_H}>Keep your account</h2>
-          <p className={SEC_P}>
-            We created an account for {data.email} with this booking. Your order is placed either
-            way — these just make it yours to manage.
-          </p>
-          {verified ? (
-            <Notice icon={P.tick} title="Email confirmed">
-              You can track this order and every one after it from {data.email}.
-            </Notice>
-          ) : (
-            <div className={CARD}>
-              <Field
-                label={`${CODE_LENGTH}-digit code`}
-                id={`${ids}-vc`}
-                hint={codeHint}
-              >
-                <Input
-                  id={`${ids}-vc`}
-                  className="text-center text-[19px] font-bold tracking-[.45em]"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={CODE_LENGTH}
-                  value={code}
-                  onChange={(e) => {
-                    setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH));
-                    setError("");
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void submitCode();
-                  }}
-                />
-              </Field>
-              <Button
-                surface="booking" variant="ink" block className="gap-2"
-                disabled={code.length !== CODE_LENGTH || busy}
-                isLoading={busy}
-                onClick={() => void submitCode()}
-              >
-                {busy && <Loader className="h-4 w-4" />}
-                Confirm my email
-              </Button>
-              {error && (
-                <p className={cn(ERR, "mt-2.5")} role="alert">
-                  <Icon icon={P.alert} size={15} className="mt-0.5 flex-none" />
-                  {error}
-                </p>
-              )}
-              <p className="mt-3 text-center text-[13.5px] text-bk-ink-2">
-                <Button variant="bare"
-                  className={cn("cursor-pointer border-none bg-transparent p-0 text-[13.5px] font-medium underline underline-offset-[3px] disabled:cursor-default disabled:opacity-50")}
-                  disabled={cooldown > 0 || busy || sending}
-                  onClick={() => {
-                    setCode("");
-                    void sendCode();
-                  }}
-                >
-                  {sending
-                    ? "Sending…"
-                    : cooldown > 0
-                      ? `Send a new code in ${cooldown}s`
-                      : "Send a new code"}
-                </Button>
-              </p>
+        {/* Both the rule and the row belong to the stamp, so they go together
+            rather than leaving a divider under nothing. */}
+        {stamp && (
+          <>
+            <div className="my-4 h-px bg-bk-line" />
+            <div className="flex items-center justify-between">
+              <span className={`text-[12px] leading-[18px] ${META}`}>Order placed</span>
+              <span className={`text-[12px] leading-[18px] ${META}`}>{stamp}</span>
             </div>
-          )}
-
-          {/* Second, and quieter. A password is for the booking after this
-              one, so it does not deserve the same weight as the thing that
-              makes this one trackable. */}
-          <div className="mt-3">
-            {pwSent ? (
-              <Notice icon={P.mail} tone="plain" title="Check your email">
-                The link we sent to {data.email} will let you choose a password.
-              </Notice>
-            ) : (
-              <Button
-                surface="booking" variant="ghost" size="lg" block
-                onClick={() => {
-                  setPwSent(true);
-                  void requestPasswordReset(data.email);
-                }}
-              >
-                Email me a link to set a password
-              </Button>
-            )}
-          </div>
-        </>
-      )}
-
-      <div className={DIVIDER} />
-
-      {/* Preferences live here rather than in the checkout: they are
-          genuine choices, and asking for them mid-booking adds friction
-          before anything has been committed. Price Review is off by
-          default — opting people into an approval step they did not ask
-          for would delay their own order. */}
-      <h2 className={SEC_H}>Set your preferences</h2>
-      <p className={SEC_P}>
-        Optional, and changeable any time. We save these to your account and apply them to every
-        order.
-      </p>
-      <div className={CARD}>
-        {PREFERENCES.map(([key, title, desc], i) => (
-          <div key={key} className={i ? "mt-[18px]" : ""}>
-            <label className={TOGGLE}>
-              <input
-                className={CONTROL_PEER}
-                type="checkbox"
-                checked={data.prefs[key]}
-                onChange={(e) => patch({ prefs: { ...data.prefs, [key]: e.target.checked } })}
-              />
-              <span className={SWITCH} aria-hidden="true" />
-              <span className={TOGGLE_TEXT}>
-                <b className={TOGGLE_TITLE}>{title}</b>
-                <span className={TOGGLE_SUB}>{desc}</span>
-              </span>
-            </label>
-          </div>
-        ))}
+          </>
+        )}
       </div>
 
+      {TIPS.map(([icon, text]) => (
+        <div key={text} className={`mt-2.5 flex items-center gap-3 p-4 ${CARD_APP}`}>
+          <Icon icon={icon} size={22} className={`flex-none ${MUTED}`} />
+          <p className={`flex-1 text-[14px] leading-[21px] ${MUTED}`}>{text}</p>
+        </div>
+      ))}
+
+      {/* One button where the app has two. Its pair open an order editor and a
+          preferences screen, and the web has neither — a control that cannot
+          do what it says is worse than an absent one. */}
       <ActionBar more={moreBelow}>
-        <Link className={bkBtn({ size: "lg", block: true })} href="/">
+        <Link className={bkBtn({ size: "xl", block: true })} href="/">
           Back to home
         </Link>
       </ActionBar>

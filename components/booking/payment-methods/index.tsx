@@ -21,10 +21,12 @@ import Loader from "@/components/common/Loader";
 import Modal from "@/components/common/Modal";
 import { Icon, P } from "@/components/booking/icons";
 import { deleteCard, markCardDefault } from "@/utils/booking/api";
+import { brandName } from "@/utils/booking/model";
 import type { PaymentMethod } from "@/utils/auth";
 import {
   CONTROL_PEER,
   ERR,
+  INHERIT_FONT,
   MODAL_NAV,
   MODAL_NAV_BTN,
   SEC_H,
@@ -69,10 +71,23 @@ const REMOVE =
   "rounded-card-sm border-0 bg-transparent px-2 text-[13px] font-semibold leading-[1.6] " +
   "text-bk-ink-2 underline underline-offset-[3px] hover:text-danger";
 
-/** `"visa"` on the wire. Capitalised here rather than at the source, because
- *  the raw value is what the server calls it and other readers may want it. */
-const brandName = (b?: string | null) =>
-  b ? b.charAt(0).toUpperCase() + b.slice(1) : "Card";
+/* The trailing "add a card" row. Same geometry as a card row so the group reads
+   as one control instead of a list with a link loose underneath it — which is
+   what it was, and it made the only alternative action on the screen the least
+   important-looking thing on it. Never `ROW_ON`: this is an act, not a card
+   that could be chosen.
+
+   The focus ring is pulled inwards deliberately. `.lf-book :focus-visible` sets
+   `outline-offset: 3px` and the <ul> is `overflow-hidden`, so on a full-width
+   row the default ring is clipped to nothing. Same fix, and same reason, as the
+   card rows' `has-[input:focus-visible]` treatment above. */
+const ADD_ROW =
+  "w-full cursor-pointer border-bk-line-2 bg-white text-left hover:border-bk-ink-3 " +
+  "focus-visible:outline-offset-[-3px] disabled:cursor-not-allowed";
+
+/* `brandName` moved to utils/booking/model — the two summaries name a card now
+   that the step which used to show it can be skipped, and three copies of
+   "capitalise the brand" is how they would come to disagree. */
 
 function CardFace({ card, selected }: { card: PaymentMethod; selected: boolean }) {
   const expiry =
@@ -110,11 +125,17 @@ function CardFace({ card, selected }: { card: PaymentMethod; selected: boolean }
 export default function PaymentMethods({
   cards,
   onChanged,
+  onAdd,
   disabled = false,
 }: {
   cards: PaymentMethod[];
   /** Re-read /my-status. Every mutation here ends in one. */
   onChanged: () => Promise<void>;
+  /** Opens the caller's card form. When absent the row is not rendered at all,
+   *  which is how the payment step hides it while that form is already open —
+   *  offering "add a card" above an open card form would be answering a
+   *  question nobody is still asking. */
+  onAdd?: () => void;
   /** True while the screen is doing something of its own — placing the order,
    *  or saving a new card — so the list cannot be edited underneath it. */
   disabled?: boolean;
@@ -165,6 +186,12 @@ export default function PaymentMethods({
 
   const single = cards.length === 1;
 
+  /* Which row draws the bottom corners. The add row takes them when it is
+     there, so the group stays one rounded block either way — the rounding is
+     applied per row rather than by the <ul>, and a card row keeping
+     `rounded-b-card-md` under a square add row is how that comes apart. */
+  const lastRow = onAdd ? ordered.length : ordered.length - 1;
+
   return (
     <>
       <ul className="overflow-hidden rounded-card-md">
@@ -177,7 +204,7 @@ export default function PaymentMethods({
                 className={cn(
                   ROW,
                   i === 0 && "rounded-t-card-md",
-                  i === ordered.length - 1 && "rounded-b-card-md",
+                  i === lastRow && "rounded-b-card-md",
                   single ? ROW_ONLY : on ? ROW_ON : ROW_OFF,
                   (busy || disabled) && "opacity-60",
                 )}
@@ -224,6 +251,39 @@ export default function PaymentMethods({
             </li>
           );
         })}
+
+        {/* Inside the <ul>, not after it: the rounding and the -1.5px border
+            overlap are per-row, so a row appended outside would sit detached
+            with a doubled border above it. */}
+        {onAdd && (
+          <li className={ordered.length ? "-mt-[1.5px]" : ""}>
+            {/* Not wrapped in a <label>. There is no input here to name, and a
+                control inside one takes that label's text as its accessible
+                name — the same bug Remove above is written around. */}
+            <Button
+              variant="bare"
+              className={cn(
+                INHERIT_FONT,
+                ROW,
+                ADD_ROW,
+                ordered.length === 0 && "rounded-t-card-md",
+                "rounded-b-card-md",
+                disabled && "opacity-60",
+              )}
+              disabled={disabled || busyId !== null}
+              onClick={onAdd}
+            >
+              <span
+                className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-card-sm bg-bk-paper-2"
+                aria-hidden="true"
+              >
+                <Icon icon={P.plus} size={18} />
+              </span>
+              <b className="min-w-0 flex-auto text-[14.5px] font-bold">Add a new card</b>
+              <Icon icon={P.chevron} size={18} className="flex-none text-bk-ink-3" />
+            </Button>
+          </li>
+        )}
       </ul>
 
       {error && (

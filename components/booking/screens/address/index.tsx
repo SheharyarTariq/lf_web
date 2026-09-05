@@ -12,11 +12,12 @@ import Notice from "@/components/booking/common/Notice";
 import Loader from "@/components/common/Loader";
 import { Icon, P } from "@/components/booking/icons";
 import { useBooking } from "@/utils/booking/context";
+import { WaitlistModal } from "@/components/booking/overlays";
 import { useAuth } from "@/components/common/AuthProvider";
 import { findAddresses, updateAddress } from "@/utils/booking/api";
 import {
   ADDRESS_FIELDS,
-  districtOf,
+  formatPostcode,
   normalisePostcode,
   type AddressKey,
   type AddressResult,
@@ -74,6 +75,7 @@ export default function AddressScreen() {
   const [error, setError] = useState("");
   const [waitlisted, setWaitlisted] = useState(false);
   const [waitEmail, setWaitEmail] = useState("");
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [touched, setTouched] = useState<Partial<Record<AddressKey, boolean>>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -88,7 +90,11 @@ export default function AddressScreen() {
     setSaveErrors({});
   };
 
-  const district = districtOf(searched || postcode);
+  /* Spaced for reading, since `searched` is stored exactly as typed and
+     "KT211PV" printed back reads as a typo. `searched` is only ever set once
+     POSTCODE_RE has passed, so this always takes formatPostcode's spacing
+     branch; the `|| postcode` covers the render before the first search. */
+  const searchedPostcode = formatPostcode(searched || postcode);
   const outOfArea = results === "out";
   const list = Array.isArray(results) ? results : null;
   /* Confirmed means the postcode passed the area check and the person has
@@ -114,6 +120,11 @@ export default function AddressScreen() {
     const id = ++reqId.current;
     setSearching(true);
     setResults(null);
+    /* A new search invalidates the previous answer, the same rule
+       editPostcode applies on a keystroke. Without it, pressing Find
+       address again on a postcode already joined reopens the empty form
+       to somebody who is on the list. */
+    setWaitlisted(false);
 
     const r = await findAddresses(pc);
     if (id !== reqId.current) return;
@@ -128,6 +139,7 @@ export default function AddressScreen() {
     }
     if (!r.isActive) {
       setResults("out");
+      setWaitlistOpen(true);
       return;
     }
     /* Only written once the postcode is known to be servable — an out-of-area
@@ -145,6 +157,7 @@ export default function AddressScreen() {
     if (results !== null) setResults(null);
     if (error) setError("");
     setWaitlisted(false);
+    setWaitlistOpen(false);
     /* A failed save belongs to the address that failed. Leaving it up while
        somebody types a different postcode reads as a complaint about the new
        one — which is what happened after Change. */
@@ -310,38 +323,24 @@ export default function AddressScreen() {
         </Field>
       )}
 
-      {/* Out of area is a lead, not a rejection — the only wrong move here is
-          a dead end that loses the address entirely. */}
+      {/* The offer itself is a modal — a card the size of the form pushed the
+          page down and read as a wall. What stays here is the answer to the
+          search plus the way back into it, so dismissing the modal is not a
+          dead end and nobody has to search again to reach the offer. */}
       {outOfArea && !waitlisted && (
-        <div className={CARD}>
-          <p className={SEC_H}>We are not in {district} yet</p>
-          <p className={SEC_P}>
-            We are expanding across Surrey. Leave your email and we will tell you the day we reach
-            you — no other mail, ever.
-          </p>
-          <Field label="Email address" id={`${ids}-wl`}>
-            <Input
-              id={`${ids}-wl`}
-              type="email"
-              value={waitEmail}
-              onChange={(e) => setWaitEmail(e.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-            />
-          </Field>
-          <Button
-            surface="booking" block
-            disabled={!waitEmail.includes("@")}
-            onClick={() => setWaitlisted(true)}
-          >
+        <p className={SEC_P}>
+          We are not in {searchedPostcode} yet.{" "}
+          <Button variant="bare" className={BTN_LINK} onClick={() => setWaitlistOpen(true)}>
             Tell me when you arrive
           </Button>
-        </div>
+        </p>
       )}
 
-      {waitlisted && (
+      {/* Not while the modal is up: it is showing this same sentence, and the
+          backdrop is only half opaque. */}
+      {waitlisted && !waitlistOpen && (
         <Notice icon={P.tick} title="You are on the list">
-          We will email {waitEmail} as soon as we collect from {district}.
+          We will email {waitEmail} as soon as we collect from {searchedPostcode}.
         </Notice>
       )}
 
@@ -510,6 +509,21 @@ export default function AddressScreen() {
           Continue to times
         </Button>
       </ActionBar>
+
+      {/* Last, the way the shell mounts its own overlays. Position in the tree
+          does not matter — Modal is fixed inset-0 at z-200 and nothing here
+          uses a portal — but keeping it out of the flow keeps the flow
+          readable. */}
+      {waitlistOpen && (
+        <WaitlistModal
+          postcode={searchedPostcode}
+          onClose={() => setWaitlistOpen(false)}
+          onJoined={(email) => {
+            setWaitEmail(email);
+            setWaitlisted(true);
+          }}
+        />
+      )}
     </>
   );
 }

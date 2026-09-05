@@ -6,14 +6,18 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/common/AuthProvider";
 import { Footer, Header, Steps } from "@/components/booking/chrome";
 import { BillingModal, ExitConfirm, FaqModal, LoginSheet } from "@/components/booking/overlays";
+import type { FaqItem } from "@/utils/faq";
 import { BookingContext, type BookingContextValue } from "@/utils/booking/context";
 import SummaryPanel from "@/components/booking/summary-panel";
 import Loader from "@/components/common/Loader";
 import {
   furthestAllowed,
+  hasDefaultCard,
   isRoute,
   nextAfter,
+  reachIndex,
   routesFor,
+  savedAddressUsable,
   stepOf,
   type Flow,
   type Route,
@@ -58,6 +62,9 @@ function seedFromStatus(status: MyStatus, current: BookingData): BookingPatch {
     email: who?.email || current.email,
     /* No code to enter: this session exists because the address was proved. */
     verified: true,
+    /* `prefs` was seeded here from the account's own three preference fields,
+       for the toggles the confirmation screen used to carry. Both are gone;
+       /my-status still returns the fields and `AuthedUser` still types them. */
   };
 
   const address = status.address;
@@ -72,7 +79,16 @@ function seedFromStatus(status: MyStatus, current: BookingData): BookingPatch {
   return next;
 }
 
-export default function BookingShell({ children }: { children: React.ReactNode }) {
+export default function BookingShell({
+  children,
+  /* Read by the layout, not here: this is a client component, and the answers
+     are the same cached /system-status the homepage renders from. Passed
+     straight through to the modal that shows them. */
+  faqs,
+}: {
+  children: React.ReactNode;
+  faqs: FaqItem[];
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const wide = useWide();
@@ -91,6 +107,13 @@ export default function BookingShell({ children }: { children: React.ReactNode }
   const [billingOpen, setBillingOpen] = useState(false);
   const [loginFor, setLoginFor] = useState<string | null>(null);
   const [reference, setReference] = useState("");
+  /* When the server took the order, as an ISO string, for the confirmation's
+     "Order placed" row. Stamped here rather than read on that screen because
+     /book/confirmed is prerendered by generateStaticParams: a `new Date()`
+     during its render would differ between the built HTML and the hydrating
+     client, which React reports as a mismatch and repaints. POST /orders
+     answers with no `createdAt` to use instead. */
+  const [placedAt, setPlacedAt] = useState("");
   /* Which leg the time step shows. Up here because the summary panel and the
      Review screen both name a leg in their Edit links — see the note on
      `timeLeg` in the context. */
@@ -133,21 +156,52 @@ export default function BookingShell({ children }: { children: React.ReactNode }
      got a rule of its own — before that, any non-empty string skipped Details,
      and whatever the account held went to Stripe as the billing name without
      anybody being shown it. */
-  const [skipContact, setSkipContact] = useState(false);
+  const [savedContact, setSavedContact] = useState(false);
+  /* The same question asked of the address and of the card, and answered off
+     the account for the same reason. See the header of utils/booking/flow.ts
+     for what each one takes out of the walk. */
+  const [savedAddress, setSavedAddress] = useState(false);
+  const [skipPayment, setSkipPayment] = useState(false);
+  /* The two skips that can be undone. Both summaries carry an Address "Edit"
+     and a Contact "Edit", and with either step out of the walk the guard's
+     `here < 0` branch would bounce it straight back — so asking for the step is
+     what returns it to the walk (see `go` below), rather than the guard
+     learning about "skipped but reachable". It stays in the walk afterwards,
+     shown as a step already done, which is the truth. Both are cleared on a new
+     seed, so a different account starts from its own answer. */
+  const [editAddress, setEditAddress] = useState(false);
+  const [editContact, setEditContact] = useState(false);
   const seedFor = loading ? null : (status?.user?.email ?? "");
   if (seedFor !== null && seedFor !== seed) {
     setSeed(seedFor);
     const who = status?.user;
-    setSkipContact(
+    setSavedContact(
       Boolean(isValidName(who?.name) && who?.email && UK_MOBILE_RE.test(toNationalUk(who?.phone))),
     );
+    setSavedAddress(savedAddressUsable(status?.address));
+    setSkipPayment(hasDefaultCard(status));
+    setEditAddress(false);
+    setEditContact(false);
     if (status?.user) setData((d) => ({ ...d, ...seedFromStatus(status, d) }));
   }
 
-  const flow = useMemo<Flow>(() => ({ wide, skipContact }), [wide, skipContact]);
+  const skipAddress = savedAddress && !editAddress;
+  const skipContact = savedContact && !editContact;
+
+  const flow = useMemo<Flow>(
+    () => ({ wide, skipContact, skipAddress, skipPayment }),
+    [wide, skipContact, skipAddress, skipPayment],
+  );
 
   const go = useCallback(
     (next: Route) => {
+      /* Asking for the address or the details step is what un-skips it — the
+         walk grows by one and the guard, back(), forward() and the indicator
+         all follow on their own. Done here rather than at each Edit link so a
+         caller cannot forget it; harmless when the step is in the walk
+         already. */
+      if (next === "address") setEditAddress(true);
+      if (next === "contact") setEditContact(true);
       /* Going where you already are is not a navigation. The summary's Edit
          links are the reason this matters: pressed from the step they point
          at — which the pinned panel makes easy, since it is on screen the
@@ -174,23 +228,31 @@ export default function BookingShell({ children }: { children: React.ReactNode }
     const allowed = furthestAllowed(data, signedIn);
     const routes = routesFor(flow);
     const here = routes.indexOf(step);
-    const limit = routes.indexOf(allowed);
+    /* Not indexOf: the answer can be a step this account skips, and -1 read as
+       a position means "go back to the start" for somebody who has filled in
+       everything. See reachIndex. */
+    const limit = reachIndex(routes, allowed);
     /* Two ways to be somewhere you should not be. Past the filled-in state is
-       the original one. `here < 0` is the new one: a real route this shape of
+       the original one. `here < 0` is the other: a real route this shape of
        the flow does not contain — a deep link or a bookmark to /book/contact
        from an account that now skips it, or the step being pulled out from
        under somebody standing on it when they sign in. Both send them to
        wherever they had actually got to, which for a complete account is the
-       payment screen they were heading for anyway; replacing to /book/address,
-       as the missing-route case used to, would throw away an address and a pair
+       last step they were heading for anyway; replacing to /book/address, as
+       the missing-route case once did, would throw away an address and a pair
        of slots already chosen.
 
-       The `allowed !== step` test is what makes that safe. `furthestAllowed`
-       cannot name a skipped step today — the same completeness decides both —
-       but if it ever did, replacing to the route we are already on would run
-       this effect again on arrival and never settle. */
-    if (here < 0 || (limit >= 0 && here > limit)) {
-      if (allowed !== step) router.replace(`/book/${allowed}`);
+       The destination is `routes[limit]` rather than `allowed` itself, because
+       `furthestAllowed` names steps and this has to name a *place in the walk*
+       — with the payment step skipped, "payment" is the right answer to "how
+       far are they" and the wrong route to send them to.
+
+       The `!== step` test is what keeps this from looping: replacing to the
+       route we are already on would run the effect again on arrival and never
+       settle. */
+    const target = routes[limit];
+    if (here < 0 || here > limit) {
+      if (target && target !== step) router.replace(`/book/${target}`);
     }
   }, [step, data, flow, router, seed, signedIn]);
 
@@ -237,21 +299,37 @@ export default function BookingShell({ children }: { children: React.ReactNode }
      Both details here are load-bearing. focus() scrolls implicitly, which
      aligns the heading to the viewport top — exactly where the sticky header
      already is, so the heading it just focused ends up hidden behind it;
-     preventScroll keeps the announcement without the scroll. And the reset
-     must say behavior:"auto", because the page is scroll-behavior:smooth and
-     the two-argument scrollTo(0, 0) inherits it: that only *starts* an
-     animation, which the focus on the line before pre-empts. Together they
-     were opening every step already scrolled past its own heading — visible
-     on mobile, where the taller wrapped header and the hidden footer leave
-     just enough scroll range for it. */
+     preventScroll keeps the announcement without the scroll.
+
+     And the reset must say behavior:"instant", which is the only one of the
+     three that always jumps. "auto" does not mean "no animation" — it means
+     *defer to the computed scroll-behavior*, and <html> carries
+     motion-safe:scroll-smooth, so it animates exactly like the bare
+     scrollTo(0, 0) it replaced. Measured per painted frame on a 393×480
+     viewport, Time → Details and Details → Time each rendered the new screen
+     scrolled for 4-6 frames while it slid 43→39→18→8→3→1 (Chromium) and
+     43→26→4 (WebKit), heading behind the header the whole way; with
+     "instant" that is 0-1 frames. Next's own router has the same problem
+     and works around it the other way, by forcing scrollBehavior:"auto" on
+     <html> around its own scroll — see
+     disableSmoothScrollDuringRouteTransition, which is what the
+     data-scroll-behavior="smooth" attribute in app/layout.tsx switches on.
+     An animated reset is also abandoned wherever it is interrupted, which on
+     the Time step is a live risk: the slot fetch reflows the page mid-flight. */
   useEffect(() => {
     document.querySelector<HTMLElement>("main h1")?.focus({ preventScroll: true });
-    window.scrollTo({ top: 0, behavior: "auto" });
+    window.scrollTo({ top: 0, behavior: "instant" });
   }, [step]);
 
+  /* Whether leaving would cost anything — the one thing that decides between
+     the exit modal and simply going home. Never on the confirmation: `data` is
+     at its fullest there, and every word of "Nothing has been saved yet" is
+     wrong about an order that has just been placed. */
   const dirty = useMemo(
-    () => Boolean(data.postcode || data.line1 || data.email || data.fullName),
-    [data],
+    () =>
+      step !== "confirmed" &&
+      Boolean(data.postcode || data.line1 || data.email || data.fullName),
+    [step, data],
   );
 
   const back = useCallback(() => {
@@ -328,6 +406,7 @@ export default function BookingShell({ children }: { children: React.ReactNode }
        own visibly-fake "LF-000000" filler rather than a plausible number nobody
        can quote back to us. */
     setReference(r.order.number == null ? "" : String(r.order.number));
+    setPlacedAt(new Date().toISOString());
 
     /* Not awaited. The order exists and the confirmation is what they are
        waiting for; the only thing this refresh feeds is `recentActiveOrder`
@@ -349,26 +428,24 @@ export default function BookingShell({ children }: { children: React.ReactNode }
       forward,
       wide,
       skipContact,
+      skipPayment,
+      /* Whether this screen is the one that places the order. Derived from the
+         walk rather than named by a screen, so Time carrying Confirm order for
+         a returning customer and Payment carrying it for everybody else is one
+         rule rather than two. */
+      isLast: nextAfter(step, flow) === null,
       timeLeg,
       setTimeLeg,
       moreBelow,
       discount,
       reference,
-      /* Whether the confirmation offers to finish the account this booking
-         created. `verified` is the answer: an account reached by typing a code
-         out of an inbox has proved its address and needs nothing, while one
-         made by the panel's one-click path — which is most of them — has an
-         unproved address and no password on it.
-
-         Read off /my-status rather than off how they signed in, so it stays
-         right for somebody who verified in another tab. */
-      isNewAccount: Boolean(user) && user?.verified === false,
+      placedAt,
       confirmOrder,
       requestExit: () => (dirty ? setExiting(true) : router.push("/")),
       openLogin: (prefill?: string) => setLoginFor(prefill ?? data.email ?? ""),
       openBilling: () => setBillingOpen(true),
     }),
-    [data, patch, step, go, back, forward, wide, skipContact, timeLeg, moreBelow, discount, reference, user, confirmOrder, dirty, router],
+    [data, patch, step, go, back, forward, wide, skipContact, skipPayment, flow, timeLeg, moreBelow, discount, reference, placedAt, confirmOrder, dirty, router],
   );
 
   const showChrome = step !== "confirmed";
@@ -403,7 +480,12 @@ export default function BookingShell({ children }: { children: React.ReactNode }
              first: there it walks out of the flow, which is exactly what
              the arrow means everywhere else. */
           canGoBack={step !== "confirmed"}
-          onClose={() => (dirty ? setExiting(true) : router.push("/"))}
+          /* And no way to close it once it is placed — the X means "abandon
+             this booking", which stops being a thing that can happen the
+             moment the order exists. */
+          onClose={
+            step === "confirmed" ? null : () => (dirty ? setExiting(true) : router.push("/"))
+          }
           onFaq={() => setFaqOpen(true)}
           /* Nothing to log in for once the order exists — the screen
              underneath is already the account's. */
@@ -498,7 +580,7 @@ export default function BookingShell({ children }: { children: React.ReactNode }
       {exiting && (
         <ExitConfirm onStay={() => setExiting(false)} onLeave={() => router.push("/")} />
       )}
-      {faqOpen && <FaqModal onClose={() => setFaqOpen(false)} />}
+      {faqOpen && <FaqModal faqs={faqs} onClose={() => setFaqOpen(false)} />}
       {billingOpen && <BillingModal onClose={() => setBillingOpen(false)} />}
       {loginFor !== null && (
         <LoginSheet

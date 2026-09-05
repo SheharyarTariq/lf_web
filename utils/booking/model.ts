@@ -24,11 +24,10 @@
 
 /* ── The booking ──────────────────────────────────────────────── */
 
-export interface BookingPrefs {
-  priceReview: boolean;
-  hangers: boolean;
-  stains: boolean;
-}
+/* `BookingPrefs` was here, and `prefs` was a field on BookingData below. It
+   was never part of POST /orders — it was account state carried through the
+   booking so the confirmation's toggles could open on the account's own
+   answers. Those toggles are gone, and nothing else read it. */
 
 export interface BookingData {
   postcode: string;
@@ -58,7 +57,6 @@ export interface BookingData {
   identity: string;
   cardReady: boolean;
   terms: boolean;
-  prefs: BookingPrefs;
 }
 
 export const EMPTY: BookingData = {
@@ -85,7 +83,6 @@ export const EMPTY: BookingData = {
   identity: "",
   cardReady: false,
   terms: false,
-  prefs: { priceReview: false, hangers: false, stains: false },
 };
 
 /** Anything the screens can hand back to the container. */
@@ -94,8 +91,11 @@ export type BookingPatch = Partial<BookingData>;
 /* ── Coverage ─────────────────────────────────────────────────────
    The SERVED district table that used to live here is gone. Coverage comes
    from `isActive` on the /find-addresses response now, so adding a town is a
-   backend change rather than a frontend deploy. `districtOf` stays, because
-   the out-of-area card still names the district it cannot serve.
+   backend change rather than a frontend deploy. `districtOf` went with it: it
+   existed to key that table, and once there was no town to look up, the
+   out-of-area copy was printing a bare outward code — "we collect from KT21"
+   at somebody who typed KT211PV, which reads as a truncation, not a place.
+   That copy names the searched postcode now, via `formatPostcode`.
 
    Anything out of area routes to the waitlist rather than a dead end — that
    part is unchanged, only who decides it. */
@@ -134,6 +134,23 @@ export function formatUkMobile(national: string): string {
   return `+44 ${n.slice(0, 4)} ${n.slice(4)}`;
 }
 
+/** `"visa"` on the wire. Capitalised here rather than at the source, because
+ *  the raw value is what the server calls it and other readers may want it. */
+export const brandName = (b?: string | null): string =>
+  b ? b.charAt(0).toUpperCase() + b.slice(1) : "Card";
+
+/** `Visa ending 4242`. One line naming a card, for the places that report which
+ *  one will be charged rather than offering a choice between them.
+ *
+ *  It exists because the card step is now skipped for an account that already
+ *  has a default: the summaries are then the only screen a returning customer
+ *  is shown it on, and confirming an order that charges a card nobody has been
+ *  shown is the thing the skip must not do. The list on the payment step builds
+ *  its own richer face — expiry, selection — from `brandName` directly. */
+export function cardLabel(card: { brand?: string | null; last4?: string | null }): string {
+  return `${brandName(card.brand)} ending ${card.last4 ?? "••••"}`;
+}
+
 /* `PASSWORD_RE`, `PASSWORD_RULE`, `StrengthLevel` and `passwordStrength()`
    stood here for the identity panel's password row. The checkout registers
    through /register-as-guest now, which takes no password, so the row and its
@@ -155,9 +172,19 @@ export function normalisePostcode(raw: string): string {
   return raw.toUpperCase().trim();
 }
 
-export function districtOf(postcode: string): string {
-  const m = postcode.toUpperCase().match(/^[A-Z]{1,2}\d[A-Z\d]?/);
-  return m ? m[0] : "";
+/* Display only — never stored, never sent as an address field. Because the
+   space above is optional, an account seeded from the app can hold "KT211PG",
+   and printed straight out that reads as a typo rather than as a postcode.
+   The inward code is always the last three characters, so the split needs no
+   knowledge of the outward half.
+
+   Anything that is not a postcode is passed through untouched: this runs on
+   whatever is in the model, and a half-typed value should not be rearranged
+   under the person typing it. */
+export function formatPostcode(raw: string): string {
+  const flat = raw.toUpperCase().replace(/\s+/g, "");
+  if (!POSTCODE_RE.test(flat)) return raw.trim();
+  return `${flat.slice(0, -3)} ${flat.slice(-3)}`;
 }
 
 /* ── The verification code ────────────────────────────────────────
@@ -358,6 +385,37 @@ export function longDate(d: Date): string {
   return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
+/** "Fri, 4 Sep" — the mobile app's `EEE, d MMM`, which the confirmation's
+ *  Collection/Delivery card prints. `longDate` is the same fields without the
+ *  comma, and is what every other screen uses; the two are deliberately not
+ *  folded together, because a separator is the whole difference and a flag
+ *  argument would read worse at both call sites than two named functions. */
+export function shortDate(d: Date): string {
+  return `${DAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+/**
+ * "Fri 5 Sep, 4:03 PM" — the app's `EEE d MMM, h:mm a`, for the confirmation's
+ * "Order placed" row.
+ *
+ * The clock is built by hand rather than with `toLocaleTimeString`, which
+ * answers `4:03 pm` under `en-GB` (the site's own `lang`) and something else
+ * again under whatever locale the runtime happens to pick. The app renders an
+ * uppercase meridiem, so state it rather than inherit it.
+ *
+ * Takes the ISO string the shell stamps at confirm, not a `Date`: the value
+ * crosses a render boundary and has to survive being empty on a deep link.
+ */
+export function placedStamp(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const h = d.getHours();
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const mins = String(d.getMinutes()).padStart(2, "0");
+  return `${longDate(d)}, ${h12}:${mins} ${h < 12 ? "AM" : "PM"}`;
+}
+
 export function slotLabel(slot: [string, string]): string {
   return slot ? `${slot[0]}–${slot[1]}` : "";
 }
@@ -455,17 +513,8 @@ export type ProviderId = "apple" | "google";
    the contact screen still renders a provider mark for a session that came
    from one, which is what will be true again once the endpoints exist. */
 
-/* ── Preferences (confirmation screen) ────────────────────────────
-   They live there rather than in the checkout: they are genuine choices,
-   and asking for them mid-booking adds friction before anything has been
-   committed. Price Review is off by default — opting people into an
-   approval step they did not ask for would delay their own order. */
-export const PREFERENCES: [key: keyof BookingPrefs, title: string, desc: string][] = [
-  [
-    "priceReview",
-    "Price Review",
-    "We message you with the itemised price after counting and wait for your approval before charging. If you do not reply in time we go ahead so your order is not delayed.",
-  ],
-  ["hangers", "Return shirts on hangers", "Otherwise we return them neatly packed."],
-  ["stains", "Treat visible stains", "We will apply stain treatment where we spot it."],
-];
+/* `PREFERENCES` was here — the confirmation screen's three toggles, and the
+   only reader of `BookingPrefs`. Both went when that screen was redrawn from
+   the mobile app, which has no toggles on it. The endpoint behind them is
+   still live and the app still writes it; see the note where
+   `updatePreferences` used to live in ./api.ts. */

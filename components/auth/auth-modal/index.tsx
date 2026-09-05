@@ -62,11 +62,14 @@ import {
 } from "@/utils/auth";
 import { CODE_LENGTH, RESEND_SECONDS } from "@/utils/auth/model";
 import type { AuthedUser } from "@/components/common/AuthProvider";
+import { SOCIAL_AUTH_ENABLED } from "@/config";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/* STILL A MOCK. No OAuth endpoints yet — this returns a plausible account so
-   the signed-in states can be seen and reviewed. */
+/* STILL A MOCK, and now unreachable: everything from here down to `Divider` is
+   rendered only behind SOCIAL_AUTH_ENABLED, which is false. Read the note on
+   the flag in config.ts before flipping it — this fabricates an account and
+   returns no token, so it is not the thing to switch on. */
 function signInWith(provider: "apple" | "google") {
   return provider === "apple"
     ? { name: "Shahzaib Tariq Butt", email: "sx8k2p9qmt@privaterelay.appleid.com" }
@@ -760,8 +763,12 @@ export default function AuthModal({
               {busy ? "Logging in" : "Log in"}
             </Button>
 
-            <Divider />
-            <Social onPick={social} busy={busy} />
+            {SOCIAL_AUTH_ENABLED && (
+              <>
+                <Divider />
+                <Social onPick={social} busy={busy} />
+              </>
+            )}
 
             <p className="text-center text-[14px] text-bk-ink-2">
               Don&rsquo;t have an account?{" "}
@@ -843,8 +850,12 @@ export default function AuthModal({
               {busy ? "Creating your account" : "Sign up"}
             </Button>
 
-            <Divider />
-            <Social onPick={social} busy={busy} />
+            {SOCIAL_AUTH_ENABLED && (
+              <>
+                <Divider />
+                <Social onPick={social} busy={busy} />
+              </>
+            )}
 
             {/* New tab, always. People tap the sentence to reach the button
                 under it; landing on a link would take the whole half-filled

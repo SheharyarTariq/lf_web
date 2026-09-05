@@ -15,7 +15,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Icon, P } from "@/components/booking/icons";
 import { CLOSE_BTN } from "@/utils/booking/styles";
-import { routesFor, stepsFor, type Flow, type Route } from "@/utils/booking/flow";
+import { reachIndex, routesFor, stepsFor, type Flow, type Route } from "@/utils/booking/flow";
 import { displayName } from "@/utils/auth";
 import { BRAND } from "@/utils/content";
 import { routes } from "@/utils/routes";
@@ -56,7 +56,8 @@ export function Header({
 }: {
   onBack: () => void;
   canGoBack: boolean;
-  onClose: () => void;
+  /** Null on the confirmation, where there is no longer a booking to leave. */
+  onClose: (() => void) | null;
   onFaq: () => void;
   onLogin: (() => void) | null;
   /** `fullName` so this labels the account the same way the site header does.
@@ -125,10 +126,17 @@ export function Header({
         </Button>
         {/* Back walks the flow one step at a time; this leaves it. On a
             phone the flow fills the screen with no visible way out, which
-            is the situation that makes people close the tab instead. */}
-        <Button variant="bare" className={CLOSE_BTN} onClick={onClose} aria-label="Close booking">
-          <Icon icon={P.close} size={20} strokeWidth="2.2" />
-        </Button>
+            is the situation that makes people close the tab instead.
+
+            Gone once the order exists, like Back and Log in: there is
+            nothing left to abandon, and offering to leave a booking that
+            has already been placed only reads as a way to lose it. The
+            confirmation's own Back to home is the way out from there. */}
+        {onClose && (
+          <Button variant="bare" className={CLOSE_BTN} onClick={onClose} aria-label="Close booking">
+            <Icon icon={P.close} size={20} strokeWidth="2.2" />
+          </Button>
+        )}
       </div>
     </header>
   );
@@ -153,17 +161,26 @@ export function Steps({
   onGo: (next: Route) => void;
   flow: Flow;
 }) {
-  /* Three steps rather than four when Details is skipped. The count is read off
-     the list rather than written down, so the progress bar, the "Step 2 of 3"
-     line and the screen-reader suffix all follow on their own. */
+  /* Anything from one step to four, depending on what the account already
+     answers. The count is read off the list rather than written down, so the
+     progress bar, the "Step 2 of 3" line and the screen-reader suffix all
+     follow on their own. */
   const STEPS = stepsFor(flow);
   const R = routesFor(flow);
   const index = STEPS.findIndex(([id]) => id === current);
-  if (index < 0) return null;
+  /* A one-step checkout has no progress to indicate: "Step 1 of 1" above a
+     lone dot is furniture, not information. It still has to occupy the row —
+     this element is the flex-auto spacer that holds the account name, FAQs and
+     Close over on the right, and returning null slides all three back against
+     the wordmark. */
+  if (index < 0 || STEPS.length <= 1) {
+    return <div className="order-3 flex-auto" aria-hidden="true" />;
+  }
   /* A step is reachable if the guard would let the router go there —
      the same furthestAllowed() the deep-link check uses, so the two can
-     never disagree about what is filled in. */
-  const reach = R.indexOf(allowed);
+     never disagree about what is filled in. Via reachIndex, because the answer
+     can name a step this account skips, and -1 would disable every dot. */
+  const reach = reachIndex(R, allowed);
 
   const pct = ((index + 1) / STEPS.length) * 100;
 

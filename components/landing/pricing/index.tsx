@@ -2,32 +2,67 @@
 
 import { cn } from "@/utils/cn";
 import Button from "@/components/common/Button";
-import { useMemo, useRef, useState } from "react";
+import Loader from "@/components/common/Loader";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check } from "@/components/icons";
-import { CATEGORIES, PRICE_NOTES, PRICING, WASH, type Garment } from "@/utils/content";
+import { PRICE_NOTES } from "@/utils/content";
+import apiCall from "@/utils/api-call";
+import { routes } from "@/utils/routes";
+import {
+  readCategories,
+  searchCategories,
+  serviceRows,
+  unitLabel,
+  type PriceCategory,
+  type PriceItem,
+} from "@/utils/pricing";
 import { fadeVars, useScrollEdges } from "@/utils/hooks";
 import { WRAP } from "@/utils/styles";
 
-function GarmentCard({ name, services }: { name: string; services: Garment[1] }) {
+function GarmentCard({ item, category }: { item: PriceItem; category: PriceCategory }) {
+  const rows = serviceRows(item, category);
+  const unit = unitLabel(item.priceType);
+
   return (
     <li className="rounded-card-sm bg-white px-3.5 py-3 text-ink">
       <div className="mb-0.5 flex items-baseline justify-between gap-3">
-        <strong className="text-[15px] font-bold">{name}</strong>
-        <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[.8px] text-ink-3">
-          Per item
-        </span>
+        {/* min-w-0 so a long description wraps inside the column instead of
+            pushing the unit label out of the card. */}
+        <div className="min-w-0">
+          <strong className="text-[15px] font-bold">{item.name}</strong>
+          {item.description && (
+            <p className="mt-0.5 line-clamp-2 text-[12px] leading-[1.35] text-ink-3">
+              {item.description}
+            </p>
+          )}
+        </div>
+        {/* Nothing rather than a guess when the server sends a priceType we do
+            not recognise — see unitLabel. Most items are "Per item"; a "from"
+            price must never be labelled as a fixed one. */}
+        {unit && (
+          <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[.8px] text-ink-3">
+            {unit}
+          </span>
+        )}
       </div>
-      {services.map(([service, price], i) => (
+      {rows.map((row, i) => (
         <div
           className={cn("flex items-center gap-[9px] py-[7px]", i > 0 ? "border-t border-line" : "")}
-          key={service}
+          key={row.kind}
         >
+          {/* Keyed on which service the row is, never on its label: the wash
+              label is "Wash & Press" in most categories but "Wash & Dry" in
+              Duvet and "Wash & Iron" in Beddings, and comparing the string to
+              a constant painted all of those grey. */}
           <i
-            className={cn("h-[7px] w-[7px] flex-none rounded-[50%]", service === WASH ? "bg-brand" : "bg-ink-3")}
+            className={cn(
+              "h-[7px] w-[7px] flex-none rounded-[50%]",
+              row.kind === "washing" ? "bg-brand" : "bg-ink-3",
+            )}
             aria-hidden="true"
           />
-          <span className="flex-1 text-[13.5px] text-ink-2">{service}</span>
-          <b className="whitespace-nowrap text-[14px] font-extrabold">{price}</b>
+          <span className="flex-1 text-[13.5px] text-ink-2">{row.label}</span>
+          <b className="whitespace-nowrap text-[14px] font-extrabold">{row.price}</b>
         </div>
       ))}
     </li>
@@ -77,7 +112,20 @@ function ScrollArrow({ dir, onClick }: { dir: number; onClick: () => void }) {
   );
 }
 
-function CategoryPills({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+/* Mounted only once the categories are in hand, and that is load-bearing:
+   useScrollEdges measures on mount and then watches the scroller with a
+   ResizeObserver, which fires on the element's own box. Pills arriving inside
+   it change scrollWidth, not that box — so mounted empty and filled later, the
+   edge fades and arrows would never appear however far the row overflows. */
+function CategoryPills({
+  categories,
+  value,
+  onChange,
+}: {
+  categories: PriceCategory[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
   const scroller = useRef<HTMLDivElement>(null);
   const edges = useScrollEdges(scroller);
 
@@ -103,14 +151,14 @@ function CategoryPills({ value, onChange }: { value: string; onChange: (c: strin
         ref={scroller}
         style={fadeVars(edges)}
       >
-        {CATEGORIES.map((cat) => (
+        {categories.map((cat) => (
           <Button
-            key={cat}
+            key={cat.id}
             variant="bare"
-            className={cn(TAB, value === cat ? TAB_ON : TAB_OFF)}
-            aria-pressed={value === cat}
+            className={cn(TAB, value === cat.id ? TAB_ON : TAB_OFF)}
+            aria-pressed={value === cat.id}
             onClick={(e) => {
-              onChange(cat);
+              onChange(cat.id);
               /* Optional call: not every environment implements it. */
               e.currentTarget.scrollIntoView?.({
                 block: "nearest",
@@ -119,7 +167,7 @@ function CategoryPills({ value, onChange }: { value: string; onChange: (c: strin
               });
             }}
           >
-            {cat}
+            {cat.name}
           </Button>
         ))}
       </div>
@@ -128,23 +176,64 @@ function CategoryPills({ value, onChange }: { value: string; onChange: (c: strin
   );
 }
 
+/**
+ * The price list.
+ *
+ * Fetched in the browser on mount from `GET /price-combined`, which is public.
+ * There is no fallback list: the invented table this section used to render
+ * has been deleted, and quoting a price we cannot honour is worse than quoting
+ * none. So a failure — a dead request, or a body we cannot read — renders
+ * **nothing at all**, and the page runs How it works straight into Areas.
+ *
+ * The cost of that, accepted deliberately: the "Pricing" links in the header
+ * and the footer point at `#pricing`, so on the failure path they scroll
+ * nowhere.
+ */
 export default function Pricing() {
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [categories, setCategories] = useState<PriceCategory[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [categoryId, setCategoryId] = useState("");
   const [query, setQuery] = useState("");
   const searching = query.trim() !== "";
 
-  /* When searching we look across every category and group the hits, the same
-     way the app does. */
-  const results = useMemo<[string, Garment[]][] | null>(() => {
-    if (!searching) return null;
-    const q = query.trim().toLowerCase();
-    return CATEGORIES.map(
-      (cat) =>
-        [cat, PRICING[cat].filter(([name]) => name.toLowerCase().includes(q))] as [string, Garment[]],
-    ).filter(([, items]) => items.length > 0);
-  }, [query, searching]);
+  useEffect(() => {
+    let live = true;
+    apiCall<unknown>({
+      endpoint: routes.api.priceCombined,
+      method: "GET",
+      /* A marketing section that did not load is not worth interrupting
+         somebody's homepage with a red toast — the section is simply not
+         there. Same reasoning as useOfferDiscount. */
+      showErrorToast: false,
+    }).then((res) => {
+      if (!live) return;
+      const list = res.success ? readCategories(res.data) : null;
+      if (list && list.length) setCategories(list);
+      else setFailed(true);
+    });
 
-  const hitCount = results ? results.reduce((n, [, items]) => n + items.length, 0) : 0;
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  /* When searching we look across every category and group the hits, the same
+     way the app does — by name, then description, then category name. */
+  const results = useMemo(
+    () => (searching && categories ? searchCategories(categories, query) : null),
+    [categories, query, searching],
+  );
+
+  /* Every hook is above this line: an early return between them would change
+     the hook order between renders. */
+  if (failed) return null;
+
+  const loading = categories === null;
+  /* A find that can miss must still have an answer — the selected id is empty
+     until the first pill is pressed, and a category could in principle leave
+     the list on a later read. */
+  const selected = categories?.find((c) => c.id === categoryId) ?? categories?.[0] ?? null;
+  const hitCount = results ? results.reduce((n, group) => n + group.items.length, 0) : 0;
 
   return (
     <section
@@ -166,63 +255,74 @@ export default function Pricing() {
         </p>
 
         {/* Search and category pills share one row so the section fits a
-            viewport once the sticky header is accounted for. */}
-        <div className="mb-4 flex flex-wrap items-center gap-x-[18px] gap-y-3.5">
-          {/* Below 1180 the toolbar wraps, so the field is alone on its row —
-              a fixed basis just leaves dead space and truncates the
-              placeholder. Fill the row instead; max-width still caps it. */}
-          <div className="relative mb-0 max-w-[420px] flex-[0_0_280px] to-1180:flex-[1_1_100%]">
-            <svg
-              className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-on-dark-2"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <path d="M20 20l-3.6-3.6" />
-            </svg>
-            <label className="visually-hidden" htmlFor="lf-price-search">
-              Search the price list
-            </label>
-            <input
-              id="lf-price-search"
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search for an item"
-              autoComplete="off"
-              className="h-[42px] w-full rounded-pill border-[1.5px] border-line-dark bg-surface-dark px-[42px] text-[15px] text-white transition-[border-color,box-shadow] duration-150 placeholder:text-on-dark-2 focus:border-brand focus:outline-none focus:shadow-[0_0_0_3px_rgba(193,241,29,.25)]"
-            />
-            {searching && (
-              <Button
-                variant="bare"
-                className="absolute right-2 top-1/2 flex -translate-y-1/2 cursor-pointer rounded-pill border-none bg-transparent p-2 text-on-dark-2 hover:text-white"
-                onClick={() => setQuery("")}
-                aria-label="Clear search"
+            viewport once the sticky header is accounted for. The whole toolbar
+            waits for the list: a search field over nothing is a control that
+            cannot work, and the pill scroller must not mount empty. */}
+        {!loading && (
+          <div className="mb-4 flex flex-wrap items-center gap-x-[18px] gap-y-3.5">
+            {/* Below 1180 the toolbar wraps, so the field is alone on its row —
+                a fixed basis just leaves dead space and truncates the
+                placeholder. Fill the row instead; max-width still caps it. */}
+            <div className="relative mb-0 max-w-[420px] flex-[0_0_280px] to-1180:flex-[1_1_100%]">
+              <svg
+                className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-on-dark-2"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                aria-hidden="true"
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  aria-hidden="true"
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.6-3.6" />
+              </svg>
+              <label className="visually-hidden" htmlFor="lf-price-search">
+                Search the price list
+              </label>
+              <input
+                id="lf-price-search"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search for an item"
+                autoComplete="off"
+                className="h-[42px] w-full rounded-pill border-[1.5px] border-line-dark bg-surface-dark px-[42px] text-[15px] text-white transition-[border-color,box-shadow] duration-150 placeholder:text-on-dark-2 focus:border-brand focus:outline-none focus:shadow-[0_0_0_3px_rgba(193,241,29,.25)]"
+              />
+              {searching && (
+                <Button
+                  variant="bare"
+                  className="absolute right-2 top-1/2 flex -translate-y-1/2 cursor-pointer rounded-pill border-none bg-transparent p-2 text-on-dark-2 hover:text-white"
+                  onClick={() => setQuery("")}
+                  aria-label="Clear search"
                 >
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </Button>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </Button>
+              )}
+            </div>
+
+            {/* A pill row of one is a control with no choice in it. */}
+            {!searching && categories.length > 1 && (
+              <CategoryPills
+                categories={categories}
+                value={selected?.id ?? ""}
+                onChange={setCategoryId}
+              />
             )}
           </div>
-
-          {!searching && <CategoryPills value={category} onChange={setCategory} />}
-        </div>
+        )}
 
         <p className="mb-[22px] flex items-center gap-[9px] text-[14px] text-on-dark-2">
           <svg
@@ -242,7 +342,12 @@ export default function Pricing() {
         </p>
 
         <div aria-live="polite">
-          {searching && results ? (
+          {loading ? (
+            <p className="flex items-center gap-2.5 py-6 text-[14px] text-on-dark-2">
+              <Loader className="h-4 w-4" />
+              Loading our price list&hellip;
+            </p>
+          ) : searching && results ? (
             <>
               <p className="visually-hidden">
                 {hitCount} {hitCount === 1 ? "item" : "items"} found
@@ -252,28 +357,30 @@ export default function Pricing() {
                   No items match &ldquo;{query.trim()}&rdquo;.
                 </p>
               )}
-              {results.map(([cat, items]) => (
-                <div key={cat}>
+              {results.map((group) => (
+                <div key={group.id}>
                   <p className="m-0 mb-3 text-[12px] font-bold uppercase tracking-[1.4px] text-on-dark-2">
-                    {cat}
+                    {group.name}
                   </p>
                   {/* Desktop density: ~250px min column, 14/16px padding,
                       13.5px body. The app's sizing is tuned for a 390px
                       phone and reads oversized here. */}
                   <ul className="mb-[26px] grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3 to-1180:grid-cols-[repeat(auto-fill,minmax(226px,1fr))] to-1024:grid-cols-[repeat(auto-fill,minmax(210px,1fr))] to-720:grid-cols-1">
-                    {items.map(([name, services]) => (
-                      <GarmentCard key={name} name={name} services={services} />
+                    {group.items.map((item) => (
+                      <GarmentCard key={item.id} item={item} category={group} />
                     ))}
                   </ul>
                 </div>
               ))}
             </>
           ) : (
-            <ul className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3 to-1180:grid-cols-[repeat(auto-fill,minmax(226px,1fr))] to-1024:grid-cols-[repeat(auto-fill,minmax(210px,1fr))] to-720:grid-cols-1">
-              {PRICING[category].map(([name, services]) => (
-                <GarmentCard key={name} name={name} services={services} />
-              ))}
-            </ul>
+            selected && (
+              <ul className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3 to-1180:grid-cols-[repeat(auto-fill,minmax(226px,1fr))] to-1024:grid-cols-[repeat(auto-fill,minmax(210px,1fr))] to-720:grid-cols-1">
+                {selected.items.map((item) => (
+                  <GarmentCard key={item.id} item={item} category={selected} />
+                ))}
+              </ul>
+            )
           )}
         </div>
 
