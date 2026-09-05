@@ -66,6 +66,47 @@ export function ExitConfirm({ onStay, onLeave }: { onStay: () => void; onLeave: 
   );
 }
 
+/* ── Placing the order ────────────────────────────────────────────
+   Wide only — see the note above useConfirmSubmit. Mounted locally by
+   whichever screen's Confirm order button turns out to be last, the same as
+   ExitConfirm's `onStay`/`onLeave` pair, so it needs nothing from booking
+   context beyond what that screen already has. */
+
+export function ConfirmOrderModal({
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  busy?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal onClose={onCancel} labelledBy="lfb-confirm-t">
+      <h2 className={SEC_H} id="lfb-confirm-t">
+        Confirm your order?
+      </h2>
+      <p className={SEC_P}>We will place this order and email you a confirmation.</p>
+      <div className={MODAL_NAV}>
+        <Button
+          surface="booking" variant="ghost" size="lg" className={MODAL_NAV_BTN}
+          disabled={busy}
+          onClick={onCancel}
+        >
+          Cancel
+        </Button>
+        <Button
+          surface="booking" variant="lime" size="lg" className={MODAL_NAV_BTN}
+          isLoading={busy}
+          onClick={onConfirm}
+        >
+          Confirm order
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 /* ── Out of area ──────────────────────────────────────────────────
    Not a rejection — a lead. The only wrong move at this point is a dead
    end that loses the address entirely, which is why the screen behind

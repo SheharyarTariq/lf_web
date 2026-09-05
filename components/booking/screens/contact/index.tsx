@@ -17,6 +17,7 @@ import { useAuth } from "@/components/common/AuthProvider";
 import { Icon, P, ProviderMark } from "@/components/booking/icons";
 import ActionBar from "@/components/booking/common/ActionBar";
 import Field from "@/components/booking/common/Field";
+import { ConfirmOrderModal } from "@/components/booking/overlays";
 import { useBooking } from "@/utils/booking/context";
 import { useConfirmSubmit } from "@/utils/booking/use-confirm";
 import { EMAIL_RE, domainSuggestions } from "@/utils/booking/model";
@@ -54,7 +55,8 @@ export default function ContactScreen() {
      window that leaves Details at the tail whenever its Edit link has put the
      step back. Then this press places the order rather than moving on — the
      same rule, and the same hook, as Time and Review. */
-  const { busy, error: confirmError, submit } = useConfirmSubmit();
+  const { busy, error: confirmError, submit, confirming, confirmPlacement, cancelConfirm } =
+    useConfirmSubmit();
   /* A session settles the address. The panel below exists to establish who
      somebody is, and there is nothing left to establish — so for a signed-in
      customer the address is shown rather than asked for, and the panel never
@@ -566,6 +568,14 @@ export default function ContactScreen() {
           {placing ? "Confirm order" : "Next"}
         </Button>
       </ActionBar>
+
+      {confirming && (
+        <ConfirmOrderModal
+          busy={busy}
+          onCancel={cancelConfirm}
+          onConfirm={() => void confirmPlacement()}
+        />
+      )}
     </>
   );
 }
